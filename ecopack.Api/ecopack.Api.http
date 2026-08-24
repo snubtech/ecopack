@@ -1,0 +1,6 @@
+@ecopack.Api_HostAddress = http://localhost:5258
+
+GET {{ecopack.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
