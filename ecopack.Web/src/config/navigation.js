@@ -3,7 +3,7 @@ export const navigationGroups = [
     id: 'assessment',
     label: '기본평가',
     items: [
-      { id: 'usage-history', label: '사용 기록', icon: 'history' },
+      { id: 'project-history', label: '프로젝트 현황', icon: 'history' },
       { id: 'start-project', label: '프로젝트 시작', icon: 'grid' },
       { id: 'mock-assessment', label: '모의평가', icon: 'checklist' },
       { id: 'td', label: 'TD (기술문서)', icon: 'document' },

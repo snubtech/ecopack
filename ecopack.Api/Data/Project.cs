@@ -139,9 +139,27 @@ public partial class Project
     public string? PrdPkgSeq3 { get; set; }
 
     /// <summary>
-    /// 프로젝트 개정번호로 채번규칙을 갖는다.
+    /// 프로젝트 수정번호 갖는다.
     /// </summary>
     public string? PrjRevNo { get; set; }
+
+    /// <summary>
+    /// 프로젝트 생성id 갖는다.
+    /// </summary>
+    public string? Prjuserid { get; set; }
+
+    
+    /// <summary>
+    /// 프로젝트 메모 갖는다.
+    /// </summary>
+    public string? Prjmemo { get; set; }
+
+   
+    /// <summary>
+    /// 프로젝트 포장차수 갖는다.
+    /// </summary>
+    public string? PackLevel { get; set; }
+
 
     /// <summary>
     /// 프로젝트 생성일자로, 기술문서 및 적합성선언서의 작성일로 사용함

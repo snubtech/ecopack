@@ -37,13 +37,16 @@ namespace ecopack.Api.Data.Configurations
 			builder.Property(e => e.PrdExpCntryNm7).HasMaxLength(10).HasColumnName("prdexpcntrynm7");
 			builder.Property(e => e.PrdExpCntryNm8).HasMaxLength(10).HasColumnName("prdexpcntrynm8");
 
-			// 포장 차수 여부 (Primary, Secondary, Tertiary)
-			builder.Property(e => e.PrdPkgSeq1).HasMaxLength(10).HasColumnName("prdpkgseq1");
+            // 포장 차수 여부 (Primary, Secondary, Tertiary) 
+            builder.Property(e => e.PrdPkgSeq1).HasMaxLength(10).HasColumnName("prdpkgseq1");
 			builder.Property(e => e.PrdPkgSeq2).HasMaxLength(10).HasColumnName("prdpkgseq2");
 			builder.Property(e => e.PrdPkgSeq3).HasMaxLength(10).HasColumnName("prdpkgseq3");
 
 			builder.Property(e => e.PrjRevNo).HasMaxLength(20).HasColumnName("prjrevno");
-			builder.Property(e => e.PrjFcrtDt).HasColumnName("prjfcrtcdt");
+            builder.Property(e => e.Prjuserid).HasMaxLength(20).HasColumnName("prjuserid");
+            builder.Property(e => e.Prjmemo).HasMaxLength(20).HasColumnName("prjmemo");
+            builder.Property(e => e.PackLevel).HasMaxLength(20).HasColumnName("packLevel");
+            builder.Property(e => e.PrjFcrtDt).HasColumnName("prjfcrtcdt");
 		}
 	}
 }

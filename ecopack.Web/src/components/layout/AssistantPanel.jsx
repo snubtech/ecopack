@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { assistantSuggestions } from '../../config/navigation'
-import { useAuth } from "../../hooks/useAuth";
+//import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/AuthProvider";
 
 export default function AssistantPanel() {
   const { user } = useAuth()

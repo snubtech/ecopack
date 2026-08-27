@@ -2,10 +2,11 @@ import { useState } from 'react';
 import SidebarNav from './SidebarNav';
 import AssistantPanel from './AssistantPanel';
 import SamplePage from '../../pages/sampage';
+import Projects from '../../pages/Projects';
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
-    const [currentMenu, setCurrentMenu] = useState('project-start');
+    const [currentMenu, setCurrentMenu] = useState('project-history');
     const [isCollapsed, setIsCollapsed] = useState(false); // 사이드바 접힘 상태
 
     const pageInfo = (() => {
@@ -20,9 +21,9 @@ const DashboardLayout = ({ onLogout }) => {
 
     const renderBusinessContent = () => {
         switch (currentMenu) {
-            case 'project-start':
-                return <SamplePage />;
-            case 'usage-history':
+            case 'project-history':
+                return <Projects />;
+            case 'start-project':
                 return <SamplePage />;
             default:
                 return (

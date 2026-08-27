@@ -1,14 +1,22 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+//import { getIf001 } from '../api/commonCode';
+// 👇 방금 만든 공용 API 함수 임포트 (파일 경로에 맞춰 조정)
+import { getMaterialProperty } from '../api/commonCode';
+import { getPackLevels } from '../api/commonCode';
 
 export default function SamplePage() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // DB에서 가져온 공통 코드 목록을 담을 상태
+    const [materialList, setMaterialList] = useState([]);
+    const [PackLevelsList, setPackLevelsList] = useState([]);
+
     // 폼 입력 상태 관리
     const [projectName, setProjectName] = useState('Foldable EPP Box');
 
-    // 체크박스 상태 관리 (객체 형태로 다중 선택 관리)
+    // 국가 체크박스 상태 관리
     const [countries, setCountries] = useState({
         usa: true,
         eu: false,
@@ -16,19 +24,16 @@ export default function SamplePage() {
         korea: false
     });
 
-    const [packagingTypes, setPackagingTypes] = useState({
-        primary: true,
-        secondary: false,
-        tertiary: false
-    });
+    // 💡 3. 포장 차수 복수 선택을 위한 상태 (코드값 배열로 관리)
+    const [selectedPackLevels, setSelectedPackLevels] = useState([]);
 
     // 셀렉트 박스 상태 관리
-    const [material, setMaterial] = useState('EPP (발포 폴리프로필렌)');
-    const [env, setEnv] = useState('냉장 / 냉동 유통');
+    const [material, setMaterial] = useState('');
+    const [env, setEnv] = useState('');
     const [recycling, setRecycling] = useState('PCR 30% 이상 적용');
-    const [cert, setCert] = useState('EU PPWR 적합성 등급');
 
     useEffect(() => {
+        // 기존 상품 목록 조회
         axios.get('/api/products')
             .then(response => {
                 setProducts(response.data);
@@ -38,6 +43,20 @@ export default function SamplePage() {
                 console.error('에러 발생:', error);
                 setLoading(false);
             });
+
+        // 페이지가 처음 뜰 때 if001 테이블 데이터 불러오기
+        getMaterialProperty().then(data => {
+            if (data) {
+                setMaterialList(data);
+            }
+        });
+        getPackLevels().then(data => {
+            if (data) {
+                setPackLevelsList(data);
+            }
+        });
+
+
     }, []);
 
     // 국가 체크박스 토글 함수
@@ -45,25 +64,30 @@ export default function SamplePage() {
         setCountries(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    // 포장 차수 체크박스 토글 함수
-    const togglePackaging = (key) => {
-        setPackagingTypes(prev => ({ ...prev, [key]: !prev[key] }));
+    // 💡 3. 포장 차수 체크박스 토글 함수 (복수 선택 처리)
+    const togglePackLevel = (code) => {
+        setSelectedPackLevels(prev => {
+            if (prev.includes(code)) {
+                // 이미 체크되어 있으면 제거 (체크 해제)
+                return prev.filter(item => item !== code);
+            } else {
+                // 체크되어 있지 않으면 추가 (체크)
+                return [...prev, code];
+            }
+        });
     };
 
-    // 다음 단계 클릭 시 데이터 확인용 함수
     const handleNextStep = () => {
         const formData = {
             projectName,
             countries,
-            packagingTypes,
+            packLevels: selectedPackLevels, // 💡 선택된 복수 포장 차수 코드 배열
             material,
             env,
-            recycling,
-            cert
+            recycling
         };
         console.log('수집된 폼 데이터:', formData);
         alert('데이터가 성공적으로 수집되었습니다. 콘솔을 확인해 주세요!');
-        // TODO: 여기서 폼 데이터를 서버로 보내거나 다음 페이지로 이동하는 로직을 추가합니다.
     };
 
     return (
@@ -128,33 +152,31 @@ export default function SamplePage() {
                     </div>
                 </div>
 
+                {/* 💡 3. 진단할 포장 차수 선택 영역 (DB 데이터 기반 동적 체크박스 - 복수 선택) */}
                 <div className="form-group">
-                    <label className="form-label">3. 진단할 포장 차수를 선택해 주세요</label>
+                    <label className="form-label">3. 진단할 포장 차수를 선택해 주세요 (복수 선택 가능)</label>
                     <div className="checkbox-group">
-                        <label className={`custom-check-box ${packagingTypes.primary ? 'checked' : ''}`}>
-                            <input
-                                type="checkbox"
-                                checked={packagingTypes.primary}
-                                onChange={() => togglePackaging('primary')}
-                            /> 제품포장 (Primary)
-                        </label>
-                        <label className={`custom-check-box ${packagingTypes.secondary ? 'checked' : ''}`}>
-                            <input
-                                type="checkbox"
-                                checked={packagingTypes.secondary}
-                                onChange={() => togglePackaging('secondary')}
-                            /> 운송포장 (Secondary)
-                        </label>
-                        <label className={`custom-check-box ${packagingTypes.tertiary ? 'checked' : ''}`}>
-                            <input
-                                type="checkbox"
-                                checked={packagingTypes.tertiary}
-                                onChange={() => togglePackaging('tertiary')}
-                            /> 수송포장 (Tertiary)
-                        </label>
+                        {PackLevelsList
+                            // packLevel 기준으로 중복 제거하여 고유 목록만 추출
+                            .filter((item, index, self) =>
+                                index === self.findIndex(t => t.packLevel === item.packLevel)
+                            )
+                            .map((item, index) => {
+                                const isChecked = selectedPackLevels.includes(item.packLevel);
+                                return (
+                                    <label key={`pack-${index}`} className={`custom-check-box ${isChecked ? 'checked' : ''}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => togglePackLevel(item.packLevel)}
+                                        /> {item.packLevelNm}
+                                    </label>
+                                );
+                            })}
                     </div>
                 </div>
 
+                {/* 4. 적용 소재 선택 영역 (DB 데이터 연동) */}
                 <div className="form-group">
                     <label className="form-label">4. 적용 소재를 선택해 주세요</label>
                     <select
@@ -163,13 +185,16 @@ export default function SamplePage() {
                         value={material}
                         onChange={(e) => setMaterial(e.target.value)}
                     >
-                        <option>EPP (발포 폴리프로필렌)</option>
-                        <option>PET (폴리에틸렌 테레프탈레이트)</option>
-                        <option>Bio-Paper (친환경 종이)</option>
-                        <option>LDPE / HDPE</option>
+                        <option value="">-- 적용소재를 선택해주세요 --</option>
+                        {materialList.map((item) => (
+                            <option key={item.appliedMaterial} value={item.appliedMaterial}>
+                                {item.appliedMaterialNm}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
+                {/* 5. 사용 환경 선택 영역 (DB 데이터 연동) */}
                 <div className="form-group">
                     <label className="form-label">5. 사용 환경을 선택해 주세요</label>
                     <select
@@ -178,10 +203,16 @@ export default function SamplePage() {
                         value={env}
                         onChange={(e) => setEnv(e.target.value)}
                     >
-                        <option>상온 유통</option>
-                        <option>냉장 / 냉동 유통</option>
-                        <option>장기 보관 (1년 이상)</option>
-                        <option>고온 살균 / 멸균 공정</option>
+                        <option value="">-- 사용 환경을 선택해주세요 --</option>
+                        {materialList
+                            .filter((item, index, self) =>
+                                index === self.findIndex(t => t.matUse === item.matUse)
+                            )
+                            .map((item, index) => (
+                                <option key={`env-${index}`} value={item.matUse}>
+                                    {item.matUseNm}
+                                </option>
+                            ))}
                     </select>
                 </div>
 
@@ -197,21 +228,6 @@ export default function SamplePage() {
                         <option>PCR 50% 이상 적용</option>
                         <option>100% 단일소재 (Monomaterial) 재활용 용이</option>
                         <option>해당 없음 / 신재 100%</option>
-                    </select>
-                </div>
-
-                <div className="form-group">
-                    <label className="form-label">7. 목표로 하는 친환경 인증 또는 등급을 선택해 주세요</label>
-                    <select
-                        id="selectCert"
-                        className="form-select"
-                        value={cert}
-                        onChange={(e) => setCert(e.target.value)}
-                    >
-                        <option>EU PPWR 적합성 등급</option>
-                        <option>탄소 발자국 (LCA) 저감 인증</option>
-                        <option>국내 친환경 포장 마크</option>
-                        <option>ESG 경영 연계 친환경 인증</option>
                     </select>
                 </div>
 

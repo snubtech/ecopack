@@ -1,5 +1,5 @@
 import { navigationGroups } from '../../config/navigation';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from "../../context/AuthProvider";
 
 function SettingsIcon() {
     return (
@@ -22,15 +22,21 @@ function HamburgerIcon() {
 
 export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCollapsed, onToggleCollapse }) {
     const { user } = useAuth();
-    const displayName = user?.companyName || user?.userName || '사용자';
+
+    // 💡 [수정 포인트] user 객체 안의 repCustId를 최우선으로 가져오고, 없으면 기본값 '사용자'를 띄웁니다.
+    const displayName = user?.repCustId || user?.companyName || user?.userName || '사용자';
 
     const handleLogout = () => {
+        // 💡 무조건 세션 스토리지와 토큰을 먼저 깔끔하게 비워줍니다!
+        sessionStorage.removeItem('prjuserid');
+        localStorage.removeItem('token'); // 혹시 로컬스토리지에 남아있을지 모르는 토큰 정리
+
+        // 만약 부모 컴포넌트에서 넘겨준 별도의 로그아웃 함수가 있다면 실행하고, 아니면 로그인 페이지로 이동합니다.
         if (typeof onLogout === 'function') {
             onLogout();
             return;
         }
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+
         window.location.href = '/login';
     };
 
@@ -42,10 +48,10 @@ export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCol
                 display: 'flex',
                 flexDirection: 'column',
                 overflowX: 'hidden',
-                paddingTop: '0px' // 💡 외부 CSS의 불필요한 상단 패딩 강제 제거
+                paddingTop: '0px'
             }}
         >
-            {/* 💡 햄버거 버튼 영역 (높이를 36px로 고정하여 현재의 반으로 얇게 만듦) */}
+            {/* 햄버거 버튼 영역 */}
             <div style={{
                 height: '36px',
                 minHeight: '36px',

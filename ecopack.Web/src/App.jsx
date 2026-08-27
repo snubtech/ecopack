@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { AuthProvider } from './context/AuthProvider'
-import { useAuth } from './hooks/useAuth'
+
+import { AuthProvider, useAuth } from './context/AuthProvider'
 import DashboardLayout from './components/layout/DashboardLayout'
 import LoginPage from './pages/LoginPage.jsx'
 import './styles/global.css'

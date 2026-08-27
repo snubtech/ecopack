@@ -1,6 +1,7 @@
 import { useState } from 'react'
 //import { useAuth } from '../context/useAuth'
-import { useAuth } from "../hooks/useAuth"; // 또는 폴더 위치에 맞는 상대 경로 (예: ../hooks/useAuth)
+//import { useAuth } from "../hooks/useAuth"; // 또는 폴더 위치에 맞는 상대 경로 (예: ../hooks/useAuth)
+import { useAuth } from "../context/AuthProvider";
 
 export default function LoginPage() {
   const { login } = useAuth()
