@@ -1,13 +1,22 @@
 import { useState } from 'react';
 import SidebarNav from './SidebarNav';
 import AssistantPanel from './AssistantPanel';
-import SamplePage from '../../pages/sampage';
+import Prjdefault from '../../pages/Prjdefault';
+//import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
     const [currentMenu, setCurrentMenu] = useState('project-history');
     const [isCollapsed, setIsCollapsed] = useState(false); // 사이드바 접힘 상태
+
+    // state와 useEffect를 쓰지 않고, 렌더링될 때 세션에서 바로 읽어옵니다.
+    // (이렇게 하면 setState 연쇄 호출 경고와 'assigned but never used' 경고가 원천 차단됩니다)
+    const projectInfo = {
+        id: sessionStorage.getItem('currentPrjId') || '',
+        name: sessionStorage.getItem('currentPrjNm') || '',
+        packLevel: sessionStorage.getItem('currentPackLevel') || ''
+    };
 
     const pageInfo = (() => {
         for (const group of navigationGroups) {
@@ -22,9 +31,11 @@ const DashboardLayout = ({ onLogout }) => {
     const renderBusinessContent = () => {
         switch (currentMenu) {
             case 'project-history':
-                return <Projects />;
+                return <Projects onSelectItem={setCurrentMenu} />;
             case 'start-project':
-                return <SamplePage />;
+                return <Prjdefault />;
+            case 'prjdefault': // 👈 이 줄을 추가해서 'prjdefault'로 와도 Prjdefault 컴포넌트를 띄우게 합니다!
+                return <Prjdefault />;
             default:
                 return (
                     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box' }}>
@@ -89,15 +100,31 @@ const DashboardLayout = ({ onLogout }) => {
                     backgroundColor: '#ffffff',
                     flexShrink: 0,
                     display: 'flex',
-                    alignItems: 'baseline',
-                    gap: '0.35rem'
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                 }}>
-                    <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
-                        {pageInfo.category} &gt;
-                    </span>
-                    <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#4b5563' }}>
-                        {pageInfo.name}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                            {pageInfo.category} &gt;
+                        </span>
+                        <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#4b5563' }}>
+                            {pageInfo.name}
+                        </span>
+                    </div>
+
+                    {/* 💡 세션에 저장된 프로젝트 정보가 있을 때 상단 우측에 표시하여 경고 해결 */}
+                    {projectInfo.id && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.0rem' }}>
+                            <span style={{ backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', color: '#374151' }}>
+                                📌현재 프로젝트명: <b>{projectInfo.name}</b> 번호:({projectInfo.id})
+                            </span>
+                            {projectInfo.packLevel && (
+                                <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: '500' }}>
+                                    {projectInfo.packLevel}차
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* 실제 동적 컨텐츠 영역 */}

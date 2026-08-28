@@ -19,7 +19,9 @@ const PACKAGING_LEVELS = [
     { key: 'transport', label: '운송(3차)' }
 ];
 
-export default function Projects() {
+// onSelectItem props 추가
+export default function Projects({ onSelectItem }) {
+
     const [projectList, setProjectList] = useState([]);
 
     // 모달 오픈/클로즈 상태 관리
@@ -93,11 +95,8 @@ export default function Projects() {
         }
 
         // 2. 세션에서 로그인한 사용자 아이디 가져오기 (없으면 기본값 'admin')
-        // const userId = sessionStorage.getItem('prjuserid') || 'admin';
-        // 💡 세션에 객체로 들어가 있는 아이디를 문자열("user")만 깔끔하게 추출
         const rawUser = sessionStorage.getItem('prjuserid');
         const userId = rawUser && rawUser.startsWith('{') ? JSON.parse(rawUser).repCustId : (rawUser || 'user');
-
 
         // 3. 8개 국가 필드를 동적으로 'Y' 또는 'N' 매핑
         const countryDto = COUNTRIES.reduce((acc, country) => {
@@ -107,15 +106,16 @@ export default function Projects() {
 
         try {
             let sharedPrjId = null; // 공통 프로젝트 번호 변수
+
             // 4. 선택한 차수 개수만큼 루프를 돌며 각각 독립된 데이터로 분할 전송
             for (const level of selectedLevels) {
                 const newDto = {
+                    prjId: sharedPrjId,
                     prjNm: formData.prjNm,
                     repNm: formData.repNm || '담당자미정',
                     Prjmemo: formData.projectContent, // 프로젝트 내용
                     PackLevel: level,
                     prjuserid: userId,
-                    // countryDto 속성들을 하나씩 명시적으로 풀어씀 
                     prdExpCntryNm1: countryDto.prdExpCntryNm1,
                     prdExpCntryNm2: countryDto.prdExpCntryNm2,
                     prdExpCntryNm3: countryDto.prdExpCntryNm3,
@@ -124,38 +124,26 @@ export default function Projects() {
                     prdExpCntryNm6: countryDto.prdExpCntryNm6,
                     prdExpCntryNm7: countryDto.prdExpCntryNm7,
                     prdExpCntryNm8: countryDto.prdExpCntryNm8,
-
-                    // 현재 반복 중인 차수만 'Y', 나머지는 'N'으로 세팅
                     prdPkgSeq1: level === '1' ? 'Y' : 'N',
                     prdPkgSeq2: level === '2' ? 'Y' : 'N',
                     prdPkgSeq3: level === '3' ? 'Y' : 'N',
                 };
 
-                // createProject가 서버 응답으로 { success: true, prjId: "..." } 를 반환한다고 가정
                 const response = await createProject(newDto);
 
-                // 첫 번째 생성 때 서버가 만들어준 PrjId를 잡아서 이후 차수들에 공통으로 적용
-                //!sharedPrjId가 null이고 response존재하고. response.prjId가 있다면....
                 if (!sharedPrjId && response && response.prjId) {
                     sharedPrjId = response.prjId;
                 }
             }
+            // 👉 [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
+            sessionStorage.setItem('currentExportCountry', formData.exportCountry);
 
             alert('선택한 포장 차수별로 신규 프로젝트가 성공적으로 생성되었습니다.');
             setIsModalOpen(false); // 모달 닫기
 
-            // 5. 최근 프로젝트 이력 목록 새로고침
+            // 목록 재조회 로직 추가
             const data = await getProjects();
             setProjectList(data);
-
-            // 6. 폼 초기화 (sales는 기본값 true로 복원)
-            setFormData({
-                prjNm: '',
-                exportCountry: '미국 (USA)',
-                packagingLevels: { sales: true, group: false, transport: false },
-                projectContent: '',
-                repNm: ''
-            });
 
         } catch (err) {
             alert('프로젝트 등록 중 오류가 발생했습니다.');
@@ -163,20 +151,28 @@ export default function Projects() {
         }
     };
 
-    // 💡 7. 이력 테이블에서 [수정] 버튼을 눌렀을 때 실행되는 핸들러 (세션 반영)
-    const handleEditClick = (item) => {
-       
-        // 개별 키로 각각 저장해두는 게 편하다면 아래처럼 각각 담아도 좋습니다.
+    // 7. 이력 테이블에서 [수정] 버튼을 눌렀을 때 실행되는 핸들러 (matchedCountry를 인자로 받도록 수정)
+    const handleEditClick = (item, matchedCountry) => {
+        // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', item.prjNm);
         sessionStorage.setItem('currentPrjId', item.prjId);
         sessionStorage.setItem('currentPackLevel', item.packLevel || '');
-        // (선택) 디버깅용 로그 확인
+        sessionStorage.setItem('currentExportCountry', matchedCountry || '');
+
         console.log("세션 저장 완료:", {
             prjNm: item.prjNm,
             prjId: item.prjId,
-            packLevel: item.packLevel
+            packLevel: item.packLevel,
+            exportCountry: matchedCountry
         });
-        // 2. 필요시 다음 단계 페이지로 이동 (예: navigate('/next-step') 등 필요한 라우터 코드가 있다면 여기에 작성)
+
+        // 2. 부모 컴포넌트의 탭 전환 함수 호출
+        if (typeof onSelectItem === 'function') {
+            console.log("onSelectItem 함수 실행됨!");
+            onSelectItem('prjdefault'); // 또는 부모가 인식하는 화면 이름
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
+        }
     };
 
     return (
@@ -206,60 +202,65 @@ export default function Projects() {
                 </button>
             </div>
 
+
             {/* 4. 최근 프로젝트 이력 테이블 영역 */}
             <div>
                 <h3 style={{ marginBottom: '15px', fontSize: '18px', fontWeight: 'bold', color: '#222' }}>최근 프로젝트 이력</h3>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', backgroundColor: '#fff', border: '1px solid #e2e8f0' }}>
-                    {/* 헤더 부분 */}
                     <thead>
                         <tr style={{ backgroundColor: '#f8f9fa', borderBottom: '1px solid #e2e8f0', color: '#444', fontSize: '14px', height: '32px' }}>
                             <th style={{ padding: '4px 8px' }}>날짜</th>
                             <th style={{ padding: '4px 8px' }}>프로젝트명</th>
                             <th style={{ padding: '4px 8px' }}>프로젝트 번호</th>
+                            <th style={{ padding: '4px 8px' }}>수출국가</th>
                             <th style={{ padding: '4px 8px' }}>포장 차수</th>
                             <th style={{ padding: '4px 8px' }}>담당자</th>
                             <th style={{ padding: '4px 8px' }}>진행상태</th>
                             <th style={{ padding: '4px 8px', textAlign: 'center' }}>관리</th>
                         </tr>
                     </thead>
-
-                    {/* 데이터 바디 부분 */}
                     <tbody>
                         {projectList.length === 0 ? (
                             <tr>
-                                <td colSpan="7" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                                <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
                                     등록된 프로젝트 이력이 없습니다.
                                 </td>
                             </tr>
                         ) : (
-                            projectList.map((item) => (
-                                <tr key={item.prjId} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
-                                    <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjFcrtDt || '2026-04-10'}</td>
-                                    <td style={{ padding: '7px 8px', fontWeight: 'bold', color: '#222' }}>{item.prjNm}</td>
-                                    <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjId}</td>
-                                    <td style={{ padding: '7px 8px', color: '#555' }}>
-                                        {item.packLevel ? `${item.packLevel}차` : '-'}
-                                    </td>
-                                    <td style={{ padding: '7px 8px', color: '#555' }}>{item.repNm}</td>
-
-                                    {/* 진행상태 뱃지 */}
-                                    <td style={{ padding: '7px 8px' }}>
-                                        <span style={{ backgroundColor: '#e2e8f0', color: '#333', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '500', display: 'inline-block' }}>
-                                            프로젝트생성
-                                        </span>
-                                    </td>
-
-                                    {/* 수정 버튼 */}
-                                    <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                                        <button
-                                            onClick={() => handleEditClick(item)}
-                                            style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
-                                        >
-                                            수정
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))
+                            projectList.map((item, index) => {
+                                // item 데이터에서 'Y'로 되어 있는 수출 국가 찾기
+                                let matchedCountry = '-';
+                                COUNTRIES.forEach(country => {
+                                    if (item[country.field] === 'Y') {
+                                        matchedCountry = country.label;
+                                    }
+                                });
+                                return (
+                                    <tr key={`${item.prjId}-${item.packLevel || index}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjFcrtDt || '2026-04-10'}</td>
+                                        <td style={{ padding: '7px 8px', fontWeight: 'bold', color: '#222' }}>{item.prjNm}</td>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjId}</td>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>{matchedCountry}</td>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>
+                                            {item.packLevel ? `${item.packLevel}차` : '-'}
+                                        </td>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>{item.repNm}</td>
+                                        <td style={{ padding: '7px 8px' }}>
+                                            <span style={{ backgroundColor: '#e2e8f0', color: '#333', padding: '1px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: '500', display: 'inline-block' }}>
+                                                프로젝트생성
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => handleEditClick(item, matchedCountry)}
+                                                style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
+                                            >
+                                                수정
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         )}
                     </tbody>
                 </table>
@@ -275,7 +276,6 @@ export default function Projects() {
                         backgroundColor: '#fff', width: '840px', padding: '30px', borderRadius: '8px',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)', boxSizing: 'border-box', maxHeight: '90vh', overflowY: 'auto'
                     }}>
-                        {/* 모달 타이틀 */}
                         <div style={{ backgroundColor: '#386641', color: '#fff', padding: '12px 18px', fontSize: '18px', fontWeight: 'bold', borderRadius: '4px', marginBottom: '20px' }}>
                             신규 프로젝트 생성
                         </div>

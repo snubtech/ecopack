@@ -4,7 +4,7 @@ export const navigationGroups = [
     label: '기본평가',
     items: [
       { id: 'project-history', label: '프로젝트 현황', icon: 'history' },
-      { id: 'start-project', label: '프로젝트 시작', icon: 'grid' },
+      { id: 'start-project', label: '기본사항', icon: 'grid' },
       { id: 'mock-assessment', label: '모의평가', icon: 'checklist' },
       { id: 'td', label: 'TD (기술문서)', icon: 'document' },
       { id: 'doc', label: 'DOC (적합성 선언서)', icon: 'badge' },
