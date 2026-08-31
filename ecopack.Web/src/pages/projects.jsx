@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
 import { getProjects, createProject } from '../api/projects';
 
+// 1. 세션 스토리지에 데이터 저장
+// sessionStorage.setItem('currentPrjNm');
+// sessionStorage.setItem('currentPrjId');
+// sessionStorage.setItem('currentPackLevel');  포장차수
+// sessionStorage.setItem('currentExportCountry'); 수출국가.
+
+
 // 1. 8개 전체 수출국 목록 및 DB 필드 매핑 정의
 const COUNTRIES = [
     { key: 'usa', label: '미국 (USA)', field: 'prdExpCntryNm1' },
@@ -135,7 +142,7 @@ export default function Projects({ onSelectItem }) {
                     sharedPrjId = response.prjId;
                 }
             }
-            // 👉 [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
+            //  [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
             sessionStorage.setItem('currentExportCountry', formData.exportCountry);
 
             alert('선택한 포장 차수별로 신규 프로젝트가 성공적으로 생성되었습니다.');

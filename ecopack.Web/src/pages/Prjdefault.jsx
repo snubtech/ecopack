@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { getMaterialProperty } from '../api/commonCode';
 
+// 1. 세션 스토리지에 데이터 저장
+// sessionStorage.setItem('currentPrjNm');
+// sessionStorage.setItem('currentPrjId');
+// sessionStorage.setItem('currentPackLevel');  포장차수
+// sessionStorage.setItem('currentExportCountry'); 수출국가.
+
 export default function Prjdefault() {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -41,6 +47,12 @@ export default function Prjdefault() {
         // 세션 스토리지에서 필요한 정보 가져오기
         const currentCountry = sessionStorage.getItem('currentExportCountry') || '';
         const currentPackLevel = sessionStorage.getItem('currentPackLevel') || ''; // 이미 세션에 있다면 여기서 활용 가능
+
+        // 2. 현재 선택/입력된 값들을 세션 스토리지에 저장하기
+        //sessionStorage.setItem('currentProjectName', projectName);
+        sessionStorage.setItem('currentMaterial', material);
+        sessionStorage.setItem('currentEnv', env);
+        sessionStorage.setItem('currentRecycling', recycling);
 
         const formData = {
             projectName,
