@@ -4,6 +4,7 @@ import AssistantPanel from './AssistantPanel';
 import Prjdefault from '../../pages/Prjdefault';
 //import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
+import Prjtemplate from '../../pages/Prjtemplate'; 
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
@@ -33,9 +34,11 @@ const DashboardLayout = ({ onLogout }) => {
             case 'project-history':
                 return <Projects onSelectItem={setCurrentMenu} />;
             case 'start-project':
-                return <Prjdefault />;
-            case 'prjdefault': // 👈 이 줄을 추가해서 'prjdefault'로 와도 Prjdefault 컴포넌트를 띄우게 합니다!
-                return <Prjdefault />;
+                return <Prjdefault onSelectItem={setCurrentMenu} />;
+            case 'prjdefault': // 'prjdefault'로 와도 Prjdefault 컴포넌트를 띄운다!
+                return <Prjdefault onSelectItem={setCurrentMenu} />;
+            case 'prjtemplate': // 'prjtemplate'로 와도 Prjdefault 컴포넌트를 띄운다!
+                return <Prjtemplate onSelectItem={setCurrentMenu} />;
             default:
                 return (
                     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box' }}>

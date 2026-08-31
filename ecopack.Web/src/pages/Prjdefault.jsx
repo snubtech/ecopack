@@ -1,69 +1,110 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getMaterialProperty } from '../api/commonCode';
+import { getMaterialProperty, getMattypes } from '../api/commonCode';
+import { SaveProjectDetail, GetProjectDetail } from "../api/projects";
 
-// 1. 세션 스토리지에 데이터 저장
-// sessionStorage.setItem('currentPrjNm');
-// sessionStorage.setItem('currentPrjId');
-// sessionStorage.setItem('currentPackLevel');  포장차수
-// sessionStorage.setItem('currentExportCountry'); 수출국가.
-
-export default function Prjdefault() {
-    const [products, setProducts] = useState([]);
+export default function Prjdefault({ onSelectItem }) {
     const [loading, setLoading] = useState(true);
 
-    // DB에서 가져온 공통 코드 목록을 담을 상태 (소재/환경용)
+    // DB에서 가져온 공통 코드 목록을 담을 상태
     const [materialList, setMaterialList] = useState([]);
+    const [matTypesList, setMatTypesList] = useState([]);
 
     // 폼 입력 상태 관리
-    const [projectName, setProjectName] = useState('Foldable EPP Box');
-
-    // 셀렉트 박스 상태 관리
+    const [projectName, setProjectName] = useState('');
     const [material, setMaterial] = useState('');
     const [env, setEnv] = useState('');
-    const [recycling, setRecycling] = useState('PCR 30% 이상 적용');
+    const [matType, setMatType] = useState('');
 
     useEffect(() => {
-        // 기존 상품 목록 조회
-        axios.get('/api/products')
-            .then(response => {
-                setProducts(response.data);
-                setLoading(false);
-            })
-            .catch(error => {
-                console.error('에러 발생:', error);
-                setLoading(false);
-            });
+        const initializeData = async () => {
+            try {
+                // 1. 공통 코드 먼저 불러오기
+                const [matPropData, matTypesData] = await Promise.all([
+                    getMaterialProperty(),
+                    getMattypes()
+                ]);
 
-        // 페이지가 처음 뜰 때 소재/환경 공통 코드 데이터 불러오기
-        getMaterialProperty().then(data => {
-            if (data) {
-                setMaterialList(data);
+                if (matPropData) setMaterialList(matPropData);
+                if (matTypesData) setMatTypesList(matTypesData);
+
+                // 2. 세션에 저장된 프로젝트 ID와 포장 차수 가져오기
+                const currentPrjId = sessionStorage.getItem('currentPrjId');
+                const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
+
+                if (currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID') {
+                    // 3. 서버에 해당 프로젝트 상세 정보 조회 요청
+                    const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
+
+                    if (detailData) {
+                        setProjectName(detailData.projectName || sessionStorage.getItem('currentPrjNm') || '');
+                        setMaterial(detailData.appliedMaterial || '');
+                        setEnv(detailData.matUse || '');
+                        setMatType(detailData.matType || '');
+
+                        sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || '');
+                        sessionStorage.setItem('currentEnv', detailData.matUse || '');
+                        sessionStorage.setItem('currentMatType', detailData.matType || '');
+                    }
+                } else {
+                    setProjectName(sessionStorage.getItem('currentPrjNm') || 'Foldable EPP Box');
+                    setMaterial(sessionStorage.getItem('currentMaterial') || '');
+                    setEnv(sessionStorage.getItem('currentEnv') || '');
+                    setMatType(sessionStorage.getItem('currentMatType') || '');
+                }
+
+            } catch (error) {
+                console.error('프로젝트 상세 정보 또는 공통 코드를 불러오는 중 에러 발생:', error);
+            } finally {
+                setLoading(false);
             }
-        });
+        };
+
+        initializeData();
     }, []);
 
-    const handleNextStep = () => {
-        // 세션 스토리지에서 필요한 정보 가져오기
-        const currentCountry = sessionStorage.getItem('currentExportCountry') || '';
-        const currentPackLevel = sessionStorage.getItem('currentPackLevel') || ''; // 이미 세션에 있다면 여기서 활용 가능
-
-        // 2. 현재 선택/입력된 값들을 세션 스토리지에 저장하기
-        //sessionStorage.setItem('currentProjectName', projectName);
+    // 세션 스토리지 저장 로직 공통화 함수
+    const saveToSessionStorage = () => {
+        sessionStorage.setItem('currentPrjNm', projectName);
         sessionStorage.setItem('currentMaterial', material);
         sessionStorage.setItem('currentEnv', env);
-        sessionStorage.setItem('currentRecycling', recycling);
+        sessionStorage.setItem('currentMatType', matType);
+    };
 
-        const formData = {
+    // [저장 버튼 클릭 핸들러]
+    const handleSave = async () => {
+        saveToSessionStorage();
+
+        const currentPrjId = sessionStorage.getItem('currentPrjId') || 'DEFAULT_PRJ_ID';
+        const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
+
+        const dto = {
+            prjId: currentPrjId,
+            packLevel: currentPackLevel,
             projectName,
-            countries: currentCountry,
-            packLevel: currentPackLevel, // 세션에 있는 포장 차수 사용 시 추가
-            material,
-            env,
-            recycling
+            appliedMaterial: material,
+            matUse: env,
+            matType: matType,
+            prjuserid: sessionStorage.getItem('currentUserId') || 'system'
         };
-        console.log('수집된 폼 데이터:', formData);
-        alert('데이터가 성공적으로 수집되었습니다. 콘솔을 확인해 주세요!');
+
+        try {
+            const result = await SaveProjectDetail(dto);
+            console.log('저장 성공 결과:', result);
+            alert('입력하신 정보가 저장되었습니다.');
+        } catch (error) {
+            console.error('저장 실패:', error);
+            alert('저장 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleNextStep = async () => {
+        saveToSessionStorage();
+        if (typeof onSelectItem === 'function') {
+            console.log("onSelectItem 함수 실행됨!");
+            onSelectItem('prjtemplate');
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
+        }
     };
 
     return (
@@ -94,8 +135,7 @@ export default function Prjdefault() {
                     />
                 </div>
 
-               
-                {/* 4. 적용 소재 선택 영역 (DB 데이터 연동) */}
+                {/* 2. 적용 소재 선택 영역 */}
                 <div className="form-group">
                     <label className="form-label">2. 적용 소재를 선택해 주세요</label>
                     <select
@@ -113,15 +153,14 @@ export default function Prjdefault() {
                     </select>
                 </div>
 
-                {/* 5. 사용 환경 선택 영역 (DB 데이터 연동) */}
+                {/* 3. 사용 환경 선택 영역 */}
                 <div className="form-group">
                     <label className="form-label">3. 사용 환경을 선택해 주세요</label>
                     <select
                         id="selectEnv"
                         className="form-select"
                         value={env}
-                        onChange={(e) => setEnv(e.target.value)}
-                    >
+                        onChange={(e) => setEnv(e.target.value)}>
                         <option value="">-- 사용 환경을 선택해주세요 --</option>
                         {materialList
                             .filter((item, index, self) =>
@@ -135,41 +174,33 @@ export default function Prjdefault() {
                     </select>
                 </div>
 
+                {/* 4. 포장재 종류 선택 영역 */}
                 <div className="form-group">
-                    <label className="form-label">4. 재생원료 사용 및 리사이클링 여부를 선택해 주세요</label>
+                    <label className="form-label">4. 포장재 종류를 선택해 주세요</label>
                     <select
-                        id="selectRecycling"
+                        id="selectmattype"
                         className="form-select"
-                        value={recycling}
-                        onChange={(e) => setRecycling(e.target.value)}
+                        value={matType}
+                        onChange={(e) => setMatType(e.target.value)}
                     >
-                        <option>PCR 30% 이상 적용</option>
-                        <option>PCR 50% 이상 적용</option>
-                        <option>100% 단일소재 (Monomaterial) 재활용 용이</option>
-                        <option>해당 없음 / 신재 100%</option>
+                        <option value="">-- 포장재 종류를 선택해주세요 --</option>
+                        {matTypesList.map((item, index) => (
+                            <option key={`matType-${index}`} value={item.matType}>
+                                {item.matTypeNm}
+                            </option>
+                        ))}
                     </select>
                 </div>
 
-                <div className="form-footer-buttons">
+                {/* 하단 버튼 영역 */}
+                <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button className="btn-secondary-line" onClick={() => console.log('취소 클릭')}>취소</button>
+                    <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>
                 </div>
             </div>
 
-            {/* 서버 데이터 로딩 영역 */}
-            {loading ? (
-                <p style={{ color: '#9ca3af', marginTop: '20px' }}>데이터를 불러오는 중...</p>
-            ) : (
-                <ul style={{ color: '#374151', paddingLeft: '20px', marginTop: '20px' }}>
-                    {products.length > 0 ? (
-                        products.map((item, index) => (
-                            <li key={index} style={{ marginBottom: '8px' }}>{item.name}</li>
-                        ))
-                    ) : (
-                        <p style={{ color: '#9ca3af' }}></p>
-                    )}
-                </ul>
-            )}
+            {loading && <p style={{ color: '#9ca3af', marginTop: '20px' }}>데이터를 불러오는 중...</p>}
         </div>
     );
 }

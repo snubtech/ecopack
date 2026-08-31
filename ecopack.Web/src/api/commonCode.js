@@ -17,3 +17,7 @@ export const getPackLevels = async () => {
     const response = await axiosInstance.get('/common/packlevels');
     return response.data;
 };
+export const getMattypes = async () => {
+    const response = await axiosInstance.get('/common/mattype');
+    return response.data;
+};

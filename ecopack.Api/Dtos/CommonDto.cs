@@ -18,4 +18,9 @@ namespace ecopack.Api.Dtos
         public string PackLevel { get; set; }
         public string PackLevelNm { get; set; }
     }
+    public class MattypePropertyDto
+    {
+        public string MatType { get; set; }
+        public string MatTypeNm { get; set; }
+    }
 }

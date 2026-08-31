@@ -27,7 +27,9 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.MatType).HasMaxLength(50).HasColumnName("mattype");
             builder.Property(e => e.AppliedMaterial).HasMaxLength(50).HasColumnName("appliedmaterial");
             builder.Property(e => e.FileNm).HasMaxLength(255).HasColumnName("filenm");
-            builder.Property(e => e.FileData).HasColumnType("longblob").HasColumnName("filedata");
+            // 수정 후 (데이터베이스가 문자열을 주므로 text나 varchar로 변경)
+            builder.Property(e => e.FileData).HasColumnType("text").HasColumnName("filedata");
+            //builder.Property(e => e.FileData).HasColumnType("longblob").HasColumnName("filedata");
             builder.Property(e => e.CreatedAt).HasColumnName("createdat");
         }
     }

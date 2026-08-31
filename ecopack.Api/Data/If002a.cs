@@ -91,8 +91,9 @@ public partial class If002a
     /// <summary>
     /// 파일데이터 (fileData)
     /// </summary>
-    public byte[]? FileData { get; set; }
-
+    //public byte[]? FileData { get; set; }
+    // 수정 후 (데이터베이스가 문자열로 저장하고 있으므로 string으로 변경)
+    public string? FileData { get; set; }
     /// <summary>
     /// 데이터 수집일시
     /// </summary>

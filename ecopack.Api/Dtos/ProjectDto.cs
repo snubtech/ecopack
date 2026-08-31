@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations; // 👈 이 부분이 반드시 포함되어야 합니다.
 
 namespace ecopack.Api.Dtos
 {
@@ -39,7 +41,7 @@ namespace ecopack.Api.Dtos
         public string? PrdPkgSeq3 { get; set; }
 
         public string? PrjRevNo { get; set; }
-		public string? Prjuserid { get; set; }
+        public string? Prjuserid { get; set; }
         public string? Prjmemo { get; set; }
         public string? PackLevel { get; set; }
         public DateOnly? PrjFcrtDt { get; set; }
@@ -50,7 +52,6 @@ namespace ecopack.Api.Dtos
     /// </summary>
     public class ProjectCreateDto
     {
-        
         public string? PrjId { get; set; }
         public string? PrjNm { get; set; }
         public string? RepCustId { get; set; }
@@ -82,9 +83,37 @@ namespace ecopack.Api.Dtos
         public string? PrdPkgSeq2 { get; set; }
         public string? PrdPkgSeq3 { get; set; }
 
-		public string? PrjRevNo { get; set; }
-		public string? Prjuserid { get; set; }
+        public string? PrjRevNo { get; set; }
+        public string? Prjuserid { get; set; }
         public string? Prjmemo { get; set; }
         public string? PackLevel { get; set; }
+    }
+
+    /// <summary>
+    /// 프로젝트 상세 정보 신규/수정 저장용 DTO
+    /// </summary>
+    public class ProjectDetailSaveDto
+    {
+        [Required(ErrorMessage = "프로젝트 ID는 필수입니다.")]
+        public string PrjId { get; set; } = null!;
+
+        [Required(ErrorMessage = "포장차수는 필수입니다.")]
+        public string PackLevel { get; set; } = null!;
+
+        public string? PrjRevNo { get; set; }
+        public string? PackLevelNm { get; set; }
+        public string? AppliedMaterial { get; set; }
+        public string? AppliedMaterialNm { get; set; }
+        public string? MatUse { get; set; }
+        public string? MatUseNm { get; set; }
+        public string? MatType { get; set; }
+        public string? MatTypeNm { get; set; }
+        public string? MatForm { get; set; }
+        public string? MatFormNm { get; set; }
+        public string? PackDsgnTplId { get; set; }
+        public string? Projstatus { get; set; }
+        public string? PrdExpCntry { get; set; }
+        public string? PrdExpCntryNm { get; set; }
+        public string? Prjuserid { get; set; }
     }
 }

@@ -16,7 +16,7 @@ namespace ecopack.Api.Controllers
             _context = context;
         }
 
-        // 💡 주소가 /api/common/material 로 아주 짧고 깔끔해집니다.
+        // 주소가 /api/common/Appliedmaterial 로 아주 짧고 깔끔해집니다.
         [HttpGet("material")]
         public async Task<IActionResult> GetMaterialProperty()
         {
@@ -54,5 +54,22 @@ namespace ecopack.Api.Controllers
 
             return Ok(list);
         }
+        //주소가 /api/common/mattype ]
+        [HttpGet("mattype")]
+        public async Task<IActionResult> GetMattypeProperty()
+        {
+            var list = await _context.If001
+                .GroupBy(x => new { x.MatType, x.MatTypeNm })
+                .Select(g => new MattypePropertyDto
+                {
+                    MatType = g.Key.MatType,
+                    MatTypeNm = g.Key.MatTypeNm
+                })
+                .ToListAsync();
+
+            return Ok(list);
+        }
+                
+
     }
 }

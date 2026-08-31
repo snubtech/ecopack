@@ -23,6 +23,7 @@ namespace ecopack.Api.Data
         public DbSet<PrimaryPkg> PrimaryPkg => Set<PrimaryPkg>();
         public DbSet<PrimaryTd> PrimaryTd => Set<PrimaryTd>();
         public DbSet<Project> Project => Set<Project>();
+        public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

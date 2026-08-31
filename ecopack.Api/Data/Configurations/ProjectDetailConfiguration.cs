@@ -29,7 +29,8 @@ namespace ecopack.Api.Data.Configurations
 			builder.Property(e => e.Projstatus).HasMaxLength(30).HasColumnName("projstatus");
 			builder.Property(e => e.PrdExpCntry).HasMaxLength(50).HasColumnName("prdexpcntry");
 			builder.Property(e => e.PrdExpCntryNm).HasMaxLength(50).HasColumnName("prdexpcntrynm");
-			builder.Property(e => e.Updatedate).HasColumnType("datetime").HasColumnName("updatedate");
-		}
+            builder.Property(e => e.Prjuserid).HasMaxLength(20).HasColumnName("prjuserid");
+            builder.Property(e => e.Updatedate).HasColumnType("datetime").HasColumnName("updatedate");
+        }
 	}
 }

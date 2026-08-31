@@ -17,7 +17,7 @@ namespace ecopack.Api.Controllers
         }
 
         // GET: api/projects (최근 프로젝트 목록 조회)
-        [HttpGet]
+        [HttpGet("GetProjects")]
         public async Task<IActionResult> GetProjects()
         {
             var list = await _context.Project
@@ -62,7 +62,7 @@ namespace ecopack.Api.Controllers
         }
 
         // POST: api/projects (신규 프로젝트 등록)
-        [HttpPost]
+        [HttpPost("CreateProject")]
         public async Task<IActionResult> CreateProject([FromBody] ProjectCreateDto dto)
         {
             if (dto == null)
@@ -115,5 +115,163 @@ namespace ecopack.Api.Controllers
 
             return Ok(new { success = true, prjId = targetPrjId, message = "프로젝트가 성공적으로 등록되었습니다." });
         }
+
+        /// <summary>
+        /// 프로젝트 상세 정보 신규/수정 저장용 (Upsert)
+        /// POST: api/projects/detail
+        /// </summary>
+        [HttpPost("detail")]
+        public async Task<IActionResult> SaveProjectDetail([FromBody] ProjectDetailSaveDto dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            try
+            {
+                // 💡 DbSet 이름을 'ProjectDetail'로 정확히 매칭
+                var detail = await _context.ProjectDetail
+                    .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId && x.PackLevel == dto.PackLevel);
+
+                if (detail == null)
+                {
+                    // 1. 신규 저장 (Insert)
+                    detail = new ProjectDetail
+                    {
+                        PrjId = dto.PrjId,
+                        PackLevel = dto.PackLevel,
+                        PrjRevNo = dto.PrjRevNo,
+                        PackLevelNm = dto.PackLevelNm,
+                        AppliedMaterial = dto.AppliedMaterial,
+                        AppliedMaterialNm = dto.AppliedMaterialNm,
+                        MatUse = dto.MatUse,
+                        MatUseNm = dto.MatUseNm,
+                        MatType = dto.MatType,
+                        MatTypeNm = dto.MatTypeNm,
+                        MatForm = dto.MatForm,
+                        MatFormNm = dto.MatFormNm,
+                        PackDsgnTplId = dto.PackDsgnTplId,
+                        Projstatus = dto.Projstatus,
+                        PrdExpCntry = dto.PrdExpCntry,
+                        PrdExpCntryNm = dto.PrdExpCntryNm,
+                        Prjuserid = dto.Prjuserid, // 💡 신규 저장 시 반영
+                        Updatedate = DateTime.Now
+                    };
+
+                    _context.ProjectDetail.Add(detail);
+                }
+                else
+                {
+                    // 2. 수정 저장 (Update)
+                    detail.PrjRevNo = dto.PrjRevNo;
+                    detail.PackLevelNm = dto.PackLevelNm;
+                    detail.AppliedMaterial = dto.AppliedMaterial;
+                    detail.AppliedMaterialNm = dto.AppliedMaterialNm;
+                    detail.MatUse = dto.MatUse;
+                    detail.MatUseNm = dto.MatUseNm;
+                    detail.MatType = dto.MatType;
+                    detail.MatTypeNm = dto.MatTypeNm;
+                    detail.MatForm = dto.MatForm;
+                    detail.MatFormNm = dto.MatFormNm;
+                    detail.PackDsgnTplId = dto.PackDsgnTplId;
+                    detail.Projstatus = dto.Projstatus;
+                    detail.PrdExpCntry = dto.PrdExpCntry;
+                    detail.PrdExpCntryNm = dto.PrdExpCntryNm;
+                    detail.Prjuserid = dto.Prjuserid; // 💡 수정 저장 시 반영
+                    detail.Updatedate = DateTime.Now;
+
+                    _context.ProjectDetail.Update(detail);
+                }
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "성공적으로 저장되었습니다.", data = detail });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "저장 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+        [HttpGet("Getdetail")]
+        public async Task<IActionResult> GetProjectDetail([FromQuery] string prjId, [FromQuery] string packLevel)
+        {
+            if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
+            {
+                return BadRequest(new { success = false, message = "필수 파라미터(prjId, packLevel)가 누락되었습니다." });
+            }
+            try
+            {
+                var detail = await _context.ProjectDetail
+                    .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel);
+
+                if (detail == null)
+                {
+                    return NotFound(new { success = false, message = "해당하는 프로젝트 상세 정보를 찾을 수 없습니다." });
+                }
+                return Ok(detail);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "조회 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("template")]
+        public async Task<IActionResult> GetProjecttemplate(
+            [FromQuery] string? packLevel,
+            [FromQuery] string? appliedMaterial,
+            [FromQuery] string? matType)
+        {
+            try
+            {
+                // 💡 AsNoTracking()을 붙여서 변경 추적을 끄고 조회 속도를 극대화합니다.
+                var query = _context.If002a.AsNoTracking().AsQueryable();
+
+                if (!string.IsNullOrEmpty(packLevel))
+                {
+                    query = query.Where(x => x.PackLevel == packLevel);
+                }
+                if (!string.IsNullOrEmpty(appliedMaterial))
+                {
+                    query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+                }
+                if (!string.IsNullOrEmpty(matType))
+                {
+                    query = query.Where(x => x.MatType == matType);
+                }
+
+                var list = await query
+                    .OrderBy(x => x.PackLevel)
+                    .ThenBy(x => x.AppliedMaterial)
+                    .ThenBy(x => x.MatType)
+                    .Select(x => new ProjecttemplateListDto
+                    {
+                        Idx = x.Idx,
+                        PackDsgnTplId = x.PackDsgnTplId,
+                        PackLevelNm = x.PackLevelNm,
+                        MatTypeNm = x.MatTypeNm,
+                        Subject = x.Subject,
+                        DsgnTypeNm = x.DsgnTypeNm,
+                        DsgnTypeCdVal = x.DsgnTypeCdVal,
+                        DsgnExpCon = x.DsgnExpCon,
+                        AppliedMaterialNm = x.AppliedMaterialNm,
+                        DsgnFeatDscr = x.DsgnFeatDscr,
+                        OperDscr = x.OperDscr,
+                        PackLevel = x.PackLevel,
+                        MatType = x.MatType,
+                        AppliedMaterial = x.AppliedMaterial,
+                        FileNm = x.FileNm,
+                        FileData = x.FileData // 💡 이미지 데이터를 다시 포함시킴
+                    })
+                    .ToListAsync();
+
+                return Ok(list);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }    
     }
 }
