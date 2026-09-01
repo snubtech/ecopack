@@ -22,4 +22,13 @@ namespace ecopack.Api.Dtos
         public string? FileData { get; set; }
         //public DateTime? CreatedAt { get; set; }
     }
+
+    // 💡 요청을 받을 DTO 클래스
+    public class ProjecttemplateUpdateDto
+    {
+        public string PrjId { get; set; }
+        public string PackLevel { get; set; }
+        public string PackDsgnTplId { get; set; }
+        public string Prjuserid { get; set; }
+    }
 }

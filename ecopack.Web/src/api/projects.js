@@ -43,3 +43,11 @@ export async function GetProjectDetail(prjId, packLevel) {
     });
     return response.data;
 }
+
+/**
+* 4. 프로젝트 상세 정보 저장 함수
+*/
+export async function templateUpdate(dto) {
+    const response = await axios.post('/api/Projects/templateUpdate', dto);
+    return response.data;
+}

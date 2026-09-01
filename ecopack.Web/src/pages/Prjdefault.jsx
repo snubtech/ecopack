@@ -84,7 +84,7 @@ export default function Prjdefault({ onSelectItem }) {
             appliedMaterial: material,
             matUse: env,
             matType: matType,
-            prjuserid: sessionStorage.getItem('currentUserId') || 'system'
+            prjuserid: sessionStorage.getItem('prjuserid') || 'system'
         };
 
         try {

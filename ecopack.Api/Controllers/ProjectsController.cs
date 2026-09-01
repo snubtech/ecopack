@@ -21,7 +21,7 @@ namespace ecopack.Api.Controllers
         public async Task<IActionResult> GetProjects()
         {
             var list = await _context.Project
-                .OrderByDescending(x => x.PrjFcrtDt) // 최신순 정렬
+                .OrderByDescending(x => x.PrjId) // 최신순 정렬
                 .Select(x => new ProjectListDto
                 {
                     PrjId = x.PrjId,
@@ -221,11 +221,12 @@ namespace ecopack.Api.Controllers
         public async Task<IActionResult> GetProjecttemplate(
             [FromQuery] string? packLevel,
             [FromQuery] string? appliedMaterial,
-            [FromQuery] string? matType)
+            [FromQuery] string? matType,
+            [FromQuery] int page = 1,       // 프론트에서 넘어오는 페이지 번호 (기본값 1)
+            [FromQuery] int pageSize = 20)  // 프론트에서 넘어오는 페이지당 개수 (기본값 20)
         {
             try
             {
-                // 💡 AsNoTracking()을 붙여서 변경 추적을 끄고 조회 속도를 극대화합니다.
                 var query = _context.If002a.AsNoTracking().AsQueryable();
 
                 if (!string.IsNullOrEmpty(packLevel))
@@ -241,10 +242,16 @@ namespace ecopack.Api.Controllers
                     query = query.Where(x => x.MatType == matType);
                 }
 
+                // 1. 전체 데이터 개수 계산 (페이지네이션 UI 계산용)
+                var totalCount = await query.CountAsync();
+
+                // 2. 페이징 적용하여 해당 페이지의 25개만 조회
                 var list = await query
                     .OrderBy(x => x.PackLevel)
                     .ThenBy(x => x.AppliedMaterial)
                     .ThenBy(x => x.MatType)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
                     .Select(x => new ProjecttemplateListDto
                     {
                         Idx = x.Idx,
@@ -262,16 +269,49 @@ namespace ecopack.Api.Controllers
                         MatType = x.MatType,
                         AppliedMaterial = x.AppliedMaterial,
                         FileNm = x.FileNm,
-                        FileData = x.FileData // 💡 이미지 데이터를 다시 포함시킴
+                        FileData = x.FileData // 이미지를 포함하되 25개로 제한되어 속도가 빠름
                     })
                     .ToListAsync();
 
-                return Ok(list);
+                // 3. 프론트가 요구하는 구조({ totalCount, items })로 반환
+                return Ok(new
+                {
+                    totalCount = totalCount,
+                    items = list
+                });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-        }    
+        }
+        [HttpPost("templateUpdate")]
+        public async Task<IActionResult> templateUpdate([FromBody] ProjecttemplateUpdateDto dto)
+        {
+            try
+            {
+                // 1. prjId와 packLevel을 기준으로 프로젝트 디테일(또는 대상 테이블) 조회
+                // 예시: _context.If001 (프로젝트 디테일 테이블)
+                var projectDetail = await _context.ProjectDetail
+                    .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId && x.PackLevel == dto.PackLevel);
+                if (projectDetail == null)
+                {
+                    return NotFound(new { message = "해당하는 프로젝트 정보를 찾을 수 없습니다." });
+                }
+                // 2. packDsgnTplId 갱신
+                projectDetail.PackDsgnTplId = dto.PackDsgnTplId;
+                projectDetail.Prjuserid = dto.Prjuserid;
+                projectDetail.Updatedate = DateTime.Now; // 필요시 수정일자 추가
+                projectDetail.Projstatus = "template"; // 필요시 상태 변경
+
+                // 3. 데이터베이스 저장
+                await _context.SaveChangesAsync();
+                return Ok(new { success = true, message = "성공적으로 저장되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
     }
 }
