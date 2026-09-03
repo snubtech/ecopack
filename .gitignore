@@ -35,7 +35,6 @@ Desktop.ini
 
 ## DB / 설계 참고자료 (커밋 대상 아님)
 /_docs/
-*.xlsx
 
 ## 첨부문서 업로드 파일 (런타임 생성물)
 /ecopack.Api/wwwroot/uploads/
