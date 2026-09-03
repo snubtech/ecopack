@@ -12,7 +12,7 @@ namespace ecopack.Api.Data.Configurations
             builder.HasKey(e => e.Idx);
 
             builder.Property(e => e.Idx).HasColumnName("idx");
-            builder.Property(e => e.AsmtShtHdrId).HasMaxLength(50).HasColumnName("asmtshehhdrid");
+            builder.Property(e => e.AsmtShtHdrId).HasMaxLength(50).HasColumnName("asmtshthdrid");
             builder.Property(e => e.LevelTypeNm).HasMaxLength(100).HasColumnName("leveltypenm");
             builder.Property(e => e.VersionDesc).HasMaxLength(255).HasColumnName("versiondesc");
             builder.Property(e => e.HdrMemo).HasColumnType("text").HasColumnName("hdrmemo");
@@ -22,7 +22,7 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.AppliedMaterial).HasMaxLength(50).HasColumnName("appliedmaterial");
             builder.Property(e => e.AsmtQstId).HasMaxLength(50).HasColumnName("asmtqstid");
             builder.Property(e => e.EcoPackLarTypeNm).HasMaxLength(100).HasColumnName("ecopacklartypenm");
-            builder.Property(e => e.EcoPackAreaNm).HasMaxLength(100).HasColumnName("ecopackareaynm");
+            builder.Property(e => e.EcoPackAreaNm).HasMaxLength(100).HasColumnName("ecopackareanm");
             builder.Property(e => e.AsmtQstNm).HasColumnType("text").HasColumnName("asmtqstnm");
             builder.Property(e => e.ScoringCriteriaTypeNm).HasMaxLength(100).HasColumnName("scoringcriteriatypenm");
             builder.Property(e => e.NatRglAls).HasColumnType("text").HasColumnName("natrglals");

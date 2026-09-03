@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { templateUpdate } from '../api/projects'; //api /projects.js에서 templateUpdate 함수를 가져옵니다.
+
 // 1. 세션 스토리지에 데이터 저장
 // sessionStorage.setItem('currentPrjNm');
 // sessionStorage.setItem('currentPrjId');
@@ -9,7 +10,7 @@ import { templateUpdate } from '../api/projects'; //api /projects.js에서 templ
 // sessionStorage.setItem('currentMaterial'); // 적용소재 세션 저장
 // sessionStorage.setItem('currentEnv');  // 사용환경 세션 저장
 // sessionStorage.setItem('currentMatType'); // 포장재 종류 세션 저장
-function PackTemplatePage() {
+function PackTemplatePage({ onSelectItem }) {
     // 1. 상태(State) 정의
     const [templateList, setTemplateList] = useState([]); // 하단 리스트 데이터
     const [selectedItem, setSelectedItem] = useState(null); // 상단에 보여줄 선택된 상세 정보
@@ -69,7 +70,6 @@ function PackTemplatePage() {
         const sessionUser = JSON.parse(sessionStorage.getItem('prjuserid') || '{}');
         const prjuserid = sessionUser.repCustId || '';
        
-
         if (!prjId) {
             alert('프로젝트 ID(prjId)를 찾을 수 없습니다. 이전 단계를 확인해 주세요.');
             return;
@@ -91,7 +91,22 @@ function PackTemplatePage() {
             alert('저장 중 오류가 발생했습니다.');
         }
     };
+    const handleNextStep = async () => {
+        if (!selectedItem) {
+            alert('먼저 템플릿을 선택해 주세요.');
+            return;
+        }
 
+        // 선택된 템플릿 정보를 세션에 안전하게 저장
+        sessionStorage.setItem('currentPackDsgnTplId', selectedItem.packDsgnTplId);
+
+        if (typeof onSelectItem === 'function') {
+            console.log("onSelectItem 함수 실행됨!");
+            onSelectItem('prjeval'); // 'prjeval'(평가지) 메뉴로 상태 변경 요청
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
+        }
+    };
     // 전체 페이지 수 계산
     const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -143,7 +158,7 @@ function PackTemplatePage() {
                         저장
                     </button>
                     <button
-                        onClick={() => { /* 다음 로직 구현 */ }}
+                        onClick={handleNextStep}
                         style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#2e7d32', color: '#fff', cursor: 'pointer', width: '80px' }}
                     >
                         다음

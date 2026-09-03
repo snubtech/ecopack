@@ -5,6 +5,7 @@ import Prjdefault from '../../pages/Prjdefault';
 //import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
 import Prjtemplate from '../../pages/Prjtemplate'; 
+import Prjeval from '../../pages/Prjeval';
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
@@ -39,6 +40,8 @@ const DashboardLayout = ({ onLogout }) => {
                 return <Prjdefault onSelectItem={setCurrentMenu} />;
             case 'prjtemplate': // 'prjtemplate'로 와도 Prjdefault 컴포넌트를 띄운다!
                 return <Prjtemplate onSelectItem={setCurrentMenu} />;
+            case 'prjeval': // 'Prjeval'로 와도 Prjeval 컴포넌트를 띄운다!
+                return <Prjeval onSelectItem={setCurrentMenu} />;
             default:
                 return (
                     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box' }}>
