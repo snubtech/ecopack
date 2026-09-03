@@ -7,7 +7,7 @@ import {
 } from '../api/primaryTd';
 
 /**
- * 기술문서(모듈 A) — 1차포장 기술문서 화면 / primary_td 테이블
+ * 기술문서 — 1차포장 기술문서 화면 / primary_td 테이블
  *
  * 화면 규칙
  *  - [화면고정]           : 라벨/제목으로 고정 출력, 수정 불가
@@ -500,7 +500,7 @@ export default function PrimaryTd() {
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8" />
-<title>기술문서(모듈 A)</title>
+<title>기술문서</title>
 <style>
   body { font-family: 'Malgun Gothic', 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.6; }
   h1 { font-size: 18pt; } h2 { font-size: 13pt; margin-top: 18pt; } h3 { font-size: 11pt; }
@@ -546,7 +546,7 @@ export default function PrimaryTd() {
             {/* ── 상단 액션 바 (인쇄/추출 시 제외) ── */}
             <div className="td-toolbar td-noprint">
                 <div className="td-toolbar-info">
-                    <strong>기술문서(모듈 A)</strong>
+                    <strong>기술문서</strong>
                     <span className="td-badge">{isNew ? '신규 작성' : '저장됨'}</span>
                     {form.pkg1TechDocId && <span className="td-docid">{form.pkg1TechDocId}</span>}
                     {message && <span className="td-message">{message}</span>}
@@ -569,7 +569,7 @@ export default function PrimaryTd() {
 
             {/* ── 문서 본문 (수직 배치, 이 영역만 PDF/DOCX로 추출) ── */}
             <div className="td-doc" id="td-doc" ref={docRef}>
-                <h1 className="td-title">기술문서(모듈 A)</h1>
+                <h1 className="td-title td-title-center">기술문서</h1>
 
                 {/* 1. 제품 식별 정보 */}
                 <h2 className="td-h2">1. 제품 식별 정보</h2>
@@ -949,6 +949,7 @@ const TD_STYLES = `
 /* 문서 본문 — 위에서 아래로 흐르는 수직 구성 */
 .td-doc { background: #fff; padding: 8px 4px 60px; color: #111827; line-height: 1.7; }
 .td-title { font-size: 24px; font-weight: 700; margin: 0 0 20px; }
+.td-title-center { text-align: center; }
 .td-h2 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #111827; }
 .td-h3 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; color: #374151; }
 
