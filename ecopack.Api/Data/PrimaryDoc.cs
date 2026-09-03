@@ -101,7 +101,7 @@ public partial class PrimaryDoc
     /// <summary>
     /// 4.3. 우려물질 및 중금속 제한 적합의 고정 내용이다.
     /// </summary>
-    public string? SoChvyMetLmtCmplCntn1 { get; set; }
+    public string? SoCHvyMetLmtCmplCntn1 { get; set; }
 
     /// <summary>
     /// 4.3.의 하위 표 중 물질 첫번째 행의 물질내용이다.
