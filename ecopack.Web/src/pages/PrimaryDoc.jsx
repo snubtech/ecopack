@@ -39,7 +39,7 @@ const SINGLE_KEYS = [
     'docPhrsCntn',
     'reuseReqCmplCntn', 'dsgnTmplMstrPrdExpl',
     'rcycReqCmplCntn1', 'rcycMainFeatCntn', 'rcycReqCmplCntn2',
-    'soCHvyMetLmtCmplCntn1', 'sbstTot', 'testRsltTot',
+    'soCHvyMetLmtCmplCntn1', 'soCHvyMetLmtCmplCntn2', 'sbstTot', 'testRsltTot',
     'matInfoTotWtVal', 'matInfoCntn',
     'evdDocCntn',
     'applRuleStdCntn',
@@ -74,6 +74,7 @@ const MAXLEN = {
     rcycMainFeatCntn: 200,
     rcycReqCmplCntn2: 100,
     soCHvyMetLmtCmplCntn1: 100,
+    soCHvyMetLmtCmplCntn2: 300,
     sbst1: 50,
     sbst2: 50,
     sbst3: 50,
@@ -151,6 +152,9 @@ const DEFAULTS = {
 
     // 4.3 우려물질 및 중금속 제한 적합 — 기본 4행 + 총합행
     soCHvyMetLmtCmplCntn1: 'PPWR 요구사항에 따라 다음 중금속 함량을 평가하였습니다.',
+    soCHvyMetLmtCmplCntn2:
+        '총 중금속 함량은 PPWR 및 EU 포장재 규정에서 요구하는 100 mg/kg 이하 기준을 충분히 만족합니다. ' +
+        '시험은 IEC 62321 시리즈 시험방법에 따라 수행되었습니다.',
     sbst1: '납(Pb)',
     sbst2: '카드뮴 (Cd)',
     sbst3: '수은(Hg)',
@@ -186,15 +190,6 @@ const DEFAULTS = {
         '4. 물질 정보 제공 요구사항 적합\n5. 순환경제(Design for Circular Economy) 설계 원칙 적용\n' +
         '본 선언서는 제조자의 전적인 책임하에 발행됩니다.',
 };
-
-/**
- * 4.3 총합행 아래 고정 문구.
- * PDF 스펙에는 [컬럼명 : socHvyMetLmtCmplCntn2] 로 적혀 있으나 primary_doc 에 해당 컬럼이 없어
- * 현재는 저장되지 않는 화면 고정 문구로 출력한다. (컬럼 추가 시 입력 필드로 전환)
- */
-const SOC_FOOT_PHRASE =
-    '총 중금속 함량은 PPWR 및 EU 포장재 규정에서 요구하는 100 mg/kg 이하 기준을 충분히 만족합니다. ' +
-    '시험은 IEC 62321 시리즈 시험방법에 따라 수행되었습니다.';
 
 /** 부속서 라벨 (1→부속서 A … 8→부속서 H) */
 const annexLabel = (slot) => `부속서 ${String.fromCharCode(64 + slot)}`;
@@ -525,6 +520,7 @@ export default function PrimaryDoc() {
   .td-table-plain, .td-table-plain th, .td-table-plain td { border: none; background: transparent; }
   .doc-subtitle { text-align: center; font-weight: bold; }
   .td-result-phrase { margin: 8pt 0; }
+  .doc-matinfo-row span { margin-right: 6pt; }
 </style>
 </head><body>${clone.innerHTML}</body></html>`;
 
@@ -655,7 +651,7 @@ export default function PrimaryDoc() {
                 </table>
                 <AddRowButton label="물질 행 추가" onAdd={() => addRow('soc')}
                     current={rowCounts.soc} max={ROW_TABLES.soc.max} />
-                <p className="doc-fixed-phrase">{SOC_FOOT_PHRASE}</p>
+                {area('soCHvyMetLmtCmplCntn2', 3)}
 
                 <h3 className="td-h3">4.4 재질 정보</h3>
                 <table className="td-table">
@@ -679,13 +675,20 @@ export default function PrimaryDoc() {
                 <AddRowButton label="재질 정보 행 추가" onAdd={() => addRow('matInfo')}
                     current={rowCounts.matInfo} max={ROW_TABLES.matInfo.max} />
 
-                {/* 총 중량 + 하단 고정문구 (표 아님) */}
+                {/* 총 중량 값과 하단 고정문구를 한 행에 나란히 둔다 (표 아님) */}
                 <table className="td-table td-table-kv td-table-plain">
                     <tbody>
-                        <tr><th style={{ width: '14%' }}>총 중량</th><td>{input('matInfoTotWtVal')}</td></tr>
+                        <tr>
+                            <th style={{ width: '14%' }}>총 중량</th>
+                            <td>
+                                <div className="doc-matinfo-row">
+                                    {input('matInfoTotWtVal')}
+                                    {input('matInfoCntn')}
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
-                {area('matInfoCntn', 2)}
 
                 {/* 5. 근거 문서 */}
                 <h2 className="td-h2">5. 근거 문서</h2>
@@ -796,12 +799,21 @@ const TD_STYLES = `
   content: ''; position: absolute; left: 0; right: 0; bottom: 100%;
   height: 2rem; background: #ffffff;
 }
-.td-toolbar-info { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #111827; flex-wrap: wrap; line-height: 1.2; }
+.td-toolbar-info {
+  display: flex; align-items: center; align-content: center; gap: 8px;
+  font-size: 14px; color: #111827; flex-wrap: wrap; line-height: 1.2;
+  /* 문구가 길어져도 버튼을 아랫줄로 밀지 않고 이 영역이 줄어들며 감싼다 */
+  flex: 1 1 auto; min-width: 0;
+}
 .td-toolbar-info > * { display: inline-flex; align-items: center; }
 .td-badge { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; line-height: 1.2; }
 .td-docid { color: #6b7280; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .td-message { color: #15803d; font-size: 12px; }
-.td-toolbar-buttons { display: flex; align-items: center; gap: 8px; }
+.td-toolbar-buttons {
+  display: flex; align-items: center; gap: 8px;
+  /* 버튼은 줄어들지 않고 툴바 세로 중앙에 고정 */
+  flex: 0 0 auto; align-self: center;
+}
 
 .td-btn {
   padding: 7px 16px; border: 1px solid #cbd5e1; background: #fff; color: #334155;
@@ -899,11 +911,15 @@ const TD_STYLES = `
 /* ── DOC (적합성 선언서) 전용 ── */
 .doc-title { text-align: center; margin-bottom: 4px; }
 .doc-subtitle { text-align: center; font-weight: 600; color: #4b5563; margin: 0 0 24px; font-size: 14px; }
-/* 저장 컬럼이 없어 화면 고정으로만 출력하는 문구 */
-.doc-fixed-phrase { margin: 10px 0 4px; font-size: 13px; color: #111827; }
 .doc-rep-cell .td-input { width: auto; min-width: 140px; display: inline-block; }
+/* 4.4 총 중량 — 중량 값 + 고정문구를 한 행에 나란히 */
+.doc-matinfo-row { display: flex; align-items: center; gap: 8px; }
+.doc-matinfo-row > .td-input:first-child { flex: 0 0 130px; }
+.doc-matinfo-row > .td-input:last-child { flex: 1; min-width: 0; }
 .doc-sign .doc-sign-blank { height: 34px; }
 @media print {
   .doc-rep-cell .td-input { width: auto !important; min-width: 0 !important; }
+  .doc-matinfo-row { display: flex !important; gap: 6px !important; }
+  .doc-matinfo-row > .td-input:first-child { flex: 0 0 auto !important; width: auto !important; }
 }
 `;

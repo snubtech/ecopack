@@ -918,12 +918,21 @@ const TD_STYLES = `
   content: ''; position: absolute; left: 0; right: 0; bottom: 100%;
   height: 2rem; background: #ffffff;
 }
-.td-toolbar-info { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #111827; flex-wrap: wrap; line-height: 1.2; }
+.td-toolbar-info {
+  display: flex; align-items: center; align-content: center; gap: 8px;
+  font-size: 14px; color: #111827; flex-wrap: wrap; line-height: 1.2;
+  /* 문구가 길어져도 버튼을 아랫줄로 밀지 않고 이 영역이 줄어들며 감싼다 */
+  flex: 1 1 auto; min-width: 0;
+}
 .td-toolbar-info > * { display: inline-flex; align-items: center; }
 .td-badge { background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; line-height: 1.2; }
 .td-docid { color: #6b7280; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .td-message { color: #15803d; font-size: 12px; }
-.td-toolbar-buttons { display: flex; align-items: center; gap: 8px; }
+.td-toolbar-buttons {
+  display: flex; align-items: center; gap: 8px;
+  /* 버튼은 줄어들지 않고 툴바 세로 중앙에 고정 */
+  flex: 0 0 auto; align-self: center;
+}
 
 .td-btn {
   padding: 7px 16px; border: 1px solid #cbd5e1; background: #fff; color: #334155;

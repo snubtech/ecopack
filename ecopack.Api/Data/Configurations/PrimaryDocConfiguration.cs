@@ -40,6 +40,7 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.RcycMainFeatCntn).HasColumnName("rcycMainFeatCntn").HasMaxLength(200);
             builder.Property(e => e.RcycReqCmplCntn2).HasColumnName("rcycReqCmplCntn2").HasMaxLength(100);
             builder.Property(e => e.SoCHvyMetLmtCmplCntn1).HasColumnName("soCHvyMetLmtCmplCntn1").HasMaxLength(100);
+            builder.Property(e => e.SoCHvyMetLmtCmplCntn2).HasColumnName("soCHvyMetLmtCmplCntn2").HasMaxLength(300);
             builder.Property(e => e.Sbst1).HasColumnName("sbst1").HasMaxLength(50);
             builder.Property(e => e.Sbst2).HasColumnName("sbst2").HasMaxLength(50);
             builder.Property(e => e.Sbst3).HasColumnName("sbst3").HasMaxLength(50);
