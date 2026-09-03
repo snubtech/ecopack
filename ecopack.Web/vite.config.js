@@ -10,6 +10,11 @@ export default defineConfig({
                 target: 'http://localhost:5258',
                 changeOrigin: true,
             },
+            // 기술문서 첨부파일(wwwroot/uploads) 다운로드용
+            '/uploads': {
+                target: 'http://localhost:5258',
+                changeOrigin: true,
+            },
         },
     },
 });

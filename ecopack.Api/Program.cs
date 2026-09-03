@@ -25,6 +25,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// 첨부문서(wwwroot/uploads/**) 정적 서빙 — 기술문서 화면의 첨부파일 다운로드용
+app.UseStaticFiles();
+
 // 3. 컨트롤러 라우팅 매핑 추가 (만들어둔 ProductsController가 동작하도록 연결)
 app.MapControllers();
 
