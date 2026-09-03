@@ -758,11 +758,17 @@ export default function PrimaryDoc() {
                         <tr><th>제조자</th><td>{input('bizNm2')}</td></tr>
                         <tr>
                             <th>대표자/책임자</th>
-                            {/* 직책 + 공백 1칸 + 이름 형태로 출력된다 */}
-                            <td className="doc-rep-cell">
-                                <span className="doc-rep-role">{input('roleNm2')}</span>
-                                {' '}
-                                <span className="doc-rep-name">{input('repNm2')}</span>
+                            {/* 화면에서는 직책·이름을 각각 입력받고,
+                                PDF/DOCX 추출 시에는 "직책 이름" 한 줄로 합쳐 출력한다.
+                                (input은 내용 길이로 줄어들지 않아 인쇄 시 빈칸이 벌어지므로 분리) */}
+                            <td>
+                                <div className="doc-rep-cell td-screen-only">
+                                    {input('roleNm2')}
+                                    {input('repNm2')}
+                                </div>
+                                <span className="td-export-only">
+                                    {[form.roleNm2, form.repNm2].filter(Boolean).join(' ')}
+                                </span>
                             </td>
                         </tr>
                         <tr><th>서명</th><td className="doc-sign-blank" /></tr>
@@ -873,6 +879,7 @@ const TD_STYLES = `
 
 /* 화면 전용 / 추출(PDF·DOCX) 전용 요소 전환 */
 .td-export-only { display: none; }
+.doc-sign .td-export-only { font-size: 13px; }
 .td-result-phrase { margin: 8px 0 4px; font-size: 13px; }
 
 /* ── 인쇄 / PDF 추출 ──────────────────────────────────────
@@ -911,14 +918,14 @@ const TD_STYLES = `
 /* ── DOC (적합성 선언서) 전용 ── */
 .doc-title { text-align: center; margin-bottom: 4px; }
 .doc-subtitle { text-align: center; font-weight: 600; color: #4b5563; margin: 0 0 24px; font-size: 14px; }
-.doc-rep-cell .td-input { width: auto; min-width: 140px; display: inline-block; }
+.doc-rep-cell { display: flex; align-items: center; gap: 8px; }
+.doc-rep-cell .td-input { flex: 0 1 auto; width: auto; min-width: 140px; }
 /* 4.4 총 중량 — 중량 값 + 고정문구를 한 행에 나란히 */
 .doc-matinfo-row { display: flex; align-items: center; gap: 8px; }
 .doc-matinfo-row > .td-input:first-child { flex: 0 0 130px; }
 .doc-matinfo-row > .td-input:last-child { flex: 1; min-width: 0; }
 .doc-sign .doc-sign-blank { height: 34px; }
 @media print {
-  .doc-rep-cell .td-input { width: auto !important; min-width: 0 !important; }
   .doc-matinfo-row { display: flex !important; gap: 6px !important; }
   .doc-matinfo-row > .td-input:first-child { flex: 0 0 auto !important; width: auto !important; }
 }
