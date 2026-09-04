@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
 using ecopack.Api.Dtos;
+using ecopack.Api.Support;
 
 namespace ecopack.Api.Controllers
 {
@@ -17,10 +18,25 @@ namespace ecopack.Api.Controllers
         }
 
         // GET: api/projects (최근 프로젝트 목록 조회)
+        // 프로젝트는 만든 사람만 볼 수 있다.
+        // 화면이 로그인한 고객 ID(repCustId)를 함께 보내면 그 회원의 것만 돌려준다.
+        // 예전 데이터는 repCustId 가 비어 있고 prjuserid 만 있는 경우가 있어 두 컬럼을 모두 본다.
         [HttpGet("GetProjects")]
-        public async Task<IActionResult> GetProjects()
+        public async Task<IActionResult> GetProjects([FromQuery] string? repCustId)
         {
-            var list = await _context.Project
+            var query = _context.Project.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(repCustId))
+            {
+                query = query.Where(x => x.RepCustId == repCustId || x.Prjuserid == repCustId);
+            }
+            else
+            {
+                // 로그인 정보를 받지 못하면 남의 프로젝트가 보이지 않도록 빈 목록을 돌려준다
+                query = query.Where(x => false);
+            }
+
+            var list = await query
                 .OrderByDescending(x => x.PrjId) // 최신순 정렬
                 .Select(x => new ProjectListDto
                 {
@@ -75,23 +91,39 @@ namespace ecopack.Api.Controllers
                 ? dto.PrjId
                 : $"{DateTime.Now:yyyyMMddHHmmssfff}";
 
+            // 프로젝트에는 그 프로젝트를 만든 회원의 정보를 함께 남긴다.
+            // 화면에서 넘어오지 않는 회사·담당자 항목은 customer(고객기본)에서 직접 읽어 채운다.
+            // 고객 ID는 화면이 보내준 repCustId 를 쓰고, 없으면 로그인 아이디(prjuserid)로 찾는다.
+            var custId = !string.IsNullOrWhiteSpace(dto.RepCustId) ? dto.RepCustId : dto.Prjuserid;
+            Customer? member = null;
+            if (!string.IsNullOrWhiteSpace(custId))
+            {
+                member = await _context.Customers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.RepCustId == custId);
+            }
+
+            // 화면에서 직접 입력한 값이 있으면 그 값을, 없으면 회원정보를 쓴다
+            static string? Pick(string? typed, string? fromMember) =>
+                !string.IsNullOrWhiteSpace(typed) ? typed : fromMember;
+
             var newProject = new Project
             {
                 PrjId = targetPrjId, // 👈 채번된(또는 전달받은) ID 사용
                 PrjNm = dto.PrjNm,
-                RepCustId = dto.RepCustId,
-                BizNo = dto.BizNo,
-                BizNm = dto.BizNm,
-                RepNm = dto.RepNm,
-                RoleNm = dto.RoleNm,
-                IndstNm = dto.IndstNm,
-                CntryNm = dto.CntryNm,
-                AddrCd = dto.AddrCd,
-                DtlAddr1 = dto.DtlAddr1,
-                DtlAddr2 = dto.DtlAddr2,
-                EmlAddr = dto.EmlAddr,
-                RepTelNo = dto.RepTelNo,
-                MblTelNo = dto.MblTelNo,
+                RepCustId = Pick(dto.RepCustId, member?.RepCustId ?? custId),
+                BizNo = Pick(dto.BizNo, member?.BizNo),
+                BizNm = Pick(dto.BizNm, member?.BizNm),
+                RepNm = Pick(dto.RepNm, member?.RepNm) ?? "담당자미정",
+                RoleNm = Pick(dto.RoleNm, member?.RoleNm),
+                IndstNm = Pick(dto.IndstNm, member?.IndstNm),
+                CntryNm = Pick(dto.CntryNm, member?.CntryNm),
+                AddrCd = Pick(dto.AddrCd, member?.AddrCd),
+                DtlAddr1 = Pick(dto.DtlAddr1, member?.DtlAddr1),
+                DtlAddr2 = Pick(dto.DtlAddr2, member?.DtlAddr2),
+                EmlAddr = Pick(dto.EmlAddr, member?.EmlAddr),
+                RepTelNo = Pick(dto.RepTelNo, member?.RepTelNo),
+                MblTelNo = Pick(dto.MblTelNo, member?.MblTelNo),
                 PrdExpCntryNm1 = dto.PrdExpCntryNm1,
                 PrdExpCntryNm2 = dto.PrdExpCntryNm2,
                 PrdExpCntryNm3 = dto.PrdExpCntryNm3,
@@ -121,11 +153,19 @@ namespace ecopack.Api.Controllers
         /// POST: api/projects/detail
         /// </summary>
         [HttpPost("detail")]
-        public async Task<IActionResult> SaveProjectDetail([FromBody] ProjectDetailSaveDto dto)
+        public async Task<IActionResult> SaveProjectDetail([FromBody] ProjectDetailSaveDto dto, [FromQuery] string? repCustId)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
+            }
+
+            // 본인이 만든 프로젝트만 저장할 수 있다.
+            // 고객 ID는 쿼리로 받은 값을 먼저 쓰고, 없으면 화면이 담아 보낸 작성자 아이디를 쓴다.
+            var owner = !string.IsNullOrWhiteSpace(repCustId) ? repCustId : dto.Prjuserid;
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, owner))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             try
@@ -194,11 +234,17 @@ namespace ecopack.Api.Controllers
             }
         }
         [HttpGet("Getdetail")]
-        public async Task<IActionResult> GetProjectDetail([FromQuery] string prjId, [FromQuery] string packLevel)
+        public async Task<IActionResult> GetProjectDetail([FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string? repCustId)
         {
             if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
             {
                 return BadRequest(new { success = false, message = "필수 파라미터(prjId, packLevel)가 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트만 열 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
             try
             {
