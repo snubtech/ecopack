@@ -77,7 +77,7 @@ public partial class If003a
     /// <summary>
     /// 파일데이터 (fileData)
     /// </summary>
-    public byte[]? FileData { get; set; }
+    public string? FileData { get; set; }
 
     /// <summary>
     /// 데이터 수집일시

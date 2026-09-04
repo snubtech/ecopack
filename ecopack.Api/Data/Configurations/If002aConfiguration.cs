@@ -22,13 +22,13 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.AppliedMaterialNm).HasMaxLength(100).HasColumnName("appliedmaterialnm");
             builder.Property(e => e.DsgnFeatDscr).HasColumnType("text").HasColumnName("dsgnfeatdscr");
             builder.Property(e => e.OperDscr).HasColumnType("text").HasColumnName("operdscr");
-            builder.Property(e => e.MemoImg).HasMaxLength(255).HasColumnName("memoimg");
+            builder.Property(e => e.MemoImg).HasColumnType("longtext").HasColumnName("memoimg");
             builder.Property(e => e.PackLevel).HasMaxLength(50).HasColumnName("packlevel");
             builder.Property(e => e.MatType).HasMaxLength(50).HasColumnName("mattype");
             builder.Property(e => e.AppliedMaterial).HasMaxLength(50).HasColumnName("appliedmaterial");
             builder.Property(e => e.FileNm).HasMaxLength(255).HasColumnName("filenm");
             // 수정 후 (데이터베이스가 문자열을 주므로 text나 varchar로 변경)
-            builder.Property(e => e.FileData).HasColumnType("text").HasColumnName("filedata");
+            builder.Property(e => e.FileData).HasColumnType("longtext").HasColumnName("filedata");
             //builder.Property(e => e.FileData).HasColumnType("longblob").HasColumnName("filedata");
             builder.Property(e => e.CreatedAt).HasColumnName("createdat");
         }

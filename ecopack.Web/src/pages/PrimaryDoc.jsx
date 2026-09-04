@@ -5,6 +5,7 @@ import {
     UploadEvdDoc,
     DeleteEvdDoc,
 } from '../api/primaryDoc';
+import { fillFromMember } from '../utils/memberProfile';
 
 /**
  * DOC (적합성 선언서) — PPWR 적합성 선언서 화면 / primary_doc 테이블
@@ -191,6 +192,22 @@ const DEFAULTS = {
         '본 선언서는 제조자의 전적인 책임하에 발행됩니다.',
 };
 
+/**
+ * 회원가입(customer) 정보로 자동으로 채울 항목.
+ * { 적합성선언서 컬럼 : customer 컬럼 }
+ */
+const MEMBER_FIELDS = {
+    bizNm:   'bizNm',     // 1. 회사명
+    repNm:   'repNm',     // 1. 담당자
+    roleNm:  'roleNm',    // 1. 직책
+    emlAddr: 'emlAddr',   // 1. 이메일
+    mbTelNo: 'mblTelNo',  // 1. 전화 (customer 는 mblTelNo)
+    cntryNm: 'cntryNm',   // 2. 제조국
+    bizNm2:  'bizNm',     // 7. 제조자
+    repNm2:  'repNm',     // 7. 대표자/책임자 이름
+    roleNm2: 'roleNm',    // 7. 대표자/책임자 직책
+};
+
 /** 부속서 라벨 (1→부속서 A … 8→부속서 H) */
 const annexLabel = (slot) => `부속서 ${String.fromCharCode(64 + slot)}`;
 
@@ -338,10 +355,12 @@ export default function PrimaryDoc() {
                 const res = await GetPrimaryDoc(prjId);
                 if (!alive) return;
 
-                const merged = mergeWithDefaults(res?.data ?? null);
+                let merged = mergeWithDefaults(res?.data ?? null);
                 merged.prjId = prjId;
                 if (!merged.prjfNm) merged.prjfNm = prjNm;
                 if (!merged.revNo) merged.revNo = 'Rev.01';
+                // 비어 있는 제조자·담당자 항목은 로그인한 회원정보로 채운다
+                merged = fillFromMember(merged, MEMBER_FIELDS);
 
                 const counts = detectRowCounts(merged);
                 setForm(merged);

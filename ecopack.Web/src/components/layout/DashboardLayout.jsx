@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthProvider';
 import SidebarNav from './SidebarNav';
 import AssistantPanel from './AssistantPanel';
 import Prjdefault from '../../pages/Prjdefault';
@@ -8,11 +9,19 @@ import Prjtemplate from '../../pages/Prjtemplate';
 import Prjeval from '../../pages/Prjeval';
 import PrimaryTd from '../../pages/PrimaryTd';
 import PrimaryDoc from '../../pages/PrimaryDoc';
+import MaterialProperty from '../../pages/MaterialProperty';
+import ProcessChart from '../../pages/ProcessChart';
+import CarbonEmission from '../../pages/CarbonEmission';
+import NationRegulation from '../../pages/NationRegulation';
+import DesignTemplate from '../../pages/DesignTemplate';
+import ProfilePage from '../../pages/ProfilePage';
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
+    const { user, updateProfile } = useAuth();
     const [currentMenu, setCurrentMenu] = useState('project-history');
     const [isCollapsed, setIsCollapsed] = useState(false); // 사이드바 접힘 상태
+    const [showProfile, setShowProfile] = useState(false); // 회원정보 수정 모달
 
     // state와 useEffect를 쓰지 않고, 렌더링될 때 세션에서 바로 읽어옵니다.
     // (이렇게 하면 setState 연쇄 호출 경고와 'assigned but never used' 경고가 원천 차단됩니다)
@@ -48,6 +57,16 @@ const DashboardLayout = ({ onLogout }) => {
                 return <PrimaryTd onSelectItem={setCurrentMenu} />;
             case 'doc': // DOC 적합성 선언서 — primary_doc
                 return <PrimaryDoc onSelectItem={setCurrentMenu} />;
+            case 'material': // 라이브러리 > 소재물성 — if001
+                return <MaterialProperty onSelectItem={setCurrentMenu} />;
+            case 'process-map': // 라이브러리 > 공정도 — if003 / if003a
+                return <ProcessChart onSelectItem={setCurrentMenu} />;
+            case 'carbon': // 라이브러리 > 탄소배출량 — if005
+                return <CarbonEmission onSelectItem={setCurrentMenu} />;
+            case 'regulation': // 라이브러리 > 환경규제 — if004
+                return <NationRegulation onSelectItem={setCurrentMenu} />;
+            case 'template': // 라이브러리 > 디자인 템플릿 — if002 / if002a
+                return <DesignTemplate onSelectItem={setCurrentMenu} />;
             default:
                 return (
                     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box' }}>
@@ -92,6 +111,7 @@ const DashboardLayout = ({ onLogout }) => {
                     onLogout={onLogout}
                     isCollapsed={isCollapsed}
                     onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+                    onOpenProfile={() => setShowProfile(true)}
                 />
             </aside>
 
@@ -149,6 +169,15 @@ const DashboardLayout = ({ onLogout }) => {
             <aside className="dashboard-panel assistant-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
                 <AssistantPanel />
             </aside>
+
+            {/* 회원정보 수정 — 사이드바의 톱니바퀴 버튼으로 열린다 */}
+            {showProfile && (
+                <ProfilePage
+                    repCustId={user?.repCustId}
+                    onClose={() => setShowProfile(false)}
+                    onSaved={(profile) => updateProfile?.(profile)}
+                />
+            )}
         </div>
     );
 };

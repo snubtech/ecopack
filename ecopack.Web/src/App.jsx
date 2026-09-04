@@ -1,14 +1,19 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { AuthProvider, useAuth } from './context/AuthProvider'
 import DashboardLayout from './components/layout/DashboardLayout'
 import LoginPage from './pages/LoginPage.jsx'
+import JoinPage from './pages/JoinPage.jsx'
 import './styles/global.css'
 import './styles/dashboard.css'
 
 function AppContent() {
     const { isAuthenticated, loading, logout } = useAuth()
     const timerRef = useRef(null)
+
+    // 로그인 화면 ↔ 회원가입 화면 전환 (로그인 전에만 쓰인다)
+    const [showJoin, setShowJoin] = useState(false)
+    const [joinedId, setJoinedId] = useState('')
 
     useEffect(() => {
         // 💡 handleLogout을 useEffect 내부로 이동시킵니다.
@@ -61,7 +66,16 @@ function AppContent() {
     }
 
     if (!isAuthenticated) {
-        return <LoginPage />
+        // 회원가입을 마치면 로그인 화면으로 돌아와 가입한 아이디로 바로 로그인한다
+        if (showJoin) {
+            return (
+                <JoinPage
+                    onDone={(id) => { setJoinedId(id); setShowJoin(false) }}
+                    onCancel={() => setShowJoin(false)}
+                />
+            )
+        }
+        return <LoginPage onJoin={() => setShowJoin(true)} joinedId={joinedId} />
     }
 
     // 외부에서 쓸 수 있도록 별도의 핸들러가 필요하다면 여기서 선언하거나 처리할 수 있습니다.
