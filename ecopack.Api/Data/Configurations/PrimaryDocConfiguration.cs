@@ -1,3 +1,25 @@
+/**
+ * ==============================================================================
+ * [프로그램 전체 흐름 및 구조 요약] - PrimaryDocConfiguration (primary_doc 테이블 매핑)
+ * ==============================================================================
+ * 
+ * 1. 하는 일
+ *    - 엔티티 PrimaryDoc 을 실제 테이블 primary_doc 에 이어 줍니다.
+ *    - 실제 DB의 SHOW CREATE TABLE 결과를 그대로 옮겨 적었습니다(2026-09).
+ * 
+ * 2. 처음 만들어졌을 때 잘못돼 있던 점
+ *    - primary_td 와 같은 문제였습니다. 테이블명이 primarydoc 이고 컬럼명이 전부 소문자였습니다.
+ * 
+ * 3. 맞춘 내용
+ *    - 테이블명 primary_doc, 컬럼명은 실제와 같은 대소문자(pkg1DocId, soCHvyMetLmtCmplCntn1 …)
+ *    - 문자열은 varchar 이며 길이를 실제 컬럼과 맞췄습니다.
+ *      길이 제한이 있으므로 화면에서도 같은 길이로 입력을 제한합니다.
+ *    - sbstTot 는 DB 기본값 '총합', lastWrtDt 는 date 타입에 기본값 (curdate()) 을 따릅니다.
+ * 
+ * 4. 참고
+ *    - 컬럼별 한글 설명은 엔티티 PrimaryDoc.cs 의 주석에 적혀 있습니다.
+ * ==============================================================================
+ */
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ecopack.Api.Data;
