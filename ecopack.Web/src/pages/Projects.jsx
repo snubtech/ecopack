@@ -1,3 +1,38 @@
+/**
+ * ==============================================================================
+ * [프로그램 전체 흐름 및 구조 요약] - Projects 컴포넌트 (프로젝트 현황)
+ * ==============================================================================
+ * 
+ * 1. 화면 구성
+ *    - 좌측 사이드바의 [프로젝트 현황] 으로 들어오는 첫 화면입니다.
+ *    - 공지 배너, [신규 프로젝트 작성] 버튼, 최근 프로젝트 이력 표로 이루어집니다.
+ * 
+ * 2. 초기 데이터 로드 (useEffect)
+ *    - 로그인한 회원이 만든 프로젝트만 서버에서 받아옵니다.
+ *    - 다른 회원의 프로젝트는 목록에 나오지 않습니다(서버에서 걸러냄).
+ * 
+ * 3. 신규 프로젝트 작성 (모달 / handleSave)
+ *    - 프로젝트 이름, 수출국가 1곳, 포장 차수(복수 선택), 내용, 담당자를 입력받습니다.
+ *    - 고른 포장 차수 개수만큼 행을 나눠 저장합니다.
+ *      첫 저장에서 받은 프로젝트 번호를 나머지 차수도 함께 쓰기 때문에
+ *      한 프로젝트가 차수별로 여러 행을 갖게 됩니다.
+ *    - 회사명·직책·국가·연락처 같은 회원정보는 화면에서 받지 않습니다.
+ *      서버가 로그인한 회원(customer)에서 읽어 프로젝트에 함께 남깁니다.
+ *      담당자를 비워 두면 회원가입 때 입력한 담당자명이 들어갑니다.
+ * 
+ * 4. 이력 표에서 다른 화면으로 이동 (goToScreen)
+ *    - 고른 프로젝트를 세션에 담은 뒤 해당 화면으로 넘어갑니다.
+ *      담는 값: currentPrjId / currentPrjNm / currentPackLevel / currentExportCountry
+ *    - [관리] 수정 → 기본사항, [TD] 수정 → 기술문서, [DOC] 수정 → 적합성 선언서
+ *    - 기술문서와 적합성 선언서는 판매(1차) 포장 기준이라
+ *      1차 행에서만 버튼이 눌리고 2·3차 행에서는 비활성으로 둡니다.
+ * 
+ * 5. 화면 렌더링 (JSX)
+ *    - 이력 표는 날짜·프로젝트명·프로젝트 번호·수출국가·포장 차수·담당자·진행상태와
+ *      관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
+ *    - 수출국가는 prdExpCntryNm1~8 중 'Y' 인 항목을 찾아 이름으로 보여줍니다.
+ * ==============================================================================
+ */
 import { useEffect, useState } from 'react';
 import { getProjects, createProject } from '../api/projects';
 
@@ -119,10 +154,14 @@ export default function Projects({ onSelectItem }) {
                 const newDto = {
                     prjId: sharedPrjId,
                     prjNm: formData.prjNm,
-                    repNm: formData.repNm || '담당자미정',
+                    // 담당자를 비워 두면 서버가 회원가입 때 입력한 담당자명으로 채운다
+                    repNm: formData.repNm || '',
                     Prjmemo: formData.projectContent, // 프로젝트 내용
                     PackLevel: level,
                     prjuserid: userId,
+                    // 로그인한 회원의 고객 ID. 서버가 이 값으로 customer 를 찾아
+                    // 회사명·직책·국가·연락처 등 나머지 회원정보를 프로젝트에 함께 남긴다.
+                    repCustId: userId,
                     prdExpCntryNm1: countryDto.prdExpCntryNm1,
                     prdExpCntryNm2: countryDto.prdExpCntryNm2,
                     prdExpCntryNm3: countryDto.prdExpCntryNm3,
@@ -159,7 +198,9 @@ export default function Projects({ onSelectItem }) {
     };
 
     // 7. 이력 테이블에서 [수정] 버튼을 눌렀을 때 실행되는 핸들러 (matchedCountry를 인자로 받도록 수정)
-    const handleEditClick = (item, matchedCountry) => {
+    // 선택한 프로젝트를 세션에 담고 지정한 화면으로 이동한다.
+    // 기본사항(prjdefault) / 기술문서(td) / 적합성 선언서(doc) 가 모두 이 정보를 기준으로 동작한다.
+    const goToScreen = (item, matchedCountry, menuId) => {
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', item.prjNm);
         sessionStorage.setItem('currentPrjId', item.prjId);
@@ -170,17 +211,26 @@ export default function Projects({ onSelectItem }) {
             prjNm: item.prjNm,
             prjId: item.prjId,
             packLevel: item.packLevel,
-            exportCountry: matchedCountry
+            exportCountry: matchedCountry,
+            이동화면: menuId
         });
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
             console.log("onSelectItem 함수 실행됨!");
-            onSelectItem('prjdefault'); // 또는 부모가 인식하는 화면 이름
+            onSelectItem(menuId);
         } else {
             console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
         }
     };
+
+    // [관리] 열의 수정 버튼 — 기본사항 화면으로 이동
+    const handleEditClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'prjdefault');
+
+    // [TD] / [DOC] 열의 수정 버튼 — 기술문서 / 적합성 선언서 화면으로 이동
+    // 두 문서는 1차(판매) 포장 기준이라 1차 행에서만 열 수 있게 한다.
+    const handleTdClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'td');
+    const handleDocClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'doc');
 
     return (
         <div style={{ padding: '40px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -224,12 +274,14 @@ export default function Projects({ onSelectItem }) {
                             <th style={{ padding: '4px 8px' }}>담당자</th>
                             <th style={{ padding: '4px 8px' }}>진행상태</th>
                             <th style={{ padding: '4px 8px', textAlign: 'center' }}>관리</th>
+                            <th style={{ padding: '4px 8px', textAlign: 'center' }}>TD</th>
+                            <th style={{ padding: '4px 8px', textAlign: 'center' }}>DOC</th>
                         </tr>
                     </thead>
                     <tbody>
                         {projectList.length === 0 ? (
                             <tr>
-                                <td colSpan="8" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
+                                <td colSpan="10" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>
                                     등록된 프로젝트 이력이 없습니다.
                                 </td>
                             </tr>
@@ -242,6 +294,9 @@ export default function Projects({ onSelectItem }) {
                                         matchedCountry = country.label;
                                     }
                                 });
+
+                                // 기술문서(TD)와 적합성 선언서(DOC)는 판매(1차) 포장 기준으로만 작성한다
+                                const isPrimary = String(item.packLevel) === '1';
                                 return (
                                     <tr key={`${item.prjId}-${item.packLevel || index}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjFcrtDt || '2026-04-10'}</td>
@@ -261,6 +316,26 @@ export default function Projects({ onSelectItem }) {
                                             <button
                                                 onClick={() => handleEditClick(item, matchedCountry)}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
+                                            >
+                                                수정
+                                            </button>
+                                        </td>
+                                        <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => handleTdClick(item, matchedCountry)}
+                                                disabled={!isPrimary}
+                                                title={isPrimary ? '기술문서 작성/수정' : '기술문서는 판매(1차) 포장에서만 작성합니다'}
+                                                style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
+                                            >
+                                                수정
+                                            </button>
+                                        </td>
+                                        <td style={{ padding: '7px 8px', textAlign: 'center' }}>
+                                            <button
+                                                onClick={() => handleDocClick(item, matchedCountry)}
+                                                disabled={!isPrimary}
+                                                title={isPrimary ? '적합성 선언서 작성/수정' : '적합성 선언서는 판매(1차) 포장에서만 작성합니다'}
+                                                style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
                                             >
                                                 수정
                                             </button>

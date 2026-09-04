@@ -33,6 +33,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
 using ecopack.Api.Dtos;
+using ecopack.Api.Support;
 
 namespace ecopack.Api.Controllers
 {
@@ -72,11 +73,17 @@ namespace ecopack.Api.Controllers
         // 해당 프로젝트의 적합성선언서를 조회한다. 없으면 빈 DTO(신규 작성용)를 돌려준다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("Get")]
-        public async Task<IActionResult> Get([FromQuery] string prjId)
+        public async Task<IActionResult> Get([FromQuery] string prjId, [FromQuery] string? repCustId)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
                 return BadRequest(new { success = false, message = "필수 파라미터(prjId)가 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서만 열 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             try
@@ -116,11 +123,17 @@ namespace ecopack.Api.Controllers
         // 신규/수정 통합 저장(Upsert). 저장 시 lastWrtDt(발행일)를 현재 날짜로 갱신한다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Save")]
-        public async Task<IActionResult> Save([FromBody] PrimaryDocDto dto)
+        public async Task<IActionResult> Save([FromBody] PrimaryDocDto dto, [FromQuery] string? repCustId)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.PrjId))
             {
                 return BadRequest(new { success = false, message = "필수 값(prjId)이 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서만 저장할 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             try
@@ -196,7 +209,8 @@ namespace ecopack.Api.Controllers
         public async Task<IActionResult> UploadEvdDoc(
             [FromForm] string prjId,
             [FromForm] int slot,
-            IFormFile file)
+            IFormFile file,
+            [FromQuery] string? repCustId)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
@@ -213,6 +227,12 @@ namespace ecopack.Api.Controllers
             if (file.Length > MaxEvdDocBytes)
             {
                 return BadRequest(new EvdDocUploadResultDto { Success = false, Message = "파일 크기는 20MB를 넘을 수 없습니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서에만 파일을 올릴 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             try
@@ -276,11 +296,17 @@ namespace ecopack.Api.Controllers
         // 근거문서 슬롯을 비운다. (물리 파일도 함께 삭제)
         // ─────────────────────────────────────────────────────────────
         [HttpDelete("DeleteEvdDoc")]
-        public async Task<IActionResult> DeleteEvdDoc([FromQuery] string prjId, [FromQuery] int slot)
+        public async Task<IActionResult> DeleteEvdDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
         {
             if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > EvdDocSlotCount)
             {
                 return BadRequest(new { success = false, message = "prjId와 slot(1~8)이 필요합니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서에서만 파일을 지울 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             try

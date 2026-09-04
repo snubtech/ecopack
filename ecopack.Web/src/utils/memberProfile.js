@@ -52,3 +52,23 @@ export function fillFromMember(form, mapping) {
     });
     return next;
 }
+
+/**
+ * 로그인한 회원의 고객 ID(repCustId)를 꺼낸다.
+ * 프로젝트와 문서는 만든 사람만 볼 수 있으므로,
+ * 서버에 조회·저장을 요청할 때 이 값을 함께 보내 본인 것인지 확인받는다.
+ *
+ * @returns {string} 고객 ID (없으면 빈 문자열)
+ */
+export function getCurrentCustomerId() {
+    try {
+        const raw = sessionStorage.getItem('prjuserid');
+        if (!raw) return '';
+        // 예전 형식(문자열만 저장)과 지금 형식(객체)을 모두 받아 준다
+        if (!raw.startsWith('{')) return raw;
+        return JSON.parse(raw)?.repCustId ?? '';
+    } catch (e) {
+        console.error('로그인 정보를 불러오는 중 오류:', e);
+        return '';
+    }
+}
