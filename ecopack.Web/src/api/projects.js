@@ -45,9 +45,21 @@ export async function GetProjectDetail(prjId, packLevel) {
 }
 
 /**
-* 4. 프로젝트 상세 정보 저장 함수
+* 6. 프로젝트 상세 정보 저장 함수
 */
 export async function templateUpdate(dto) {
     const response = await axios.post('/api/Projects/templateUpdate', dto);
+    return response.data;
+}
+
+
+/**
+ * 7. 최신 평가지 문항 조회 함수 (ProjectevalController 연동)
+ * - 백엔드의 [HttpGet("GetLatestEvalQuestions")]에 맞춰 호출합니다.
+ */
+export async function getLatestEvalQuestions(packLevel, appliedMaterial) {
+    const response = await axios.get('/api/Projecteval/GetLatestEvalQuestions', {
+        params: { packLevel, appliedMaterial }
+    });
     return response.data;
 }

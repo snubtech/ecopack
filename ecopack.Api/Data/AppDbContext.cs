@@ -19,6 +19,9 @@ namespace ecopack.Api.Data
         public DbSet<If004> If004 => Set<If004>();
         public DbSet<If005> If005 => Set<If005>();
         public DbSet<If100> If100 => Set<If100>();
+        public DbSet<If200> If200s => Set<If200>();
+        public DbSet<AiPkgEvalInfoBsc> AiPkgEvalInfoBscs => Set<AiPkgEvalInfoBsc>();
+
         public DbSet<PrimaryDoc> PrimaryDoc => Set<PrimaryDoc>();
         public DbSet<PrimaryPkg> PrimaryPkg => Set<PrimaryPkg>();
         public DbSet<PrimaryTd> PrimaryTd => Set<PrimaryTd>();

@@ -5,6 +5,7 @@ import Prjdefault from '../../pages/Prjdefault';
 //import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
 import Prjtemplate from '../../pages/Prjtemplate'; 
+import Prjeval from '../../pages/Prjeval';
 import PrimaryTd from '../../pages/PrimaryTd';
 import PrimaryDoc from '../../pages/PrimaryDoc';
 import MaterialProperty from '../../pages/MaterialProperty';
@@ -44,7 +45,9 @@ const DashboardLayout = ({ onLogout }) => {
                 return <Prjdefault onSelectItem={setCurrentMenu} />;
             case 'prjtemplate': // 'prjtemplate'로 와도 Prjdefault 컴포넌트를 띄운다!
                 return <Prjtemplate onSelectItem={setCurrentMenu} />;
-            case 'td': // 기술문서(모듈 A) — primary_td
+            case 'prjeval': // 'Prjeval'로 와도 Prjeval 컴포넌트를 띄운다!
+                return <Prjeval onSelectItem={setCurrentMenu} />;
+            case 'td': // 기술문서 — primary_td
                 return <PrimaryTd onSelectItem={setCurrentMenu} />;
             case 'doc': // DOC 적합성 선언서 — primary_doc
                 return <PrimaryDoc onSelectItem={setCurrentMenu} />;
