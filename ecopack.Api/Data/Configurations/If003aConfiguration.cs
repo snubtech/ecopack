@@ -22,9 +22,9 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.MatType).HasMaxLength(50).HasColumnName("mattype");
             builder.Property(e => e.MatComp).HasMaxLength(50).HasColumnName("matcomp");
             builder.Property(e => e.MatForm).HasMaxLength(50).HasColumnName("matform");
-            builder.Property(e => e.MemoImg).HasMaxLength(255).HasColumnName("memoimg");
+            builder.Property(e => e.MemoImg).HasColumnType("longtext").HasColumnName("memoimg");
             builder.Property(e => e.FileNm).HasMaxLength(255).HasColumnName("filenm");
-            builder.Property(e => e.FileData).HasColumnType("longblob").HasColumnName("filedata");
+            builder.Property(e => e.FileData).HasColumnType("longtext").HasColumnName("filedata");
             builder.Property(e => e.CreatedAt).HasColumnName("createdat");
         }
     }

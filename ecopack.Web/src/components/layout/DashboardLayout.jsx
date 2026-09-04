@@ -7,6 +7,9 @@ import Projects from '../../pages/Projects';
 import Prjtemplate from '../../pages/Prjtemplate'; 
 import PrimaryTd from '../../pages/PrimaryTd';
 import PrimaryDoc from '../../pages/PrimaryDoc';
+import MaterialProperty from '../../pages/MaterialProperty';
+import ProcessChart from '../../pages/ProcessChart';
+import CarbonEmission from '../../pages/CarbonEmission';
 import { navigationGroups } from '../../config/navigation';
 
 const DashboardLayout = ({ onLogout }) => {
@@ -45,6 +48,12 @@ const DashboardLayout = ({ onLogout }) => {
                 return <PrimaryTd onSelectItem={setCurrentMenu} />;
             case 'doc': // DOC 적합성 선언서 — primary_doc
                 return <PrimaryDoc onSelectItem={setCurrentMenu} />;
+            case 'material': // 라이브러리 > 소재물성 — if001
+                return <MaterialProperty onSelectItem={setCurrentMenu} />;
+            case 'process-map': // 라이브러리 > 공정도 — if003 / if003a
+                return <ProcessChart onSelectItem={setCurrentMenu} />;
+            case 'carbon': // 라이브러리 > 탄소배출량 — if005
+                return <CarbonEmission onSelectItem={setCurrentMenu} />;
             default:
                 return (
                     <div style={{ width: '100%', height: '100%', boxSizing: 'border-box' }}>
