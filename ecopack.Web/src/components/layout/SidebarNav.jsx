@@ -10,6 +10,15 @@ function SettingsIcon() {
     );
 }
 
+function PowerIcon() {
+    return (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+            <line x1="12" y1="2" x2="12" y2="12" />
+        </svg>
+    );
+}
+
 function HamburgerIcon() {
     return (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -20,11 +29,12 @@ function HamburgerIcon() {
     );
 }
 
-export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCollapsed, onToggleCollapse }) {
+export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCollapsed, onToggleCollapse, onOpenProfile }) {
     const { user } = useAuth();
 
-    // 💡 [수정 포인트] user 객체 안의 repCustId를 최우선으로 가져오고, 없으면 기본값 '사용자'를 띄웁니다.
-    const displayName = user?.repCustId || user?.companyName || user?.userName || '사용자';
+    // 아이디는 로그인 계정, 이름은 회원가입 때 입력한 담당자명(없으면 회사명)을 쓴다.
+    const loginId = user?.repCustId || '사용자';
+    const memberName = user?.profile?.repNm || user?.profile?.bizNm || '';
 
     const handleLogout = () => {
         // 💡 무조건 세션 스토리지와 토큰을 먼저 깔끔하게 비워줍니다!
@@ -41,6 +51,8 @@ export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCol
     };
 
     return (
+        <>
+        <style>{USER_ACTION_STYLES}</style>
         <aside
             className={`dashboard-panel sidebar-nav ${isCollapsed ? 'collapsed' : ''}`}
             style={{
@@ -90,22 +102,33 @@ export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCol
             {!isCollapsed && (
                 <div className="user-card" style={{ flexShrink: 0 }}>
                     <div className="user-card-top">
-                        <div className="user-avatar">{displayName.slice(0, 1)}</div>
+                        <div className="user-avatar">{(memberName || loginId).slice(0, 1)}</div>
                         <div className="user-meta">
-                            <strong>{displayName}</strong>
-                            <button
-                                type="button"
-                                className="icon-button"
-                                aria-label="설정"
-                                title="로그아웃"
-                                onClick={handleLogout}
-                            >
-                                <SettingsIcon />
-                            </button>
+                            <strong>{loginId}</strong>
+                            <span className="user-actions">
+                                <button
+                                    type="button"
+                                    className="icon-button"
+                                    aria-label="회원정보 수정"
+                                    title="회원정보 수정"
+                                    onClick={onOpenProfile}
+                                >
+                                    <SettingsIcon />
+                                </button>
+                                <button
+                                    type="button"
+                                    className="icon-button icon-button-power"
+                                    aria-label="로그아웃"
+                                    title="로그아웃"
+                                    onClick={handleLogout}
+                                >
+                                    <PowerIcon />
+                                </button>
+                            </span>
                         </div>
                     </div>
                     <p className="user-welcome">
-                        Welcome {displayName}.
+                        Welcome {memberName || loginId}.
                     </p>
                 </div>
             )}
@@ -134,5 +157,14 @@ export default function SidebarNav({ activeItemId, onSelectItem, onLogout, isCol
                 ))}
             </nav>
         </aside>
+        </>
     );
 }
+
+/** 유저 카드의 아이콘 버튼(회원정보 수정 / 로그아웃) 배치 */
+const USER_ACTION_STYLES = `
+.user-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.user-actions { display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.icon-button-power { color: #b91c1c; }
+.icon-button-power:hover { color: #991b1b; }
+`;

@@ -50,6 +50,16 @@ export function AuthProvider({ children }) {
             return userData
         },
 
+        // 🔄 [회원정보 갱신]
+        // 회원정보 수정 후, 화면(사이드바 이름 등)과 세션에 새 프로필을 반영한다.
+        updateProfile(profile) {
+            setUser((prev) => {
+                const next = { ...(prev || {}), profile }
+                sessionStorage.setItem('prjuserid', JSON.stringify(next))
+                return next
+            })
+        },
+
         // 🚪 [로그아웃 함수]
         async logout() {
             await authApi.logout()

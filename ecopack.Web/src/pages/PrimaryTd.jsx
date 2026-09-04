@@ -5,6 +5,7 @@ import {
     UploadAtchDoc,
     DeleteAtchDoc,
 } from '../api/primaryTd';
+import { fillFromMember } from '../utils/memberProfile';
 
 /**
  * 기술문서 — 1차포장 기술문서 화면 / primary_td 테이블
@@ -148,6 +149,20 @@ const DEFAULTS = {
     qltMngFreqCntn3: '100%',
     qltMngFreqCntn4: 'LOT 별',
     qltMngFreqCntn5: 'LOT 별',
+};
+
+/**
+ * 회원가입(customer) 정보로 자동으로 채울 항목.
+ * { 기술문서 컬럼 : customer 컬럼 }
+ */
+const MEMBER_FIELDS = {
+    bizNm:   'bizNm',     // 3. 제조사
+    cntryNm: 'cntryNm',   // 4. 제조국
+    bizNm2:  'bizNm',     // 12. 회사명
+    repNm:   'repNm',     // 12. 담당자
+    roleNm:  'roleNm',    // 12. 직책
+    emlAddr: 'emlAddr',   // 12. 이메일
+    mbTelNo: 'mblTelNo',  // 12. 전화번호 (customer 는 mblTelNo)
 };
 
 /** [default] — 슬롯 번호를 Annex 알파벳 라벨로 변환 (1→Annex A … 8→Annex H) */
@@ -311,10 +326,12 @@ export default function PrimaryTd() {
                 const res = await GetPrimaryTd(prjId);
                 if (!alive) return;
 
-                const merged = mergeWithDefaults(res?.data ?? null);
+                let merged = mergeWithDefaults(res?.data ?? null);
                 merged.prjId = prjId;
                 if (!merged.prjfNm) merged.prjfNm = prjNm;
                 if (!merged.revNo) merged.revNo = 'Rev.01';
+                // 비어 있는 제조사·담당자 항목은 로그인한 회원정보로 채운다
+                merged = fillFromMember(merged, MEMBER_FIELDS);
 
                 const counts = detectRowCounts(merged);
 
