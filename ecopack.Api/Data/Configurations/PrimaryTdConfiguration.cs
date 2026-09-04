@@ -1,3 +1,25 @@
+/**
+ * ==============================================================================
+ * [프로그램 전체 흐름 및 구조 요약] - PrimaryTdConfiguration (primary_td 테이블 매핑)
+ * ==============================================================================
+ * 
+ * 1. 하는 일
+ *    - 엔티티 PrimaryTd 를 실제 테이블 primary_td 에 이어 줍니다.
+ *    - 실제 DB의 SHOW CREATE TABLE 결과를 그대로 옮겨 적었습니다(2026-09).
+ * 
+ * 2. 처음 만들어졌을 때 잘못돼 있던 점
+ *    - 테이블명이 primarytd 로 되어 있어 실제 테이블(primary_td)을 찾지 못했습니다.
+ *    - 컬럼명도 전부 소문자로 적혀 있었고, 문자열 길이도 실제와 달랐습니다.
+ * 
+ * 3. 맞춘 내용
+ *    - 테이블명 primary_td, 컬럼명은 실제와 같은 대소문자(prjId, prdExplPhrsCntn …)
+ *    - 문자열은 text, 중량·비율은 decimal(10,2), BOM 수량은 int
+ *    - lastWrtDtm 은 DB 기본값 CURRENT_TIMESTAMP 를 따릅니다.
+ * 
+ * 4. 참고
+ *    - 컬럼별 한글 설명은 엔티티 PrimaryTd.cs 의 주석에 적혀 있습니다.
+ * ==============================================================================
+ */
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using ecopack.Api.Data;
