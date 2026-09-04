@@ -24,6 +24,7 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.asmtShtHdrId).HasMaxLength(50).HasColumnName("asmtShtHdrid");
             builder.Property(e => e.AsmtQstId).HasMaxLength(50).HasColumnName("asmtQstid");
             builder.Property(e => e.AsmtQstItemId).HasMaxLength(50).HasColumnName("asmtQstItemId");
+            builder.Property(e => e.NextAsmtQstId).HasMaxLength(50).HasColumnName("nextAsmtQstId"); // 💡 다음 질문 ID 컬럼 매핑 추가
             builder.Property(e => e.PrtAsmtQstItemId).HasMaxLength(50).HasColumnName("prtAsmtQstItemId");
 
             builder.Property(e => e.AsmtQstNm).HasColumnType("text").HasColumnName("asmtQstNm");

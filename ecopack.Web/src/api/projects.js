@@ -45,13 +45,12 @@ export async function GetProjectDetail(prjId, packLevel) {
 }
 
 /**
-* 6. 프로젝트 상세 정보 저장 함수
-*/
+ * 6. 프로젝트 상세 정보 저장 함수
+ */
 export async function templateUpdate(dto) {
     const response = await axios.post('/api/Projects/templateUpdate', dto);
     return response.data;
 }
-
 
 /**
  * 7. 최신 평가지 문항 조회 함수 (ProjectevalController 연동)
@@ -63,3 +62,28 @@ export async function getLatestEvalQuestions(packLevel, appliedMaterial) {
     });
     return response.data;
 }
+
+/**
+ * 8. 최신 평가지 문항 저장 함수 (ProjectevalController 연동)
+ * - 백엔드의 [HttpPost("SaveEvalResults")]에 맞춰 호출합니다.
+ */
+export async function saveEvalResults(saveDtos) {
+    const response = await axios.post('/api/Projecteval/SaveEvalResults', saveDtos);
+    return response.data;
+}
+
+/**
+ * 9. 저장된 평가 결과 조회 함수 (ProjectevalController 연동)
+ * - 백엔드의 [HttpGet("GetSavedEvalResults")]에 맞춰 호출합니다.
+ */
+export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
+    try {
+        const response = await axios.get('/api/projecteval/GetSavedEvalResults', {
+            params: { prjId, prjUserId, packLevel }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('저장된 평가 결과 조회 실패:', error);
+        return [];
+    }
+};

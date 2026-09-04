@@ -63,6 +63,11 @@ namespace ecopack.Api.Data
         public string? AsmtQstItemId { get; set; }
 
         /// <summary>
+        /// 다음 평가 질문 ID
+        /// </summary>
+        public string? NextAsmtQstId { get; set; }
+
+        /// <summary>
         /// 상위 보기 ID (분기/트리 구조용)
         /// </summary>
         public string? PrtAsmtQstItemId { get; set; }
