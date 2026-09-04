@@ -87,3 +87,18 @@ export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
         return [];
     }
 };
+/**
+ * 10. 모의평가 최종 결과 요약 및 산출 조회 함수 (ProjectevalController 연동)
+ * - 저장된 답안을 바탕으로 서버에서 합계 및 영역별 평가 결과 데이터를 연산하여 가져옵니다.
+ */
+export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
+    try {
+        const { data } = await axios.get('/api/projecteval/GetEvalSummary', {
+            params: { prjId, prjUserId, packLevel }
+        });
+        return data;
+    } catch (error) {
+        console.error('평가 결과 요약 조회 실패:', error);
+        return null;
+    }
+};

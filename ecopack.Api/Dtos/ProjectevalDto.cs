@@ -1,3 +1,4 @@
+using ecopack.Api.Data; // 💡 AiPkgEvalInfoBsc 엔티티가 있는 네임스페이스 추가
 namespace ecopack.Api.Dtos
 {
     /// <summary>
@@ -47,5 +48,14 @@ namespace ecopack.Api.Dtos
         public string? asmtpoint { get; set; }
         public string? natRglAls { get; set; }
         public string? dsgn_recm_imp { get; set; }
+    }
+    /// <summary>
+    /// 모의평가 종합점수 조회 DTO
+    /// </summary>
+    public class AiPkgEvalSummaryResponseDto
+    {
+        public int TotalScore { get; set; } // 획득 점수 합계 (예: 89)
+        public int MaxScore { get; set; }   // 만점 기준 (예: 100)
+        public List<AiPkgEvalInfoBsc> SavedItems { get; set; } = new(); // 우측 상세 규제 카드용 데이터 리스트
     }
 }

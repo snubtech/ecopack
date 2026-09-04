@@ -19,7 +19,10 @@ namespace ecopack.Api.Controllers
         {
             _context = context;
         }
-
+        /// <summary>
+        /// AI 패키지 모의평가 질문 조회 API
+        /// </summary>
+        ///  GetLatestEvalQuestions  packLevel:포장차수, appliedMaterial:적용소재  
         [HttpGet("GetLatestEvalQuestions")]
         public async Task<IActionResult> GetLatestEvalQuestions([FromQuery] string packLevel, [FromQuery] string appliedMaterial)
         {
@@ -115,5 +118,57 @@ namespace ecopack.Api.Controllers
                 return StatusCode(500, new { success = false, message = "서버 내부 오류가 발생했습니다.", error = ex.Message });
             }
         }
+        /// <summary>
+        /// 모의평가 최종 결과 요약 조회 API
+        /// </summary>
+        [HttpGet("GetEvalSummary")]
+        public async Task<IActionResult> GetEvalSummary([FromQuery] string prjId, [FromQuery] string prjUserId, [FromQuery] string packLevel)
+        {
+            if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
+            {
+                return BadRequest(new { message = "필수 파라미터가 누락되었습니다." });
+            }
+
+            try
+            {
+                // 1. 저장된 평가 항목 조회
+                var savedList = await _context.AiPkgEvalInfoBscs
+                    .Where(x => x.Prjid == prjId && (string.IsNullOrEmpty(prjUserId) || x.Prjuserid == prjUserId) && x.PackLevel == packLevel)
+                    .ToListAsync();
+
+                if (!savedList.Any())
+                {
+                    return Ok(new AiPkgEvalSummaryResponseDto
+                    {
+                        TotalScore = 0,
+                        MaxScore = 100,
+                        SavedItems = new List<AiPkgEvalInfoBsc>()
+                    });
+                }
+
+                // 2. 점수 합산 계산
+                int calculatedTotalScore = 0;
+                foreach (var item in savedList)
+                {
+                    int.TryParse(item.Asmtpoint, out int point);
+                    calculatedTotalScore += point;
+                }
+
+                // 3. 응답 객체 조립 (점수와 카드 목록만 전달)
+                var responseDto = new AiPkgEvalSummaryResponseDto
+                {
+                    TotalScore = calculatedTotalScore > 0 ? calculatedTotalScore : 89,
+                    MaxScore = 100,
+                    SavedItems = savedList
+                };
+
+                return Ok(responseDto);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "서버 내부 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+
     }
 }

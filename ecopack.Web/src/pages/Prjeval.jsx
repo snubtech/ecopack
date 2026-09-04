@@ -214,9 +214,7 @@ function PrjevalPage({ onSelectItem }) {
 
     /**
      * ==============================================================================
-     * [초보자도 이해할 수 있는 아주 쉬운 복원 프로세스 설명]
-     * 
-     * 1. 화면이 처음 켜질 때 (useEffect)
+     * * 1. 화면이 처음 켜질 때 (useEffect)
      *    - 서버에 가서 두 가지 물건을 한꺼번에 받아와요.
      *      ① 원본 시험지 문제들 (getLatestEvalQuestions)
      *      ② 내가 예전에 체크해 뒀던 답변 기록들 (getSavedEvalResults)
@@ -421,7 +419,7 @@ function PrjevalPage({ onSelectItem }) {
         try {
             alert('다음 단계로 이동합니다.');
             if (typeof onSelectItem === 'function') {
-                onSelectItem('nextStepKey');
+                onSelectItem('prjevalresult');
             }
         } catch (error) {
             console.error('다음 단계 이동 중 에러 발생:', error);
