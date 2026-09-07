@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getMaterialProperty, getMattypes } from '../api/commonCode';
 import { SaveProjectDetail, GetProjectDetail, deleteProject } from "../api/projects";
+import { getCurrentCustomerId } from '../utils/memberProfile';
 
 export default function Prjdefault({ onSelectItem }) {
     const [loading, setLoading] = useState(true);
@@ -88,6 +89,10 @@ export default function Prjdefault({ onSelectItem }) {
         const currentPrjId = sessionStorage.getItem('currentPrjId') || 'DEFAULT_PRJ_ID';
         const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
 
+        // ⚠️ 'prjuserid' 는 로그인 정보가 통째로 JSON 문자열로 들어 있는 세션 키라
+        //    그대로 보내면 값이 깨질 뿐 아니라, 세션이 비어 있을 때 'system' 같은
+        //    고정 문자열로 채워지면 다른 사람과 소유자가 겹치는 사고로 이어진다.
+        //    반드시 파싱된 실제 고객 ID(repCustId)를 사용한다.
         const dto = {
             prjId: currentPrjId,
             packLevel: currentPackLevel,
@@ -95,7 +100,7 @@ export default function Prjdefault({ onSelectItem }) {
             appliedMaterial: material,
             matUse: env,
             matType: matType,
-            prjuserid: sessionStorage.getItem('prjuserid') || 'system'
+            prjuserid: getCurrentCustomerId()
         };
 
         try {

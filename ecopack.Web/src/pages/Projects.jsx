@@ -35,6 +35,7 @@
  */
 import { useEffect, useState } from 'react';
 import { getProjects, createProject } from '../api/projects';
+import { getCurrentCustomerId } from '../utils/memberProfile';
 
 // 1. 세션 스토리지에 데이터 저장
 // sessionStorage.setItem('currentPrjNm');
@@ -136,9 +137,16 @@ export default function Projects({ onSelectItem }) {
             return;
         }
 
-        // 2. 세션에서 로그인한 사용자 아이디 가져오기 (없으면 기본값 'admin')
-        const rawUser = sessionStorage.getItem('prjuserid');
-        const userId = rawUser && rawUser.startsWith('{') ? JSON.parse(rawUser).repCustId : (rawUser || 'user');
+        // 2. 세션에서 로그인한 회원의 고객 ID를 가져온다.
+        //    ⚠️ 예전에는 값이 없을 때 'user' 라는 고정 문자열로 대신 채웠는데,
+        //    그렇게 만들어진 프로젝트는 세션이 꼬였던 다른 사람과 같은 소유자로 묶여
+        //    서로의 프로젝트가 보이거나 지워지는 사고로 이어졌다.
+        //    로그인 정보가 없으면 고정값으로 얼버무리지 말고 저장 자체를 막는다.
+        const userId = getCurrentCustomerId();
+        if (!userId) {
+            alert('로그인 정보를 확인할 수 없습니다. 다시 로그인한 뒤 시도해 주세요.');
+            return;
+        }
 
         // 3. 8개 국가 필드를 동적으로 'Y' 또는 'N' 매핑
         const countryDto = COUNTRIES.reduce((acc, country) => {
