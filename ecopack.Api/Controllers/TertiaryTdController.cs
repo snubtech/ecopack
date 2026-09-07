@@ -36,6 +36,7 @@
  */
 using System.Globalization;
 using System.Reflection;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
@@ -48,6 +49,8 @@ namespace ecopack.Api.Controllers
     /// 3차포장 기술문서(tertiary_td / 기술문서 모듈 A) 화면용 API.
     /// 라우트: api/TertiaryTd
     /// </summary>
+    // 이 컨트롤러의 모든 요청은 로그인(JWT)이 있어야 한다.
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class TertiaryTdController : ControllerBase
@@ -80,7 +83,7 @@ namespace ecopack.Api.Controllers
         // 해당 프로젝트의 기술문서를 조회한다. 없으면 빈 DTO(신규 작성용)를 돌려준다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("Get")]
-        public async Task<IActionResult> Get([FromQuery] string prjId, [FromQuery] string? repCustId)
+        public async Task<IActionResult> Get([FromQuery] string prjId)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
@@ -88,7 +91,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서만 열 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.GetRepCustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -118,7 +121,7 @@ namespace ecopack.Api.Controllers
         // 신규/수정 통합 저장(Upsert). 저장 시 lastWrtDtm 을 현재 타임스탬프로 갱신한다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Save")]
-        public async Task<IActionResult> Save([FromBody] TertiaryTdDto dto, [FromQuery] string? repCustId)
+        public async Task<IActionResult> Save([FromBody] TertiaryTdDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.PrjId))
             {
@@ -126,7 +129,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서만 저장할 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, User.GetRepCustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -194,8 +197,7 @@ namespace ecopack.Api.Controllers
         public async Task<IActionResult> UploadAtchDoc(
             [FromForm] string prjId,
             [FromForm] int slot,
-            IFormFile file,
-            [FromQuery] string? repCustId)
+            IFormFile file)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
@@ -215,7 +217,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서에만 파일을 올릴 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.GetRepCustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -281,7 +283,7 @@ namespace ecopack.Api.Controllers
         // 첨부문서 슬롯을 비운다. (물리 파일도 함께 삭제)
         // ─────────────────────────────────────────────────────────────
         [HttpDelete("DeleteAtchDoc")]
-        public async Task<IActionResult> DeleteAtchDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
+        public async Task<IActionResult> DeleteAtchDoc([FromQuery] string prjId, [FromQuery] int slot)
         {
             if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > AtchDocSlotCount)
             {
@@ -289,7 +291,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서에서만 파일을 지울 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.GetRepCustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }

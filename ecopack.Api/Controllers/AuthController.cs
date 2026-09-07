@@ -29,23 +29,28 @@
  *    - 요청에 담기지 않은 항목(null)은 기존 값을 그대로 둡니다.
  * ==============================================================================
  */
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
 using ecopack.Api.Dtos;
+using ecopack.Api.Support;
 
 namespace ecopack.Api.Controllers
 {
     /// <summary>
     /// 회원 인증 / 회원가입 / 회원정보 관리. 대상 테이블은 customer(고객기본).
     /// 라우트: api/auth
+    /// 로그인/아이디중복확인/회원가입은 로그인 전에 호출돼야 하므로 [AllowAnonymous].
+    /// 그 외(프로필 조회·수정)는 로그인한 본인 것만 만질 수 있도록 [Authorize]를 붙인다.
     /// </summary>
     [Route("api/auth")]
     [ApiController]
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly JwtTokenService _jwt;
 
         /// <summary>
         /// 비밀번호는 ASP.NET Core 내장 해셔로 저장한다.
@@ -53,14 +58,16 @@ namespace ecopack.Api.Controllers
         /// </summary>
         private static readonly PasswordHasher<Customer> Hasher = new();
 
-        public AuthController(AppDbContext context)
+        public AuthController(AppDbContext context, JwtTokenService jwt)
         {
             _context = context;
+            _jwt = jwt;
         }
 
         // ─────────────────────────────────────────────────────────────
         // POST: api/auth/login
         // ─────────────────────────────────────────────────────────────
+        [AllowAnonymous]
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto loginDto)
         {
@@ -84,7 +91,7 @@ namespace ecopack.Api.Controllers
             {
                 data = new
                 {
-                    accessToken = "mock-jwt-token-sample",
+                    accessToken = _jwt.CreateToken(customer.RepCustId),
                     repCustId = customer.RepCustId,
                     profile = ToProfile(customer)
                 },
@@ -96,6 +103,7 @@ namespace ecopack.Api.Controllers
         // GET: api/auth/checkId?repCustId=xxx
         // 회원가입 화면의 아이디 중복확인
         // ─────────────────────────────────────────────────────────────
+        [AllowAnonymous]
         [HttpGet("checkId")]
         public async Task<IActionResult> CheckId([FromQuery] string repCustId)
         {
@@ -117,6 +125,7 @@ namespace ecopack.Api.Controllers
         // POST: api/auth/join
         // 회원가입. 성공하면 로그인 화면에서 바로 로그인할 수 있다.
         // ─────────────────────────────────────────────────────────────
+        [AllowAnonymous]
         [HttpPost("join")]
         public async Task<IActionResult> Join([FromBody] CustomerJoinDto dto)
         {
@@ -159,15 +168,18 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // GET: api/auth/profile?repCustId=xxx
+        // GET: api/auth/profile
         // 회원정보 조회. 기술문서·적합성선언서 화면의 자동 채움에도 사용한다.
+        // 조회 대상은 항상 로그인한 본인이다 (토큰의 repCustId 클레임을 쓴다).
         // ─────────────────────────────────────────────────────────────
+        [Authorize]
         [HttpGet("profile")]
-        public async Task<IActionResult> GetProfile([FromQuery] string repCustId)
+        public async Task<IActionResult> GetProfile()
         {
+            var repCustId = User.GetRepCustId();
             if (string.IsNullOrWhiteSpace(repCustId))
             {
-                return BadRequest(new { success = false, message = "필수 파라미터(repCustId)가 누락되었습니다." });
+                return Unauthorized(new { success = false, message = "로그인이 필요합니다." });
             }
 
             var customer = await _context.Customers
@@ -185,18 +197,26 @@ namespace ecopack.Api.Controllers
         // ─────────────────────────────────────────────────────────────
         // POST: api/auth/profile
         // 회원정보 수정. 비밀번호는 CurrentPwd 가 맞을 때만 바꾼다.
+        // 수정 대상은 항상 로그인한 본인이다 (dto.RepCustId 는 더 이상 쓰지 않는다.
+        // 안 그러면 다른 사람의 repCustId를 적어 보내 그 사람 정보를 바꿀 수 있게 된다).
         // ─────────────────────────────────────────────────────────────
+        [Authorize]
         [HttpPost("profile")]
         public async Task<IActionResult> UpdateProfile([FromBody] CustomerProfileUpdateDto dto)
         {
-            if (dto == null || string.IsNullOrWhiteSpace(dto.RepCustId))
+            var repCustId = User.GetRepCustId();
+            if (string.IsNullOrWhiteSpace(repCustId))
             {
-                return BadRequest(new { success = false, message = "필수 값(repCustId)이 누락되었습니다." });
+                return Unauthorized(new { success = false, message = "로그인이 필요합니다." });
+            }
+            if (dto == null)
+            {
+                return BadRequest(new { success = false, message = "전달된 데이터가 없습니다." });
             }
 
             try
             {
-                var customer = await _context.Customers.FirstOrDefaultAsync(c => c.RepCustId == dto.RepCustId);
+                var customer = await _context.Customers.FirstOrDefaultAsync(c => c.RepCustId == repCustId);
                 if (customer == null)
                 {
                     return NotFound(new { success = false, message = "회원정보를 찾을 수 없습니다." });
@@ -227,10 +247,13 @@ namespace ecopack.Api.Controllers
 
         // ─────────────────────────────────────────────────────────────
         // 로그인 직후 프론트엔드가 호출하는 /auth/me
+        // 토큰이 있어야 호출할 수 있고, 토큰에 담긴 본인 정보만 돌려준다.
         // ─────────────────────────────────────────────────────────────
+        [Authorize]
         [HttpGet("me")]
-        public async Task<IActionResult> GetMe([FromQuery] string? repCustId)
+        public async Task<IActionResult> GetMe()
         {
+            var repCustId = User.GetRepCustId();
             if (string.IsNullOrWhiteSpace(repCustId))
             {
                 return Ok(new { data = new { repCustId = (string?)null } });
@@ -248,6 +271,9 @@ namespace ecopack.Api.Controllers
             });
         }
 
+        // 토큰이 만료된 상태에서도 로그아웃 버튼은 눌러야 하므로 인증 없이 허용한다.
+        // (서버는 상태를 안 두는 JWT라 실제로 할 일은 없고, 프론트가 토큰을 지우는 게 전부다)
+        [AllowAnonymous]
         [HttpPost("logout")]
         public IActionResult Logout()
         {

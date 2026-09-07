@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
 using ecopack.Api.Dtos;
+using ecopack.Api.Support;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +11,11 @@ using System;
 
 namespace ecopack.Api.Controllers
 {
+    // ⚠️ 예전에는 이 컨트롤러에 소유자 검증이 아예 없어서, prjUserId 쿼리파라미터에
+    //    아무 값이나 적어 보내면 남의 모의평가 결과를 조회·저장할 수 있었다.
+    //    지금은 로그인(JWT)을 요구하고, prjUserId 값 대신 토큰의 본인 ID + 프로젝트
+    //    소유자 검증(ProjectAccess)을 사용한다.
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class ProjectevalController : ControllerBase
@@ -47,10 +54,16 @@ namespace ecopack.Api.Controllers
                 return BadRequest(new { message = "저장할 데이터가 없습니다." });
             }
 
+            var firstItem = saveDtos.First();
+
+            // 본인이 만든 프로젝트의 평가만 저장할 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, firstItem.prjid, User.GetRepCustId()))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
             try
             {
-                var firstItem = saveDtos.First();
-
                 // 동일한 프로젝트 및 포장차수의 기존 평가 데이터 삭제
                 var existingData = await _context.AiPkgEvalInfoBscs
                     .Where(x => x.Prjid == firstItem.prjid && x.PackLevel == firstItem.packLevel)
@@ -62,10 +75,12 @@ namespace ecopack.Api.Controllers
                 }
 
                 // DTO 데이터를 엔티티 모델로 변환하여 일괄 추가 (NextAsmtQstId 매핑 추가)
+                // Prjuserid는 dto 값 대신 토큰의 본인 ID를 쓴다 (다른 사람 ID로 남길 수 없도록)
+                var repCustId = User.GetRepCustId();
                 var newEntities = saveDtos.Select(dto => new AiPkgEvalInfoBsc
                 {
                     Prjid = dto.prjid,
-                    Prjuserid = dto.prjuserid,
+                    Prjuserid = repCustId,
                     PackLevel = dto.packLevel,
                     PackLevelNm = dto.packLevelnm,
                     AppliedMaterial = dto.appliedMaterial,
@@ -97,18 +112,27 @@ namespace ecopack.Api.Controllers
             }
         }
 
+        // prjUserId 파라미터는 하위호환을 위해 그대로 받되, 더 이상 필터링에 쓰지 않는다.
+        // (클라이언트가 적어 보낸 값을 믿으면 남의 결과를 조회할 수 있었다 — 실제 필터는
+        // 토큰의 본인 ID + 프로젝트 소유자 검증으로 한다)
         [HttpGet("GetSavedEvalResults")]
-        public async Task<IActionResult> GetSavedEvalResults([FromQuery] string prjId, [FromQuery] string prjUserId, [FromQuery] string packLevel)
+        public async Task<IActionResult> GetSavedEvalResults([FromQuery] string prjId, [FromQuery] string? prjUserId, [FromQuery] string packLevel)
         {
             if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
             {
                 return BadRequest(new { message = "필수 파라미터가 누락되었습니다." });
             }
 
+            var repCustId = User.GetRepCustId();
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
             try
             {
                 var list = await _context.AiPkgEvalInfoBscs
-                    .Where(x => x.Prjid == prjId && x.Prjuserid == prjUserId && x.PackLevel == packLevel)
+                    .Where(x => x.Prjid == prjId && x.Prjuserid == repCustId && x.PackLevel == packLevel)
                     .ToListAsync();
 
                 return Ok(list);
@@ -122,18 +146,24 @@ namespace ecopack.Api.Controllers
         /// 모의평가 최종 결과 요약 조회 API
         /// </summary>
         [HttpGet("GetEvalSummary")]
-        public async Task<IActionResult> GetEvalSummary([FromQuery] string prjId, [FromQuery] string prjUserId, [FromQuery] string packLevel)
+        public async Task<IActionResult> GetEvalSummary([FromQuery] string prjId, [FromQuery] string? prjUserId, [FromQuery] string packLevel)
         {
             if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
             {
                 return BadRequest(new { message = "필수 파라미터가 누락되었습니다." });
             }
 
+            var repCustId = User.GetRepCustId();
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
             try
             {
-                // 1. 저장된 평가 항목 조회
+                // 1. 저장된 평가 항목 조회 (본인이 작성한 것만)
                 var savedList = await _context.AiPkgEvalInfoBscs
-                    .Where(x => x.Prjid == prjId && (string.IsNullOrEmpty(prjUserId) || x.Prjuserid == prjUserId) && x.PackLevel == packLevel)
+                    .Where(x => x.Prjid == prjId && x.Prjuserid == repCustId && x.PackLevel == packLevel)
                     .ToListAsync();
 
                 if (!savedList.Any())
