@@ -295,8 +295,9 @@ export default function Projects({ onSelectItem }) {
                                     }
                                 });
 
-                                // 기술문서(TD)와 적합성 선언서(DOC)는 판매(1차) 포장 기준으로만 작성한다
-                                const isPrimary = String(item.packLevel) === '1';
+                                // 기술문서(TD)와 적합성 선언서(DOC)는 차수별로 따로 작성한다.
+                                // 1/2/3차 모두 각자의 문서 화면이 있으므로 어느 행에서든 열 수 있다.
+                                const isPrimary = ['1', '2', '3'].includes(String(item.packLevel));
                                 return (
                                     <tr key={`${item.prjId}-${item.packLevel || index}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjFcrtDt || '2026-04-10'}</td>
@@ -324,7 +325,7 @@ export default function Projects({ onSelectItem }) {
                                             <button
                                                 onClick={() => handleTdClick(item, matchedCountry)}
                                                 disabled={!isPrimary}
-                                                title={isPrimary ? '기술문서 작성/수정' : '기술문서는 판매(1차) 포장에서만 작성합니다'}
+                                                title={isPrimary ? `${item.packLevel}차 기술문서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
                                             >
                                                 수정
@@ -334,7 +335,7 @@ export default function Projects({ onSelectItem }) {
                                             <button
                                                 onClick={() => handleDocClick(item, matchedCountry)}
                                                 disabled={!isPrimary}
-                                                title={isPrimary ? '적합성 선언서 작성/수정' : '적합성 선언서는 판매(1차) 포장에서만 작성합니다'}
+                                                title={isPrimary ? `${item.packLevel}차 적합성 선언서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
                                             >
                                                 수정

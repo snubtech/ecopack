@@ -11,10 +11,12 @@ namespace ecopack.Api.Controllers
     public class ProjectsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IWebHostEnvironment _env;
 
-        public ProjectsController(AppDbContext context)
+        public ProjectsController(AppDbContext context, IWebHostEnvironment env)
         {
             _context = context;
+            _env = env;
         }
 
         // GET: api/projects (최근 프로젝트 목록 조회)
@@ -143,6 +145,11 @@ namespace ecopack.Api.Controllers
             };
 
             _context.Project.Add(newProject);
+
+            // 프로젝트를 만들면 그 차수의 기술문서와 적합성 선언서 기본 폼을 함께 만들어 둔다.
+            // 문서 번호를 미리 채번해 두어, 화면에서는 곧바로 내용만 채우면 되게 한다.
+            CreateDocumentsFor(newProject, member);
+
             await _context.SaveChangesAsync();
 
             return Ok(new { success = true, prjId = targetPrjId, message = "프로젝트가 성공적으로 등록되었습니다." });
@@ -260,6 +267,211 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { success = false, message = "조회 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DELETE: api/Projects/DeleteProject?prjId=xxx&packLevel=2
+        // 프로젝트를 포장차수 단위로 지운다.
+        // 한 프로젝트에 1/2/3차가 있을 때 2차만 지우면 2차 행과
+        // 2차 기술문서·적합성 선언서(secondary_*)만 사라지고 나머지 차수는 남는다.
+        // ─────────────────────────────────────────────────────────────
+        [HttpDelete("DeleteProject")]
+        public async Task<IActionResult> DeleteProject(
+            [FromQuery] string prjId,
+            [FromQuery] string packLevel,
+            [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId) || string.IsNullOrWhiteSpace(packLevel))
+            {
+                return BadRequest(new { success = false, message = "필수 파라미터(prjId, packLevel)가 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트만 지울 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            try
+            {
+                var project = await _context.Project
+                    .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel);
+
+                if (project == null)
+                {
+                    return NotFound(new { success = false, message = "해당 포장차수의 프로젝트를 찾을 수 없습니다." });
+                }
+
+                var removed = new List<string>();
+
+                // 1) 그 차수의 기술문서 / 적합성 선언서
+                switch (packLevel)
+                {
+                    case "1":
+                        var td1 = await _context.PrimaryTd.Where(x => x.PrjId == prjId).ToListAsync();
+                        var dc1 = await _context.PrimaryDoc.Where(x => x.PrjId == prjId).ToListAsync();
+                        if (td1.Count > 0) { _context.PrimaryTd.RemoveRange(td1); removed.Add($"기술문서 {td1.Count}건"); }
+                        if (dc1.Count > 0) { _context.PrimaryDoc.RemoveRange(dc1); removed.Add($"적합성선언서 {dc1.Count}건"); }
+                        break;
+                    case "2":
+                        var td2 = await _context.SecondaryTd.Where(x => x.PrjId == prjId).ToListAsync();
+                        var dc2 = await _context.SecondaryDoc.Where(x => x.PrjId == prjId).ToListAsync();
+                        if (td2.Count > 0) { _context.SecondaryTd.RemoveRange(td2); removed.Add($"기술문서 {td2.Count}건"); }
+                        if (dc2.Count > 0) { _context.SecondaryDoc.RemoveRange(dc2); removed.Add($"적합성선언서 {dc2.Count}건"); }
+                        break;
+                    case "3":
+                        var td3 = await _context.TertiaryTd.Where(x => x.PrjId == prjId).ToListAsync();
+                        var dc3 = await _context.TertiaryDoc.Where(x => x.PrjId == prjId).ToListAsync();
+                        if (td3.Count > 0) { _context.TertiaryTd.RemoveRange(td3); removed.Add($"기술문서 {td3.Count}건"); }
+                        if (dc3.Count > 0) { _context.TertiaryDoc.RemoveRange(dc3); removed.Add($"적합성선언서 {dc3.Count}건"); }
+                        break;
+                }
+
+                // 2) 그 차수의 기본사항(프로젝트 상세)
+                var details = await _context.ProjectDetail
+                    .Where(x => x.PrjId == prjId && x.PackLevel == packLevel)
+                    .ToListAsync();
+                if (details.Count > 0)
+                {
+                    _context.ProjectDetail.RemoveRange(details);
+                    removed.Add($"기본사항 {details.Count}건");
+                }
+
+                // 3) 프로젝트 행
+                _context.Project.Remove(project);
+
+                await _context.SaveChangesAsync();
+
+                // 4) 그 차수에 올린 첨부파일 폴더도 정리한다 (DB 정리가 끝난 뒤에 지운다)
+                DeleteUploadFolders(prjId, packLevel);
+
+                return Ok(new
+                {
+                    success = true,
+                    prjId,
+                    packLevel,
+                    message = removed.Count > 0
+                        ? $"{packLevel}차 프로젝트와 {string.Join(", ", removed)}을(를) 삭제했습니다."
+                        : $"{packLevel}차 프로젝트를 삭제했습니다."
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "삭제 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+
+        /// <summary>해당 차수의 첨부문서 / 근거문서 폴더를 통째로 지운다.</summary>
+        private void DeleteUploadFolders(string prjId, string packLevel)
+        {
+            try
+            {
+                var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
+                // 1차는 uploads/td, 2·3차는 uploads/td2, uploads/td3 를 쓴다
+                var suffix = packLevel == "1" ? "" : packLevel;
+                foreach (var kind in new[] { "td", "doc" })
+                {
+                    var dir = Path.Combine(webRoot, "uploads", kind + suffix, prjId);
+                    if (Directory.Exists(dir))
+                    {
+                        Directory.Delete(dir, recursive: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // 파일 정리에 실패해도 삭제 자체는 이미 끝났으므로 요청을 실패시키지 않는다
+                Console.WriteLine($"[DeleteProject] 첨부파일 정리 실패 prjId={prjId} packLevel={packLevel}: {ex.Message}");
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // 프로젝트를 만들 때 그 차수의 문서 기본 폼을 함께 만든다.
+        // 1차는 primary_*, 2차는 secondary_*, 3차는 tertiary_* 테이블을 쓴다.
+        // 회사·담당자 정보는 회원정보에서 가져와 채우고, 문서번호는 여기서 채번한다.
+        // ─────────────────────────────────────────────────────────────
+        private void CreateDocumentsFor(Project project, Customer? member)
+        {
+            var level = project.PackLevel;
+            if (level != "1" && level != "2" && level != "3")
+            {
+                return; // 포장차수가 없으면 문서를 만들지 않는다
+            }
+
+            var stamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+            var techDocId = $"TD-{level}-{stamp}";
+            var declDocId = $"DOC-{level}-{stamp}";
+
+            var prjId    = project.PrjId;
+            var prjfNm   = project.PrjNm;
+            var bizNm    = member?.BizNm    ?? project.BizNm;
+            var cntryNm  = member?.CntryNm  ?? project.CntryNm;
+            var repNm    = member?.RepNm    ?? project.RepNm;
+            var roleNm   = member?.RoleNm   ?? project.RoleNm;
+            var emlAddr  = member?.EmlAddr  ?? project.EmlAddr;
+            var mblTelNo = member?.MblTelNo ?? project.MblTelNo;
+            var today    = DateOnly.FromDateTime(DateTime.Now);
+            var now      = DateTime.Now;
+
+            switch (level)
+            {
+                case "1":
+                    _context.PrimaryTd.Add(new PrimaryTd
+                    {
+                        Pkg1TechDocId = techDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        BizNm = bizNm, CntryNm = cntryNm, DocNo = techDocId,
+                        RevNo = "Rev.01", LastWrtDtm = now,
+                        BizNm2 = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo
+                    });
+                    _context.PrimaryDoc.Add(new PrimaryDoc
+                    {
+                        Pkg1DocId = declDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        Pkg1TechDocId = techDocId, RevNo = "Rev.01", LastWrtDt = today,
+                        BizNm = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo, CntryNm = cntryNm,
+                        BizNm2 = bizNm, RepNm2 = repNm, RoleNm2 = roleNm, SbstTot = "총합"
+                    });
+                    break;
+
+                case "2":
+                    _context.SecondaryTd.Add(new SecondaryTd
+                    {
+                        Pkg2TechDocId = techDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        BizNm = bizNm, CntryNm = cntryNm, DocNo = techDocId,
+                        RevNo = "Rev.01", LastWrtDtm = now,
+                        BizNm2 = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo
+                    });
+                    _context.SecondaryDoc.Add(new SecondaryDoc
+                    {
+                        Pkg2DocId = declDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        Pkg2TechDocId = techDocId, RevNo = "Rev.01", LastWrtDt = today,
+                        BizNm = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo, CntryNm = cntryNm,
+                        BizNm2 = bizNm, RepNm2 = repNm, RoleNm2 = roleNm, SbstTot = "총합"
+                    });
+                    break;
+
+                case "3":
+                    _context.TertiaryTd.Add(new TertiaryTd
+                    {
+                        Pkg3TechDocId = techDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        BizNm = bizNm, CntryNm = cntryNm, DocNo = techDocId,
+                        RevNo = "Rev.01", LastWrtDtm = now,
+                        BizNm2 = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo
+                    });
+                    _context.TertiaryDoc.Add(new TertiaryDoc
+                    {
+                        Pkg3DocId = declDocId, PrjId = prjId, PrjfNm = prjfNm,
+                        Pkg3TechDocId = techDocId, RevNo = "Rev.01", LastWrtDt = today,
+                        BizNm = bizNm, RepNm = repNm, RoleNm = roleNm,
+                        EmlAddr = emlAddr, MbTelNo = mblTelNo, CntryNm = cntryNm,
+                        BizNm2 = bizNm, RepNm2 = repNm, RoleNm2 = roleNm, SbstTot = "총합"
+                    });
+                    break;
             }
         }
 

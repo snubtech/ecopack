@@ -23,6 +23,18 @@ export async function createProject(dto) {
 }
 
 /**
+ * 2-1. 프로젝트 삭제 함수
+ * - 백엔드의 [HttpDelete("DeleteProject")]에 맞춰 /api/Projects/DeleteProject로 호출합니다.
+ * - 포장차수(packLevel) 단위로 지웁니다. 2차만 넘기면 2차 프로젝트와 2차 기술문서/적합성선언서만 삭제됩니다.
+ */
+export async function deleteProject(prjId, packLevel) {
+    const response = await axios.delete('/api/Projects/DeleteProject', {
+        params: { prjId, packLevel, repCustId: getCurrentCustomerId() },
+    });
+    return response.data;
+}
+
+/**
  * 3. 프로젝트 템플릿 정보 조회 함수
  */
 export async function GetProjecttemplate(params) {
