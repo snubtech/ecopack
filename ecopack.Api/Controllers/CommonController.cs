@@ -70,7 +70,41 @@ namespace ecopack.Api.Controllers
 
             return Ok(list);
         }
-                
+        //주소가 /api/common/mat-forms ]  포장재소재구성
+        [HttpGet("matforms")]
+        public async Task<IActionResult> GetMatForms(
+        [FromQuery] string packLevel,
+        [FromQuery] string appliedMaterial,
+        [FromQuery] string matType)
+        {
+            var query = _context.If001.AsQueryable();
+
+            if (!string.IsNullOrEmpty(packLevel))
+                query = query.Where(x => x.PackLevel == packLevel);
+
+            if (!string.IsNullOrEmpty(appliedMaterial))
+                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+
+            if (!string.IsNullOrEmpty(matType))
+                query = query.Where(x => x.MatType == matType);
+
+            var list = await query
+                .GroupBy(x => new { x.MatForm, x.MatFormNm, x.PackLevelNm, x.AppliedMaterial, x.MatType, x.MatTypeNm })
+                .Select(g => new MaterialPropertyDto
+                {
+                    MatForm = g.Key.MatForm,
+                    MatFormNm = g.Key.MatFormNm,
+                    PackLevelNm = g.Key.PackLevelNm,
+                    AppliedMaterial = g.Key.AppliedMaterial,
+                    MatType = g.Key.MatType,
+                    MatTypeNm = g.Key.MatTypeNm
+                })
+                .OrderBy(x => x.MatFormNm)
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
 
     }
 }

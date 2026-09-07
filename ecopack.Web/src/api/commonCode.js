@@ -21,3 +21,15 @@ export const getMattypes = async () => {
     const response = await axiosInstance.get('/common/mattype');
     return response.data;
 };
+
+export const getMatForms = async (packLevel, appliedMaterial, matType) => {
+    try {
+        const response = await axiosInstance.get('/common/matforms', {
+            params: { packLevel, appliedMaterial, matType }
+        });
+        return response.data;
+    } catch (error) {
+        console.error('소재 형태 목록 조회 실패:', error);
+        return [];
+    }
+};
