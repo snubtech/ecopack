@@ -32,18 +32,29 @@ export default function Prjdefault({ onSelectItem }) {
                 const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
 
                 if (currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID') {
-                    // 3. 서버에 해당 프로젝트 상세 정보 조회 요청
-                    const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
+                    // 3. 프로젝트명은 project_detail 테이블에 별도 컬럼이 없어 상세 조회로는 받아올 수 없다.
+                    //    프로젝트 목록에서 넘어올 때 세션에 담아 둔 이름을 우선 기본값으로 채워 둔다.
+                    //    (이 값을 먼저 넣어 둬야, 아래 상세 조회가 실패해도 이름 칸이 비지 않는다)
+                    setProjectName(sessionStorage.getItem('currentPrjNm') || '');
 
-                    if (detailData) {
-                        setProjectName(detailData.projectName || sessionStorage.getItem('currentPrjNm') || '');
-                        setMaterial(detailData.appliedMaterial || '');
-                        setEnv(detailData.matUse || '');
-                        setMatType(detailData.matType || '');
+                    try {
+                        // 4. 서버에 해당 프로젝트 상세 정보 조회 요청
+                        //    기본사항을 한 번도 저장한 적 없는 프로젝트는 상세 정보가 없어 404가 온다.
+                        //    이 경우도 정상 상황이므로 아래 catch에서 조용히 넘어가고, 위에서 넣어 둔
+                        //    프로젝트명 기본값만 유지한다.
+                        const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
 
-                        sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || '');
-                        sessionStorage.setItem('currentEnv', detailData.matUse || '');
-                        sessionStorage.setItem('currentMatType', detailData.matType || '');
+                        if (detailData) {
+                            setMaterial(detailData.appliedMaterial || '');
+                            setEnv(detailData.matUse || '');
+                            setMatType(detailData.matType || '');
+
+                            sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || '');
+                            sessionStorage.setItem('currentEnv', detailData.matUse || '');
+                            sessionStorage.setItem('currentMatType', detailData.matType || '');
+                        }
+                    } catch (detailError) {
+                        console.warn('저장된 기본사항이 아직 없어 프로젝트명만 기본값으로 채웁니다.', detailError);
                     }
                 } else {
                     setProjectName(sessionStorage.getItem('currentPrjNm') || 'Foldable EPP Box');
