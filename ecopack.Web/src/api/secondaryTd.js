@@ -1,15 +1,15 @@
 /**
  * ==============================================================================
- * [프로그램 전체 흐름 및 구조 요약] - primaryTd API 클라이언트 (기술문서)
+ * [프로그램 전체 흐름 및 구조 요약] - primaryTd API 클라이언트 (2차 기술문서)
  * ==============================================================================
  * 
  * 1. 쓰임새
- *    - 기술문서 화면이 쓰는 서버 통신 묶음입니다. 대상 테이블은 primary_td 입니다.
+ *    - 2차 기술문서 화면이 쓰는 서버 통신 묶음입니다. 대상 테이블은 secondary_td 입니다.
  *    - 기존 도메인 코드(projects.js)와 같이 axios 로 직접 호출합니다.
  * 
  * 2. 제공 함수
- *    - GetPrimaryTd        : 프로젝트 한 건의 기술문서를 받아옵니다. 작성 전이면 빈 문서가 옵니다.
- *    - SavePrimaryTd       : 신규/수정을 한 번에 처리합니다(Upsert).
+ *    - GetSecondaryTd        : 프로젝트 한 건의 2차 기술문서를 받아옵니다. 작성 전이면 빈 문서가 옵니다.
+ *    - SaveSecondaryTd       : 신규/수정을 한 번에 처리합니다(Upsert).
  *    - UploadAtchDoc       : 첨부문서를 올립니다. 문서명은 확장자 포함 원본 파일명으로 기록됩니다.
  *    - DeleteAtchDoc       : 첨부문서 슬롯을 비우고 서버의 실제 파일도 지웁니다.
  * 
@@ -19,40 +19,40 @@
  *      서버가 본인 프로젝트가 맞는지 확인한 뒤 처리합니다. 남의 것이면 403 이 옵니다.
  * 
  * 4. 알아둘 점
- *    - 문서 ID 채번(TD-1-{타임스탬프})과 작성일시 갱신은 서버가 처리합니다.
+ *    - 문서 ID 채번(TD-2-{타임스탬프})과 작성일시 갱신은 서버가 처리합니다.
  * ==============================================================================
  */
 import axios from 'axios';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
- * 1차포장 기술문서(primary_td) API 클라이언트
- * - 백엔드 라우트: api/PrimaryTd
+ * 1차포장 2차 기술문서(secondary_td) API 클라이언트
+ * - 백엔드 라우트: api/SecondaryTd
  * - 기존 도메인 코드(projects.js)와 동일하게 axios 직접 호출 방식을 사용합니다.
  */
 
 /**
- * 1. 기술문서 조회
- * - 해당 프로젝트의 기술문서를 가져옵니다.
+ * 1. 2차 기술문서 조회
+ * - 해당 프로젝트의 2차 기술문서를 가져옵니다.
  * - 아직 작성 전이면 isNew=true 와 빈 데이터를 돌려줍니다.
  * @param {string} prjId 프로젝트 ID
  * @returns {Promise<{success:boolean, isNew:boolean, data:object}>}
  */
-export async function GetPrimaryTd(prjId) {
+export async function GetSecondaryTd(prjId) {
     // 로그인한 고객 ID를 함께 보내 본인 프로젝트의 문서인지 서버가 확인하게 한다
-    const response = await axios.get('/api/PrimaryTd/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
+    const response = await axios.get('/api/SecondaryTd/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
 /**
- * 2. 기술문서 저장 (신규/수정 통합 Upsert)
+ * 2. 2차 기술문서 저장 (신규/수정 통합 Upsert)
  * - 저장 시 서버가 lastWrtDtm 을 현재 타임스탬프로 갱신합니다.
- * - 신규일 경우 pkg1TechDocId 를 TD-1-{타임스탬프} 규칙으로 채번합니다.
+ * - 신규일 경우 pkg1TechDocId 를 TD-2-{타임스탬프} 규칙으로 채번합니다.
  * @param {object} dto 화면 입력값 전체
  */
-export async function SavePrimaryTd(dto) {
+export async function SaveSecondaryTd(dto) {
     // 저장도 본인 프로젝트인지 확인받는다
-    const response = await axios.post('/api/PrimaryTd/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
+    const response = await axios.post('/api/SecondaryTd/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
@@ -70,7 +70,7 @@ export async function UploadAtchDoc(prjId, slot, file) {
     formData.append('slot', String(slot));
     formData.append('file', file);
 
-    const response = await axios.post('/api/PrimaryTd/UploadAtchDoc', formData, {
+    const response = await axios.post('/api/SecondaryTd/UploadAtchDoc', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         // 파일 업로드도 본인 프로젝트인지 확인받는다
         params: { repCustId: getCurrentCustomerId() },
@@ -83,7 +83,7 @@ export async function UploadAtchDoc(prjId, slot, file) {
  * - 해당 슬롯의 URL/문서명을 비우고 서버의 실제 파일도 지웁니다.
  */
 export async function DeleteAtchDoc(prjId, slot) {
-    const response = await axios.delete('/api/PrimaryTd/DeleteAtchDoc', {
+    const response = await axios.delete('/api/SecondaryTd/DeleteAtchDoc', {
         // 파일 삭제도 본인 프로젝트인지 확인받는다
         params: { prjId, slot, repCustId: getCurrentCustomerId() },
     });

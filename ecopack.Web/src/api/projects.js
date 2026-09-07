@@ -1,11 +1,15 @@
 import axios from 'axios';
+import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 1. 프로젝트 목록 조회 함수
  * - 백엔드의 [HttpGet("GetProjects")]에 맞춰 /api/Projects/GetProjects로 호출합니다.
  */
 export async function getProjects() {
-    const response = await axios.get('/api/Projects/GetProjects');
+    // 본인이 만든 프로젝트만 받아온다
+    const response = await axios.get('/api/Projects/GetProjects', {
+        params: { repCustId: getCurrentCustomerId() },
+    });
     return response.data;
 }
 
@@ -15,6 +19,18 @@ export async function getProjects() {
  */
 export async function createProject(dto) {
     const response = await axios.post('/api/Projects/CreateProject', dto);
+    return response.data;
+}
+
+/**
+ * 2-1. 프로젝트 삭제 함수
+ * - 백엔드의 [HttpDelete("DeleteProject")]에 맞춰 /api/Projects/DeleteProject로 호출합니다.
+ * - 포장차수(packLevel) 단위로 지웁니다. 2차만 넘기면 2차 프로젝트와 2차 기술문서/적합성선언서만 삭제됩니다.
+ */
+export async function deleteProject(prjId, packLevel) {
+    const response = await axios.delete('/api/Projects/DeleteProject', {
+        params: { prjId, packLevel, repCustId: getCurrentCustomerId() },
+    });
     return response.data;
 }
 
@@ -30,7 +46,10 @@ export async function GetProjecttemplate(params) {
  * 4. 프로젝트 상세 정보 저장 함수
  */
 export async function SaveProjectDetail(dto) {
-    const response = await axios.post('/api/Projects/detail', dto);
+    // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
+    const response = await axios.post('/api/Projects/detail', dto, {
+        params: { repCustId: getCurrentCustomerId() },
+    });
     return response.data;
 }
 
@@ -39,7 +58,8 @@ export async function SaveProjectDetail(dto) {
  */
 export async function GetProjectDetail(prjId, packLevel) {
     const response = await axios.get('/api/Projects/Getdetail', {
-        params: { prjId: prjId, packLevel: packLevel }
+        // 본인이 만든 프로젝트만 조회할 수 있으므로 로그인한 고객 ID를 함께 보낸다
+        params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
     });
     return response.data;
 }

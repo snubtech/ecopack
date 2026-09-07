@@ -1,10 +1,10 @@
 /**
  * ==============================================================================
- * [프로그램 전체 흐름 및 구조 요약] - PrimaryDocController (적합성 선언서)
+ * [프로그램 전체 흐름 및 구조 요약] - TertiaryDocController (적합성 선언서)
  * ==============================================================================
  * 
  * 1. 담당 범위
- *    - 적합성 선언서 화면이 쓰는 API 입니다. 대상 테이블은 primary_doc(1차포장적합성선언서기본) 입니다.
+ *    - 3차 적합성 선언서 화면이 쓰는 API 입니다. 대상 테이블은 tertiary_doc(3차포장적합성선언서기본) 입니다.
  *    - 문서는 프로젝트 단위로 한 건이며, 프로젝트 ID(prjId)로 찾습니다.
  * 
  * 2. Get — 문서 조회
@@ -25,7 +25,7 @@
  * 5. DTO ↔ 엔티티 매핑 (ToDto / ApplyDtoToEntity)
  *    - 이름이 같은 것끼리 리플렉션으로 옮깁니다.
  *    - 값이 null 이면 기존 DB 값을 두고, 빈 문자열이면 DB를 비웁니다.
- *    - primary_td 와 달리 컬럼이 모두 varchar(길이 제한)라, 화면에서도 입력 길이를 함께 제한합니다.
+ *    - tertiary_td 와 달리 컬럼이 모두 varchar(길이 제한)라, 화면에서도 입력 길이를 함께 제한합니다.
  * ==============================================================================
  */
 using System.Reflection;
@@ -38,25 +38,25 @@ using ecopack.Api.Support;
 namespace ecopack.Api.Controllers
 {
     /// <summary>
-    /// 1차포장 적합성선언서(primary_doc / DOC) 화면용 API.
-    /// 라우트: api/PrimaryDoc
+    /// 3차포장 적합성선언서(tertiary_doc / DOC) 화면용 API.
+    /// 라우트: api/TertiaryDoc
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    public class PrimaryDocController : ControllerBase
+    public class TertiaryDocController : ControllerBase
     {
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _env;
 
         /// <summary>포장차수 고정값. primary=1 / secondary=2 / tertiary=3</summary>
-        private const string PackLevel = "1";
+        private const string PackLevel = "3";
 
         /// <summary>근거문서(부속서) 슬롯 개수 (evdDocNm1~8 / evdDocUrl1~8)</summary>
         private const int EvdDocSlotCount = 8;
 
         private const long MaxEvdDocBytes = 20 * 1024 * 1024; // 20MB
 
-        public PrimaryDocController(AppDbContext context, IWebHostEnvironment env)
+        public TertiaryDocController(AppDbContext context, IWebHostEnvironment env)
         {
             _context = context;
             _env = env;
@@ -69,7 +69,7 @@ namespace ecopack.Api.Controllers
             $"DOC-{PackLevel}-{DateTime.Now:yyyyMMddHHmmssfff}";
 
         // ─────────────────────────────────────────────────────────────
-        // GET: api/PrimaryDoc/Get?prjId=xxx
+        // GET: api/TertiaryDoc/Get?prjId=xxx
         // 해당 프로젝트의 적합성선언서를 조회한다. 없으면 빈 DTO(신규 작성용)를 돌려준다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("Get")]
@@ -88,25 +88,25 @@ namespace ecopack.Api.Controllers
 
             try
             {
-                var entity = await _context.PrimaryDoc
+                var entity = await _context.TertiaryDoc
                     .AsNoTracking()
                     .FirstOrDefaultAsync(x => x.PrjId == prjId);
 
                 if (entity == null)
                 {
                     // 신규: 화면이 고정문구 기본값을 채워 넣을 수 있도록 키만 담아서 반환.
-                    // 기술문서(primary_td)가 이미 있으면 그 ID를 미리 연결해 준다.
-                    var techDocId = await _context.PrimaryTd
+                    // 기술문서(tertiary_td)가 이미 있으면 그 ID를 미리 연결해 준다.
+                    var techDocId = await _context.TertiaryTd
                         .AsNoTracking()
                         .Where(x => x.PrjId == prjId)
-                        .Select(x => x.Pkg1TechDocId)
+                        .Select(x => x.Pkg3TechDocId)
                         .FirstOrDefaultAsync();
 
                     return Ok(new
                     {
                         success = true,
                         isNew = true,
-                        data = new PrimaryDocDto { PrjId = prjId, Pkg1TechDocId = techDocId }
+                        data = new TertiaryDocDto { PrjId = prjId, Pkg3TechDocId = techDocId }
                     });
                 }
 
@@ -119,11 +119,11 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // POST: api/PrimaryDoc/Save
+        // POST: api/TertiaryDoc/Save
         // 신규/수정 통합 저장(Upsert). 저장 시 lastWrtDt(발행일)를 현재 날짜로 갱신한다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Save")]
-        public async Task<IActionResult> Save([FromBody] PrimaryDocDto dto, [FromQuery] string? repCustId)
+        public async Task<IActionResult> Save([FromBody] TertiaryDocDto dto, [FromQuery] string? repCustId)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.PrjId))
             {
@@ -138,20 +138,20 @@ namespace ecopack.Api.Controllers
 
             try
             {
-                var entity = await _context.PrimaryDoc
+                var entity = await _context.TertiaryDoc
                     .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId);
 
                 var isNew = entity == null;
 
                 if (isNew)
                 {
-                    entity = new PrimaryDoc
+                    entity = new TertiaryDoc
                     {
-                        Pkg1DocId = string.IsNullOrWhiteSpace(dto.Pkg1DocId)
+                        Pkg3DocId = string.IsNullOrWhiteSpace(dto.Pkg3DocId)
                             ? NewDocId()
-                            : dto.Pkg1DocId
+                            : dto.Pkg3DocId
                     };
-                    _context.PrimaryDoc.Add(entity);
+                    _context.TertiaryDoc.Add(entity);
                 }
 
                 ApplyDtoToEntity(dto, entity!);
@@ -169,12 +169,12 @@ namespace ecopack.Api.Controllers
                 }
 
                 // 기술문서가 있으면 연결 ID를 채워 둔다
-                if (string.IsNullOrWhiteSpace(entity.Pkg1TechDocId))
+                if (string.IsNullOrWhiteSpace(entity.Pkg3TechDocId))
                 {
-                    entity.Pkg1TechDocId = await _context.PrimaryTd
+                    entity.Pkg3TechDocId = await _context.TertiaryTd
                         .AsNoTracking()
                         .Where(x => x.PrjId == dto.PrjId)
-                        .Select(x => x.Pkg1TechDocId)
+                        .Select(x => x.Pkg3TechDocId)
                         .FirstOrDefaultAsync();
                 }
 
@@ -187,7 +187,7 @@ namespace ecopack.Api.Controllers
                 {
                     success = true,
                     isNew,
-                    pkg1DocId = entity.Pkg1DocId,
+                    pkg3DocId = entity.Pkg3DocId,
                     lastWrtDt = entity.LastWrtDt,
                     message = isNew ? "적합성선언서가 생성되었습니다." : "적합성선언서가 저장되었습니다.",
                     data = ToDto(entity)
@@ -200,7 +200,7 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // POST: api/PrimaryDoc/UploadEvdDoc   (multipart/form-data)
+        // POST: api/TertiaryDoc/UploadEvdDoc   (multipart/form-data)
         // 근거문서(부속서)를 업로드하고 evdDocUrl{slot} / evdDocNm{slot} 에 반영한다.
         // 문서명은 확장자를 포함한 원본 파일명 그대로 저장한다.
         // ─────────────────────────────────────────────────────────────
@@ -237,7 +237,7 @@ namespace ecopack.Api.Controllers
 
             try
             {
-                var entity = await _context.PrimaryDoc.FirstOrDefaultAsync(x => x.PrjId == prjId);
+                var entity = await _context.TertiaryDoc.FirstOrDefaultAsync(x => x.PrjId == prjId);
                 if (entity == null)
                 {
                     return NotFound(new EvdDocUploadResultDto
@@ -255,7 +255,7 @@ namespace ecopack.Api.Controllers
                 var storedNm = $"{slot}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
 
                 var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                var saveDir = Path.Combine(webRoot, "uploads", "doc", prjId);
+                var saveDir = Path.Combine(webRoot, "uploads", "doc3", prjId);
                 Directory.CreateDirectory(saveDir);
 
                 var savePath = Path.Combine(saveDir, storedNm);
@@ -264,7 +264,7 @@ namespace ecopack.Api.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                var url = $"/uploads/doc/{prjId}/{storedNm}";
+                var url = $"/uploads/doc3/{prjId}/{storedNm}";
 
                 SetStringProperty(entity, $"EvdDocUrl{slot}", url);
                 SetStringProperty(entity, $"EvdDocNm{slot}", originalNm);
@@ -292,7 +292,7 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // DELETE: api/PrimaryDoc/DeleteEvdDoc?prjId=xxx&slot=1
+        // DELETE: api/TertiaryDoc/DeleteEvdDoc?prjId=xxx&slot=1
         // 근거문서 슬롯을 비운다. (물리 파일도 함께 삭제)
         // ─────────────────────────────────────────────────────────────
         [HttpDelete("DeleteEvdDoc")]
@@ -311,7 +311,7 @@ namespace ecopack.Api.Controllers
 
             try
             {
-                var entity = await _context.PrimaryDoc.FirstOrDefaultAsync(x => x.PrjId == prjId);
+                var entity = await _context.TertiaryDoc.FirstOrDefaultAsync(x => x.PrjId == prjId);
                 if (entity == null)
                 {
                     return NotFound(new { success = false, message = "적합성선언서를 찾을 수 없습니다." });
@@ -350,20 +350,20 @@ namespace ecopack.Api.Controllers
         // ═════════════════════════════════════════════════════════════
 
         private static readonly PropertyInfo[] DtoProps =
-            typeof(PrimaryDocDto).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            typeof(TertiaryDocDto).GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
         private static readonly Dictionary<string, PropertyInfo> EntityProps =
-            typeof(PrimaryDoc)
+            typeof(TertiaryDoc)
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .ToDictionary(p => p.Name, StringComparer.Ordinal);
 
         /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목</summary>
         private static readonly HashSet<string> SkipOnWrite =
-            new(StringComparer.Ordinal) { nameof(PrimaryDocDto.Pkg1DocId), nameof(PrimaryDocDto.LastWrtDt) };
+            new(StringComparer.Ordinal) { nameof(TertiaryDocDto.Pkg3DocId), nameof(TertiaryDocDto.LastWrtDt) };
 
-        private static PrimaryDocDto ToDto(PrimaryDoc entity)
+        private static TertiaryDocDto ToDto(TertiaryDoc entity)
         {
-            var dto = new PrimaryDocDto();
+            var dto = new TertiaryDocDto();
 
             foreach (var dp in DtoProps)
             {
@@ -387,7 +387,7 @@ namespace ecopack.Api.Controllers
             return dto;
         }
 
-        private static void ApplyDtoToEntity(PrimaryDocDto dto, PrimaryDoc entity)
+        private static void ApplyDtoToEntity(TertiaryDocDto dto, TertiaryDoc entity)
         {
             foreach (var dp in DtoProps)
             {
@@ -411,7 +411,7 @@ namespace ecopack.Api.Controllers
             }
         }
 
-        private static void SetStringProperty(PrimaryDoc entity, string name, string? value)
+        private static void SetStringProperty(TertiaryDoc entity, string name, string? value)
         {
             if (EntityProps.TryGetValue(name, out var p) && p.CanWrite)
             {
@@ -419,7 +419,7 @@ namespace ecopack.Api.Controllers
             }
         }
 
-        private static string? GetStringProperty(PrimaryDoc entity, string name) =>
+        private static string? GetStringProperty(TertiaryDoc entity, string name) =>
             EntityProps.TryGetValue(name, out var p) ? p.GetValue(entity) as string : null;
     }
 }

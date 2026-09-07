@@ -10,6 +10,10 @@ import Prjeval from '../../pages/Prjeval';
 import Prjevalresult from '../../pages/Prjevalresult';
 import PrimaryTd from '../../pages/PrimaryTd';
 import PrimaryDoc from '../../pages/PrimaryDoc';
+import SecondaryTd from '../../pages/SecondaryTd';
+import SecondaryDoc from '../../pages/SecondaryDoc';
+import TertiaryTd from '../../pages/TertiaryTd';
+import TertiaryDoc from '../../pages/TertiaryDoc';
 import MaterialProperty from '../../pages/MaterialProperty';
 import ProcessChart from '../../pages/ProcessChart';
 import CarbonEmission from '../../pages/CarbonEmission';
@@ -32,10 +36,20 @@ const DashboardLayout = ({ onLogout }) => {
         packLevel: sessionStorage.getItem('currentPackLevel') || ''
     };
 
+    // 선택한 포장차수. 기술문서와 적합성 선언서는 이 값에 따라 1/2/3차 화면이 갈린다.
+    const packLevel = projectInfo.packLevel || '1';
+
     const pageInfo = (() => {
         for (const group of navigationGroups) {
             const found = group.items.find((item) => item.id === currentMenu);
             if (found) {
+                // 문서 화면은 메뉴 이름 대신 차수를 넣어 어느 차수를 보고 있는지 드러낸다
+                if (currentMenu === 'td') {
+                    return { name: `TD (${packLevel}차 기술문서)`, category: group.label };
+                }
+                if (currentMenu === 'doc') {
+                    return { name: `DOC (${packLevel}차 적합성 선언서)`, category: group.label };
+                }
                 return { name: found.label, category: group.label };
             }
         }
@@ -56,9 +70,13 @@ const DashboardLayout = ({ onLogout }) => {
                 return <Prjeval onSelectItem={setCurrentMenu} />;
             case 'prjevalresult': // 'Prjevalresult'로 와도 Prjevalresult 컴포넌트를 띄운다!
                 return <Prjevalresult onSelectItem={setCurrentMenu} />;
-            case 'td': // 기술문서 — primary_td
+            case 'td': // 기술문서 — 선택한 포장차수의 화면을 띄운다
+                if (packLevel === '2') return <SecondaryTd onSelectItem={setCurrentMenu} />;
+                if (packLevel === '3') return <TertiaryTd onSelectItem={setCurrentMenu} />;
                 return <PrimaryTd onSelectItem={setCurrentMenu} />;
-            case 'doc': // DOC 적합성 선언서 — primary_doc
+            case 'doc': // DOC 적합성 선언서 — 선택한 포장차수의 화면을 띄운다
+                if (packLevel === '2') return <SecondaryDoc onSelectItem={setCurrentMenu} />;
+                if (packLevel === '3') return <TertiaryDoc onSelectItem={setCurrentMenu} />;
                 return <PrimaryDoc onSelectItem={setCurrentMenu} />;
             case 'material': // 라이브러리 > 소재물성 — if001
                 return <MaterialProperty onSelectItem={setCurrentMenu} />;

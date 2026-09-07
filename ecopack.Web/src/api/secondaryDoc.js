@@ -1,15 +1,15 @@
 /**
  * ==============================================================================
- * [프로그램 전체 흐름 및 구조 요약] - primaryDoc API 클라이언트 (적합성 선언서)
+ * [프로그램 전체 흐름 및 구조 요약] - primaryDoc API 클라이언트 (2차 적합성 선언서)
  * ==============================================================================
  * 
  * 1. 쓰임새
- *    - 적합성 선언서 화면이 쓰는 서버 통신 묶음입니다. 대상 테이블은 primary_doc 입니다.
+ *    - 2차 적합성 선언서 화면이 쓰는 서버 통신 묶음입니다. 대상 테이블은 secondary_doc 입니다.
  *    - 기존 도메인 코드(projects.js)와 같이 axios 로 직접 호출합니다.
  * 
  * 2. 제공 함수
- *    - GetPrimaryDoc        : 프로젝트 한 건의 선언서를 받아옵니다. 작성 전이면 빈 문서가 옵니다.
- *    - SavePrimaryDoc       : 신규/수정을 한 번에 처리합니다(Upsert).
+ *    - GetSecondaryDoc        : 프로젝트 한 건의 선언서를 받아옵니다. 작성 전이면 빈 문서가 옵니다.
+ *    - SaveSecondaryDoc       : 신규/수정을 한 번에 처리합니다(Upsert).
  *    - UploadEvdDoc         : 근거문서(부속서)를 올립니다.
  *    - DeleteEvdDoc         : 근거문서 슬롯을 비우고 서버의 실제 파일도 지웁니다.
  * 
@@ -19,40 +19,40 @@
  *      서버가 본인 프로젝트가 맞는지 확인한 뒤 처리합니다. 남의 것이면 403 이 옵니다.
  * 
  * 4. 알아둘 점
- *    - 문서 ID 채번(DOC-1-{타임스탬프})과 발행일 갱신은 서버가 처리합니다.
- *    - 같은 프로젝트의 기술문서가 있으면 서버가 기술문서 번호를 자동으로 연결합니다.
+ *    - 문서 ID 채번(DOC-2-{타임스탬프})과 발행일 갱신은 서버가 처리합니다.
+ *    - 같은 프로젝트의 2차 기술문서가 있으면 서버가 2차 기술문서 번호를 자동으로 연결합니다.
  * ==============================================================================
  */
 import axios from 'axios';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
- * 1차포장 적합성선언서(primary_doc) API 클라이언트
- * - 백엔드 라우트: api/PrimaryDoc
+ * 1차포장 적합성선언서(secondary_doc) API 클라이언트
+ * - 백엔드 라우트: api/SecondaryDoc
  * - 기존 도메인 코드(projects.js, primaryTd.js)와 동일하게 axios 직접 호출 방식을 사용합니다.
  */
 
 /**
  * 1. 적합성선언서 조회
  * - 아직 작성 전이면 isNew=true 와 빈 데이터를 돌려줍니다.
- *   (이때 기술문서가 이미 있으면 pkg1TechDocId가 미리 채워집니다)
+ *   (이때 2차 기술문서가 이미 있으면 pkg1TechDocId가 미리 채워집니다)
  * @param {string} prjId 프로젝트 ID
  */
-export async function GetPrimaryDoc(prjId) {
+export async function GetSecondaryDoc(prjId) {
     // 로그인한 고객 ID를 함께 보내 본인 프로젝트의 문서인지 서버가 확인하게 한다
-    const response = await axios.get('/api/PrimaryDoc/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
+    const response = await axios.get('/api/SecondaryDoc/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
 /**
  * 2. 적합성선언서 저장 (신규/수정 통합 Upsert)
  * - 저장 시 서버가 lastWrtDt(발행일)를 현재 날짜로 갱신합니다.
- * - 신규일 경우 pkg1DocId 를 DOC-1-{타임스탬프} 규칙으로 채번합니다.
+ * - 신규일 경우 pkg1DocId 를 DOC-2-{타임스탬프} 규칙으로 채번합니다.
  * @param {object} dto 화면 입력값 전체
  */
-export async function SavePrimaryDoc(dto) {
+export async function SaveSecondaryDoc(dto) {
     // 저장도 본인 프로젝트인지 확인받는다
-    const response = await axios.post('/api/PrimaryDoc/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
+    const response = await axios.post('/api/SecondaryDoc/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
@@ -70,7 +70,7 @@ export async function UploadEvdDoc(prjId, slot, file) {
     formData.append('slot', String(slot));
     formData.append('file', file);
 
-    const response = await axios.post('/api/PrimaryDoc/UploadEvdDoc', formData, {
+    const response = await axios.post('/api/SecondaryDoc/UploadEvdDoc', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         // 파일 업로드도 본인 프로젝트인지 확인받는다
         params: { repCustId: getCurrentCustomerId() },
@@ -83,7 +83,7 @@ export async function UploadEvdDoc(prjId, slot, file) {
  * - 해당 슬롯의 URL/문서명을 비우고 서버의 실제 파일도 지웁니다.
  */
 export async function DeleteEvdDoc(prjId, slot) {
-    const response = await axios.delete('/api/PrimaryDoc/DeleteEvdDoc', {
+    const response = await axios.delete('/api/SecondaryDoc/DeleteEvdDoc', {
         // 파일 삭제도 본인 프로젝트인지 확인받는다
         params: { prjId, slot, repCustId: getCurrentCustomerId() },
     });

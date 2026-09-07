@@ -25,6 +25,12 @@ namespace ecopack.Api.Data
         public DbSet<PrimaryDoc> PrimaryDoc => Set<PrimaryDoc>();
         public DbSet<PrimaryPkg> PrimaryPkg => Set<PrimaryPkg>();
         public DbSet<PrimaryTd> PrimaryTd => Set<PrimaryTd>();
+
+        // 2차 / 3차 포장 문서. 1차(primary_*)와 구조가 같고 문서 ID 컬럼만 차수별로 다르다.
+        public DbSet<SecondaryTd> SecondaryTd => Set<SecondaryTd>();
+        public DbSet<SecondaryDoc> SecondaryDoc => Set<SecondaryDoc>();
+        public DbSet<TertiaryTd> TertiaryTd => Set<TertiaryTd>();
+        public DbSet<TertiaryDoc> TertiaryDoc => Set<TertiaryDoc>();
         public DbSet<Project> Project => Set<Project>();
         public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
 

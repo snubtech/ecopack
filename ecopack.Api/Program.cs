@@ -9,7 +9,14 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 // 2. 컨트롤러 및 API 문서(OpenAPI) 설정 추가
-builder.Services.AddControllers();
+// 화면 폼은 모든 값을 글자로 다루므로 날짜 항목이 빈 문자열("")로 올 수 있다.
+// 그대로 두면 날짜 변환에 실패해 요청이 거절되므로, 빈 문자열을 값 없음으로 받아 준다.
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new ecopack.Api.Support.EmptyStringDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new ecopack.Api.Support.EmptyStringDateOnlyConverter());
+    });
 builder.Services.AddOpenApi(); // 기존 템플릿의 OpenAPI 설정 유지
 
 var app = builder.Build();

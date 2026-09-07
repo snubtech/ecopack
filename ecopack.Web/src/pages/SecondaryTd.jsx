@@ -1,10 +1,10 @@
 /**
  * ==============================================================================
- * [프로그램 전체 흐름 및 구조 요약] - PrimaryTd 컴포넌트 (기술문서)
+ * [프로그램 전체 흐름 및 구조 요약] - SecondaryTd 컴포넌트 (기술문서)
  * ==============================================================================
  * 
  * 1. 화면 구성
- *    - 좌측 사이드바의 [TD (기술문서)] 를 누르면 곧바로 작성 화면이 열립니다.
+ *    - 좌측 사이드바의 [TD (2차 기술문서)] 를 누르면 곧바로 작성 화면이 열립니다.
  *    - 어떤 프로젝트의 문서인지는 세션에 담긴 프로젝트 정보(currentPrjId)로 정해지므로,
  *      [프로젝트 현황] 에서 프로젝트를 고른 뒤 들어와야 저장까지 이어집니다.
  * 
@@ -20,7 +20,7 @@
  * 
  * 4. 저장 (handleSave)
  *    - 화면의 모든 항목을 한 번에 보내 신규/수정을 함께 처리합니다(Upsert).
- *    - 신규면 서버가 TD-1-{타임스탬프} 규칙으로 문서 ID를 채번하고,
+ *    - 신규면 서버가 TD-2-{타임스탬프} 규칙으로 문서 ID를 채번하고,
  *      저장할 때마다 작성일시(lastWrtDtm)를 현재 시각으로 갱신합니다.
  * 
  * 5. 첨부문서 (handleUpload / handleDeleteAtchFile / handleDeleteAtchRow)
@@ -38,19 +38,19 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    GetPrimaryTd,
-    SavePrimaryTd,
+    GetSecondaryTd,
+    SaveSecondaryTd,
     UploadAtchDoc,
     DeleteAtchDoc,
-} from '../api/primaryTd';
+} from '../api/secondaryTd';
 import { fillFromMember } from '../utils/memberProfile';
 
 /**
- * 기술문서 — 1차포장 기술문서 화면 / primary_td 테이블
+ * 기술문서 — 1차포장 기술문서 화면 / secondary_td 테이블
  *
  * 화면 규칙
  *  - [화면고정]           : 라벨/제목으로 고정 출력, 수정 불가
- *  - [insert][컬럼명 : x] : primary_td 컬럼과 1:1로 묶인 입력 필드 (CRUD 대상)
+ *  - [insert][컬럼명 : x] : secondary_td 컬럼과 1:1로 묶인 입력 필드 (CRUD 대상)
  *  - [고정 문구, 수정 가능]: 문단 항목에만 기본 문구가 채워지고 수정 가능
  *  - [default]            : 첨부문서 Annex 라벨. F 이후는 알파벳 순으로 자동 생성
  *
@@ -99,7 +99,7 @@ const TABLE_KEYS = Object.keys(ROW_TABLES);
 
 /** 행 시리즈에 속하지 않는 단일 컬럼들 */
 const SINGLE_KEYS = [
-    'pkg1TechDocId', 'lastWrtDtm',
+    'pkg2TechDocId', 'lastWrtDtm',
     'prjId', 'prjfNm', 'bizNm', 'cntryNm', 'docNo', 'revNo',
     'prdExplPhrsCntn', 'prdIdfyCntn', 'mainMatVal', 'dsgnFeatCntn',
     'prdExtDimSpecVal', 'prdIntDimSpecVal', 'prdWtSpecVal', 'prdMatSpecVal',
@@ -116,7 +116,7 @@ const SINGLE_KEYS = [
     'bizNm2', 'repNm', 'roleNm', 'emlAddr', 'mbTelNo', 'techDocLastPhrsCntn',
 ];
 
-/** 화면에서 다루는 primary_td 컬럼 전체 */
+/** 화면에서 다루는 secondary_td 컬럼 전체 */
 const FIELD_KEYS = [
     ...SINGLE_KEYS,
     ...TABLE_KEYS.flatMap((key) => {
@@ -325,7 +325,7 @@ function AddRowButton({ label, onAdd, current, max }) {
 // ─────────────────────────────────────────────────────────────
 // 메인 화면
 // ─────────────────────────────────────────────────────────────
-export default function PrimaryTd() {
+export default function SecondaryTd() {
     const prjId = useMemo(() => sessionStorage.getItem('currentPrjId') || '', []);
     const prjNm = useMemo(() => sessionStorage.getItem('currentPrjNm') || '', []);
 
@@ -361,7 +361,7 @@ export default function PrimaryTd() {
             }
 
             try {
-                const res = await GetPrimaryTd(prjId);
+                const res = await GetSecondaryTd(prjId);
                 if (!alive) return;
 
                 let merged = mergeWithDefaults(res?.data ?? null);
@@ -432,7 +432,7 @@ export default function PrimaryTd() {
             const { lastWrtDtm: _omit, ...payload } = form;
             void _omit;
 
-            const res = await SavePrimaryTd({ ...payload, prjId });
+            const res = await SaveSecondaryTd({ ...payload, prjId });
             const saved = mergeWithDefaults(res?.data ?? form);
             saved.prjId = prjId;
             const counts = detectRowCounts(saved);
@@ -561,7 +561,7 @@ export default function PrimaryTd() {
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8" />
-<title>기술문서</title>
+<title>2차 기술문서</title>
 <style>
   body { font-family: 'Malgun Gothic', 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.6; }
   h1 { font-size: 18pt; } h2 { font-size: 13pt; margin-top: 18pt; } h3 { font-size: 11pt; }
@@ -578,7 +578,7 @@ export default function PrimaryTd() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `기술문서_${form.prjfNm || prjId || 'primary_td'}.doc`;
+        a.download = `2차기술문서_${form.prjfNm || prjId || 'secondary_td'}.doc`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -607,9 +607,9 @@ export default function PrimaryTd() {
             {/* ── 상단 액션 바 (인쇄/추출 시 제외) ── */}
             <div className="td-toolbar td-noprint">
                 <div className="td-toolbar-info">
-                    <strong>기술문서</strong>
+                    <strong>TD (2차 기술문서)</strong>
                     <span className="td-badge">{isNew ? '신규 작성' : '저장됨'}</span>
-                    {form.pkg1TechDocId && <span className="td-docid">{form.pkg1TechDocId}</span>}
+                    {form.pkg2TechDocId && <span className="td-docid">{form.pkg2TechDocId}</span>}
                     {message && <span className="td-message">{message}</span>}
                 </div>
                 <div className="td-toolbar-buttons">
@@ -630,7 +630,7 @@ export default function PrimaryTd() {
 
             {/* ── 문서 본문 (수직 배치, 이 영역만 PDF/DOCX로 추출) ── */}
             <div className="td-doc" id="td-doc" ref={docRef}>
-                <h1 className="td-title td-title-center">기술문서</h1>
+                <h1 className="td-title td-title-center">2차 기술문서</h1>
 
                 {/* 1. 제품 식별 정보 */}
                 <h2 className="td-h2">1. 제품 식별 정보</h2>

@@ -1,10 +1,10 @@
 /**
  * ==============================================================================
- * [프로그램 전체 흐름 및 구조 요약] - PrimaryDoc 컴포넌트 (적합성 선언서)
+ * [프로그램 전체 흐름 및 구조 요약] - TertiaryDoc 컴포넌트 (적합성 선언서)
  * ==============================================================================
  * 
  * 1. 화면 구성
- *    - 좌측 사이드바의 [DOC (적합성 선언서)] 를 누르면 곧바로 작성 화면이 열립니다.
+ *    - 좌측 사이드바의 [DOC (3차 적합성 선언서)] 를 누르면 곧바로 작성 화면이 열립니다.
  *    - 어떤 프로젝트의 문서인지는 세션에 담긴 프로젝트 정보(currentPrjId)로 정해지므로,
  *      [프로젝트 현황] 에서 프로젝트를 고른 뒤 들어와야 저장까지 이어집니다.
  * 
@@ -20,7 +20,7 @@
  * 
  * 4. 저장 (handleSave)
  *    - 화면의 모든 항목을 한 번에 보내 신규/수정을 함께 처리합니다(Upsert).
- *    - 신규면 서버가 DOC-1-{타임스탬프} 규칙으로 문서 ID를 채번하고,
+ *    - 신규면 서버가 DOC-3-{타임스탬프} 규칙으로 문서 ID를 채번하고,
  *      저장할 때마다 발행일(lastWrtDt)을 오늘 날짜로 갱신합니다.
  * 
  * 5. 근거문서 (handleUpload / handleDeleteFile / handleDeleteRow)
@@ -37,23 +37,23 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    GetPrimaryDoc,
-    SavePrimaryDoc,
+    GetTertiaryDoc,
+    SaveTertiaryDoc,
     UploadEvdDoc,
     DeleteEvdDoc,
-} from '../api/primaryDoc';
+} from '../api/tertiaryDoc';
 import { fillFromMember } from '../utils/memberProfile';
 
 /**
- * DOC (적합성 선언서) — PPWR 적합성 선언서 화면 / primary_doc 테이블
+ * DOC (적합성 선언서) — PPWR 적합성 선언서 화면 / tertiary_doc 테이블
  *
  * 화면 규칙 (기술문서 화면과 동일)
  *  - [화면고정]            : 라벨/제목으로 고정 출력, 수정 불가
- *  - [insert][컬럼명 : x]  : primary_doc 컬럼과 1:1로 묶인 입력 필드 (CRUD 대상)
+ *  - [insert][컬럼명 : x]  : tertiary_doc 컬럼과 1:1로 묶인 입력 필드 (CRUD 대상)
  *  - [고정 문구, 수정 가능] : 기본 문구가 채워지되 수정 가능 (값이 비었을 때만 적용)
  *  - 부속서 A~H            : F 이후는 알파벳 순으로 자동 생성
  *
- * primary_td 와 달리 컬럼이 전부 varchar(길이 지정)라, 입력값이 길이를 초과해
+ * tertiary_td 와 달리 컬럼이 전부 varchar(길이 지정)라, 입력값이 길이를 초과해
  * 저장이 실패하지 않도록 MAXLEN 으로 입력 길이를 제한한다.
  */
 
@@ -71,9 +71,9 @@ const TABLE_KEYS = Object.keys(ROW_TABLES);
 
 /** 행 시리즈에 속하지 않는 단일 컬럼 */
 const SINGLE_KEYS = [
-    'pkg1DocId', 'lastWrtDt',
+    'pkg3DocId', 'lastWrtDt',
     'bizNm', 'repNm', 'roleNm', 'emlAddr', 'mbTelNo',
-    'prjfNm', 'prjId', 'pkg1TechDocId', 'revNo', 'cntryNm', 'dsgnTypeNm',
+    'prjfNm', 'prjId', 'pkg3TechDocId', 'revNo', 'cntryNm', 'dsgnTypeNm',
     'docPhrsCntn',
     'reuseReqCmplCntn', 'dsgnTmplMstrPrdExpl',
     'rcycReqCmplCntn1', 'rcycMainFeatCntn', 'rcycReqCmplCntn2',
@@ -101,7 +101,7 @@ const MAXLEN = {
     mbTelNo: 20,
     prjfNm: 100,
     prjId: 50,
-    pkg1TechDocId: 50,
+    pkg3TechDocId: 50,
     revNo: 14,
     cntryNm: 50,
     dsgnTypeNm: 300,
@@ -353,7 +353,7 @@ function AddRowButton({ label, onAdd, current, max }) {
 // ─────────────────────────────────────────────────────────────
 // 메인 화면
 // ─────────────────────────────────────────────────────────────
-export default function PrimaryDoc() {
+export default function TertiaryDoc() {
     const prjId = useMemo(() => sessionStorage.getItem('currentPrjId') || '', []);
     const prjNm = useMemo(() => sessionStorage.getItem('currentPrjNm') || '', []);
 
@@ -389,7 +389,7 @@ export default function PrimaryDoc() {
             }
 
             try {
-                const res = await GetPrimaryDoc(prjId);
+                const res = await GetTertiaryDoc(prjId);
                 if (!alive) return;
 
                 let merged = mergeWithDefaults(res?.data ?? null);
@@ -453,7 +453,7 @@ export default function PrimaryDoc() {
             const { lastWrtDt: _omit, ...payload } = form;
             void _omit;
 
-            const res = await SavePrimaryDoc({ ...payload, prjId });
+            const res = await SaveTertiaryDoc({ ...payload, prjId });
             const saved = mergeWithDefaults(res?.data ?? form);
             saved.prjId = prjId;
             const counts = detectRowCounts(saved);
@@ -572,7 +572,7 @@ export default function PrimaryDoc() {
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8" />
-<title>PPWR 적합성 선언서</title>
+<title>PPWR 적합성 선언서 (3차)</title>
 <style>
   body { font-family: 'Malgun Gothic', 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.6; }
   h1 { font-size: 18pt; text-align: center; } h2 { font-size: 13pt; margin-top: 18pt; } h3 { font-size: 11pt; }
@@ -590,7 +590,7 @@ export default function PrimaryDoc() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `적합성선언서_${form.prjfNm || prjId || 'primary_doc'}.doc`;
+        a.download = `3차적합성선언서_${form.prjfNm || prjId || 'tertiary_doc'}.doc`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -620,9 +620,9 @@ export default function PrimaryDoc() {
             {/* ── 상단 액션 바 (인쇄/추출 시 제외) ── */}
             <div className="td-toolbar td-noprint">
                 <div className="td-toolbar-info">
-                    <strong>DOC (적합성 선언서)</strong>
+                    <strong>DOC (3차 적합성 선언서)</strong>
                     <span className="td-badge">{isNew ? '신규 작성' : '저장됨'}</span>
-                    {form.pkg1DocId && <span className="td-docid">{form.pkg1DocId}</span>}
+                    {form.pkg3DocId && <span className="td-docid">{form.pkg3DocId}</span>}
                     {message && <span className="td-message">{message}</span>}
                 </div>
                 <div className="td-toolbar-buttons">
@@ -643,7 +643,7 @@ export default function PrimaryDoc() {
 
             {/* ── 문서 본문 ── */}
             <div className="td-doc" id="td-doc" ref={docRef}>
-                <h1 className="td-title doc-title">PPWR 적합성 선언서</h1>
+                <h1 className="td-title doc-title">PPWR 적합성 선언서 (3차)</h1>
                 <p className="doc-subtitle">(Declaration of Conformity)</p>
 
                 {/* 1. 제조자 정보 */}
@@ -664,7 +664,7 @@ export default function PrimaryDoc() {
                     <tbody>
                         <tr><th>1. 제품명</th><td>{input('prjfNm')}</td></tr>
                         <tr><th>2. 제품코드</th><td>{input('prjId')}</td></tr>
-                        <tr><th>3. 기술문서 번호</th><td>{input('pkg1TechDocId')}</td></tr>
+                        <tr><th>3. 기술문서 번호</th><td>{input('pkg3TechDocId')}</td></tr>
                         <tr><th>4. 개정번호</th><td>{input('revNo')}</td></tr>
                         <tr><th>5. 제조국</th><td>{input('cntryNm')}</td></tr>
                         <tr><th>6. 제품 유형</th><td>{input('dsgnTypeNm')}</td></tr>

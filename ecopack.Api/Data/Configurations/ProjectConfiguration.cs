@@ -9,7 +9,10 @@ namespace ecopack.Api.Data.Configurations
 		public void Configure(EntityTypeBuilder<Project> builder)
 		{
 			builder.ToTable("project");
-			builder.HasKey(e => e.PrjId);
+			// 실제 project 테이블의 기본키는 prjId + packLevel 복합키다.
+			// 한 프로젝트가 포장차수(1/2/3차)별로 행을 갖기 때문이다.
+			// prjId 하나로 두면 EF 가 차수 구분 없이 지우거나 고쳐 다른 차수까지 영향을 준다.
+			builder.HasKey(e => new { e.PrjId, e.PackLevel });
 
 			builder.Property(e => e.PrjId).HasMaxLength(50).HasColumnName("prjid");
 			builder.Property(e => e.PrjNm).HasMaxLength(100).HasColumnName("prjnm");
