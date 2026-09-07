@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getMaterialProperty, getMattypes } from '../api/commonCode';
-import { SaveProjectDetail, GetProjectDetail, deleteProject } from "../api/projects";
+import { SaveProjectDetail, GetProjectDetail } from "../api/projects";
 import { getCurrentCustomerId } from '../utils/memberProfile';
 
 export default function Prjdefault({ onSelectItem }) {
@@ -11,7 +11,14 @@ export default function Prjdefault({ onSelectItem }) {
     const [matTypesList, setMatTypesList] = useState([]);
 
     // 폼 입력 상태 관리
-    const [projectName, setProjectName] = useState('');
+    // 💡 프로젝트명은 신규 프로젝트 작성 시 입력한 이름과 같은 값이라, 세션에 담겨 온
+    //    값으로 화면이 뜨는 즉시(공통코드·상세정보 조회를 기다리지 않고) 채워 둔다.
+    //    아래 useEffect의 네트워크 요청 중 하나라도 실패해도 이름 칸은 항상 채워져 있다.
+    const [projectName, setProjectName] = useState(() => {
+        const currentPrjId = sessionStorage.getItem('currentPrjId');
+        const savedNm = sessionStorage.getItem('currentPrjNm') || '';
+        return currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID' ? savedNm : (savedNm || 'Foldable EPP Box');
+    });
     const [material, setMaterial] = useState('');
     const [env, setEnv] = useState('');
     const [matType, setMatType] = useState('');
@@ -33,16 +40,11 @@ export default function Prjdefault({ onSelectItem }) {
                 const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
 
                 if (currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID') {
-                    // 3. 프로젝트명은 project_detail 테이블에 별도 컬럼이 없어 상세 조회로는 받아올 수 없다.
-                    //    프로젝트 목록에서 넘어올 때 세션에 담아 둔 이름을 우선 기본값으로 채워 둔다.
-                    //    (이 값을 먼저 넣어 둬야, 아래 상세 조회가 실패해도 이름 칸이 비지 않는다)
-                    setProjectName(sessionStorage.getItem('currentPrjNm') || '');
-
+                    // 3. 프로젝트명은 이미 초기 상태값으로 채워져 있다(useState 초기화 함수 참고).
+                    //    project_detail 테이블엔 프로젝트명 컬럼이 없어 상세 조회로는 받아올 수 없고,
+                    //    기본사항을 한 번도 저장한 적 없는 프로젝트는 상세 조회가 404를 낸다.
+                    //    이 경우도 정상 상황이므로 아래 catch에서 조용히 넘어간다.
                     try {
-                        // 4. 서버에 해당 프로젝트 상세 정보 조회 요청
-                        //    기본사항을 한 번도 저장한 적 없는 프로젝트는 상세 정보가 없어 404가 온다.
-                        //    이 경우도 정상 상황이므로 아래 catch에서 조용히 넘어가고, 위에서 넣어 둔
-                        //    프로젝트명 기본값만 유지한다.
                         const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
 
                         if (detailData) {
@@ -55,10 +57,9 @@ export default function Prjdefault({ onSelectItem }) {
                             sessionStorage.setItem('currentMatType', detailData.matType || '');
                         }
                     } catch (detailError) {
-                        console.warn('저장된 기본사항이 아직 없어 프로젝트명만 기본값으로 채웁니다.', detailError);
+                        console.warn('저장된 기본사항이 아직 없어 넘어갑니다.', detailError);
                     }
                 } else {
-                    setProjectName(sessionStorage.getItem('currentPrjNm') || 'Foldable EPP Box');
                     setMaterial(sessionStorage.getItem('currentMaterial') || '');
                     setEnv(sessionStorage.getItem('currentEnv') || '');
                     setMatType(sessionStorage.getItem('currentMatType') || '');
@@ -113,45 +114,8 @@ export default function Prjdefault({ onSelectItem }) {
         }
     };
 
-    // [삭제 버튼 클릭 핸들러]
-    // 세션에 잡혀 있는 포장차수 하나만 지웁니다.
-    // 예를 들어 1/2/3차가 있는 프로젝트에서 2차 화면에서 삭제를 누르면
-    // 2차 프로젝트와 2차 기술문서(TD)/적합성선언서(DOC)만 지워지고 1차와 3차는 그대로 남습니다.
-    const handleDelete = async () => {
-        const currentPrjId = sessionStorage.getItem('currentPrjId');
-        const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
-
-        if (!currentPrjId || currentPrjId === 'DEFAULT_PRJ_ID') {
-            alert('삭제할 프로젝트가 없습니다. 프로젝트 현황에서 프로젝트를 선택해 주세요.');
-            return;
-        }
-
-        // 문서까지 함께 지워지는 작업이라 되돌릴 수 없으므로 한 번 더 확인합니다.
-        const ok = window.confirm(
-            `${currentPackLevel}차 포장 프로젝트를 삭제합니다.\n` +
-            `해당 차수의 기술문서(TD)와 적합성 선언서(DOC)도 함께 삭제되며 되돌릴 수 없습니다.\n\n` +
-            '삭제하시겠습니까?'
-        );
-        if (!ok) return;
-
-        try {
-            const result = await deleteProject(currentPrjId, currentPackLevel);
-            alert(result?.message || '삭제되었습니다.');
-
-            // 지워진 프로젝트가 세션에 남아 있으면 다음 화면에서 없는 데이터를 조회하게 되므로 정리합니다.
-            ['currentPrjId', 'currentPrjNm', 'currentPackLevel', 'currentExportCountry',
-                'currentMaterial', 'currentEnv', 'currentMatType', 'currentPackDsgnTplId']
-                .forEach((key) => sessionStorage.removeItem(key));
-
-            // 삭제 후에는 목록에서 결과를 바로 확인할 수 있게 프로젝트 현황으로 돌려보냅니다.
-            if (typeof onSelectItem === 'function') {
-                onSelectItem('project-history');
-            }
-        } catch (error) {
-            console.error('프로젝트 삭제 실패:', error);
-            alert(error?.response?.data?.message || '삭제 중 오류가 발생했습니다.');
-        }
-    };
+    // 💡 삭제 버튼은 [프로젝트 현황] 표의 [관리] 열로 옮겼다 (Projects.jsx).
+    //    여기서는 수정 화면에서 바로 지우다 실수로 잘못 누르는 걸 막기 위해 뺐다.
 
     const handleNextStep = async () => {
         saveToSessionStorage();
@@ -250,14 +214,6 @@ export default function Prjdefault({ onSelectItem }) {
 
                 {/* 하단 버튼 영역 */}
                 <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    {/* 삭제는 되돌릴 수 없는 동작이라 다른 버튼과 색을 구분해 왼쪽 끝에 둡니다. */}
-                    <button
-                        className="btn-secondary-line"
-                        onClick={handleDelete}
-                        style={{ marginRight: 'auto', color: '#dc2626', borderColor: '#fca5a5' }}
-                    >
-                        삭제
-                    </button>
                     <button className="btn-secondary-line" onClick={() => console.log('취소 클릭')}>취소</button>
                     <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>

@@ -18,6 +18,11 @@ export const getPackLevels = async () => {
     return response.data;
 };
 export const getMattypes = async () => {
-    const response = await axiosInstance.get('/common/mattype');
-    return response.data;
+    try {
+        const response = await axiosInstance.get('/common/mattype');
+        return response.data;
+    } catch (error) {
+        console.error('포장재 종류 조회 실패:', error);
+        return [];
+    }
 };

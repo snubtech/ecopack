@@ -23,19 +23,19 @@
  * 4. 이력 표에서 다른 화면으로 이동 (goToScreen)
  *    - 고른 프로젝트를 세션에 담은 뒤 해당 화면으로 넘어갑니다.
  *      담는 값: currentPrjId / currentPrjNm / currentPackLevel / currentExportCountry
- *    - [관리] 수정 → 기본사항, [TD] 수정 → 기술문서, [DOC] 수정 → 적합성 선언서
+ *    - [프로젝트 관리] 수정 → 기본사항, [TD] 수정 → 기술문서, [DOC] 수정 → 적합성 선언서
  *    - 기술문서와 적합성 선언서는 판매(1차) 포장 기준이라
  *      1차 행에서만 버튼이 눌리고 2·3차 행에서는 비활성으로 둡니다.
  * 
  * 5. 화면 렌더링 (JSX)
  *    - 이력 표는 날짜·프로젝트명·프로젝트 번호·수출국가·포장 차수·담당자·진행상태와
- *      관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
+ *      프로젝트 관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
  *    - 수출국가는 prdExpCntryNm1~8 중 'Y' 인 항목을 찾아 이름으로 보여줍니다.
  * ==============================================================================
  */
 import { useEffect, useState } from 'react';
-import { getProjects, createProject } from '../api/projects';
-import { getCurrentCustomerId } from '../utils/memberProfile';
+import { getProjects, createProject, deleteProject } from '../api/projects';
+import { getCurrentCustomerId, getMemberProfile } from '../utils/memberProfile';
 
 // 1. 세션 스토리지에 데이터 저장
 // sessionStorage.setItem('currentPrjNm');
@@ -71,13 +71,15 @@ export default function Projects({ onSelectItem }) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // 신규 프로젝트 폼 입력 상태 관리
-    const [formData, setFormData] = useState({
+    // 💡 담당자는 로그인한 회원의 이름을 기본값으로 채워 두되, 다른 담당자를 적을 수도
+    //    있으니 그대로 수정 가능한 입력칸으로 둔다.
+    const [formData, setFormData] = useState(() => ({
         prjNm: '',
         exportCountry: '미국 (USA)', // 기본값 미국
         packagingLevels: { sales: true, group: false, transport: false },
         projectContent: '',
-        repNm: ''
-    });
+        repNm: getMemberProfile()?.repNm || ''
+    }));
 
     // 데이터 로드
     useEffect(() => {
@@ -232,8 +234,43 @@ export default function Projects({ onSelectItem }) {
         }
     };
 
-    // [관리] 열의 수정 버튼 — 기본사항 화면으로 이동
+    // [프로젝트 관리] 열의 수정 버튼 — 기본사항 화면으로 이동
     const handleEditClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'prjdefault');
+
+    // [프로젝트 관리] 열의 삭제 버튼 — 그 행(포장차수)의 프로젝트만 지운다.
+    // 💡 예전에는 기본사항(Prjdefault) 화면 안에 있었는데, 목록에서 바로 지울 수 있게
+    //    [프로젝트 관리] 열로 옮겼다. 한 프로젝트에 1/2/3차가 있을 때 2차 행에서 누르면
+    //    2차 프로젝트와 2차 기술문서(TD)/적합성선언서(DOC)만 지워지고 나머지는 남는다.
+    const handleDeleteClick = async (item) => {
+        // 문서까지 함께 지워지는 작업이라 되돌릴 수 없으므로 한 번 더 확인한다.
+        const ok = window.confirm(
+            `[${item.prjNm}] ${item.packLevel}차 포장 프로젝트를 삭제합니다.\n` +
+            `해당 차수의 기술문서(TD)와 적합성 선언서(DOC)도 함께 삭제되며 되돌릴 수 없습니다.\n\n` +
+            '삭제하시겠습니까?'
+        );
+        if (!ok) return;
+
+        try {
+            const result = await deleteProject(item.prjId, item.packLevel);
+            alert(result?.message || '삭제되었습니다.');
+
+            // 지금 삭제한 프로젝트가 세션에 남아 있으면(방금 그 화면에서 왔을 수 있으므로)
+            // 다음 화면에서 없는 데이터를 조회하게 되므로 정리한다.
+            if (sessionStorage.getItem('currentPrjId') === item.prjId
+                && sessionStorage.getItem('currentPackLevel') === item.packLevel) {
+                ['currentPrjId', 'currentPrjNm', 'currentPackLevel', 'currentExportCountry',
+                    'currentMaterial', 'currentEnv', 'currentMatType', 'currentPackDsgnTplId']
+                    .forEach((key) => sessionStorage.removeItem(key));
+            }
+
+            // 목록을 다시 불러와 삭제 결과를 바로 반영한다.
+            const data = await getProjects();
+            setProjectList(data);
+        } catch (error) {
+            console.error('프로젝트 삭제 실패:', error);
+            alert(error?.response?.data?.message || '삭제 중 오류가 발생했습니다.');
+        }
+    };
 
     // [TD] / [DOC] 열의 수정 버튼 — 기술문서 / 적합성 선언서 화면으로 이동
     // 두 문서는 1차(판매) 포장 기준이라 1차 행에서만 열 수 있게 한다.
@@ -281,7 +318,7 @@ export default function Projects({ onSelectItem }) {
                             <th style={{ padding: '4px 8px' }}>포장 차수</th>
                             <th style={{ padding: '4px 8px' }}>담당자</th>
                             <th style={{ padding: '4px 8px' }}>진행상태</th>
-                            <th style={{ padding: '4px 8px', textAlign: 'center' }}>관리</th>
+                            <th style={{ padding: '4px 8px', textAlign: 'center' }}>프로젝트 관리</th>
                             <th style={{ padding: '4px 8px', textAlign: 'center' }}>TD</th>
                             <th style={{ padding: '4px 8px', textAlign: 'center' }}>DOC</th>
                         </tr>
@@ -322,12 +359,21 @@ export default function Projects({ onSelectItem }) {
                                             </span>
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center' }}>
-                                            <button
-                                                onClick={() => handleEditClick(item, matchedCountry)}
-                                                style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
-                                            >
-                                                수정
-                                            </button>
+                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                <button
+                                                    onClick={() => handleEditClick(item, matchedCountry)}
+                                                    style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
+                                                >
+                                                    수정
+                                                </button>
+                                                {/* 삭제는 되돌릴 수 없는 동작이라 다른 버튼과 색을 구분한다 */}
+                                                <button
+                                                    onClick={() => handleDeleteClick(item)}
+                                                    style={{ padding: '1px 6px', border: '1px solid #fca5a5', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#dc2626' }}
+                                                >
+                                                    삭제
+                                                </button>
+                                            </div>
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                                             <button
