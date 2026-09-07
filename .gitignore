@@ -37,4 +37,7 @@ Desktop.ini
 /_docs/
 
 ## 첨부문서 업로드 파일 (런타임 생성물)
+## wwwroot/uploads는 예전 위치라 더 이상 안 쓰지만, 남아있는 로컬 파일이 실수로
+## 커밋되지 않도록 규칙은 당분간 같이 둔다.
 /ecopack.Api/wwwroot/uploads/
+/ecopack.Api/App_Data/

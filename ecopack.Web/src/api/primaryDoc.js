@@ -89,3 +89,17 @@ export async function DeleteEvdDoc(prjId, slot) {
     });
     return response.data;
 }
+
+/**
+ * 5. 근거문서 다운로드 링크 만들기
+ * - 예전엔 서버가 돌려준 경로를 그대로 <a href>에 써서 로그인 없이도 내려받혔다.
+ *   지금은 첨부파일이 wwwroot 밖에 있어 URL만으로는 못 받고, 이 API(소유자 확인 통과)를
+ *   거쳐야만 내려받을 수 있다. 로그인한 고객 ID를 함께 실어 보낸다.
+ * @param {string} prjId 프로젝트 ID
+ * @param {number} slot 근거문서 슬롯 번호 (1~8)
+ * @returns {string} <a href>에 그대로 쓸 수 있는 다운로드 URL
+ */
+export function getEvdDocDownloadUrl(prjId, slot) {
+    const params = new URLSearchParams({ prjId, slot, repCustId: getCurrentCustomerId() });
+    return `/api/PrimaryDoc/DownloadEvdDoc?${params.toString()}`;
+}

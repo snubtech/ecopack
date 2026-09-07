@@ -19,9 +19,12 @@
  *    - 기술문서 번호가 비어 있으면 같은 프로젝트의 기술문서를 찾아 연결합니다.
  *    - 저장할 때마다 발행일(lastWrtDt)을 서버 현재 날짜로 갱신합니다.
  * 
- * 4. UploadEvdDoc / DeleteEvdDoc — 근거문서(부속서)
- *    - 파일은 wwwroot/uploads/doc/{프로젝트ID}/ 아래에 두고,
- *      evdDocUrl{슬롯} 에 경로를, evdDocNm{슬롯} 에 확장자 포함 원본 파일명을 기록합니다.
+ * 4. UploadEvdDoc / DownloadEvdDoc / DeleteEvdDoc — 근거문서(부속서)
+ *    - 파일은 wwwroot 밖(App_Data/uploads/projects/doc/{포장차수}/{프로젝트번호}/)에 두고,
+ *      evdDocUrl{슬롯} 에는 그 안에서의 상대경로를, evdDocNm{슬롯} 에는 확장자 포함
+ *      원본 파일명을 기록합니다. wwwroot 밖이라 URL로 직접 접근할 수 없고,
+ *      Download 액션이 소유자 확인을 통과한 요청에만 파일을 내려줍니다.
+ *    - 업로드 확장자는 화이트리스트(UploadPolicy)로 제한합니다: doc/ppt/excel/hwp/pdf.
  * 
  * 5. DTO ↔ 엔티티 매핑 (ToDto / ApplyDtoToEntity)
  *    - 이름이 같은 것끼리 리플렉션으로 옮깁니다.
@@ -201,6 +204,47 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
+        // GET: api/SecondaryDoc/DownloadEvdDoc?prjId=xxx&slot=1
+        // 근거문서 원본 파일을 내려준다. 소유자 확인을 통과해야만 내려받을 수 있다.
+        // ─────────────────────────────────────────────────────────────
+        [HttpGet("DownloadEvdDoc")]
+        public async Task<IActionResult> DownloadEvdDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > EvdDocSlotCount)
+            {
+                return BadRequest(new { success = false, message = "prjId와 slot(1~8)이 필요합니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서만 내려받을 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            var entity = await _context.SecondaryDoc.AsNoTracking().FirstOrDefaultAsync(x => x.PrjId == prjId);
+            if (entity == null)
+            {
+                return NotFound(new { success = false, message = "적합성선언서를 찾을 수 없습니다." });
+            }
+
+            var relativePath = GetStringProperty(entity, $"EvdDocUrl{slot}");
+            var originalNm = GetStringProperty(entity, $"EvdDocNm{slot}") ?? $"attachment{slot}";
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                return NotFound(new { success = false, message = "첨부된 파일이 없습니다." });
+            }
+
+            var physicalPath = UploadPolicy.ToPhysicalPath(_env, relativePath);
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                return NotFound(new { success = false, message = "파일을 찾을 수 없습니다." });
+            }
+
+            var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            return File(bytes, "application/octet-stream", originalNm);
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // POST: api/SecondaryDoc/UploadEvdDoc   (multipart/form-data)
         // 근거문서(부속서)를 업로드하고 evdDocUrl{slot} / evdDocNm{slot} 에 반영한다.
         // 문서명은 확장자를 포함한 원본 파일명 그대로 저장한다.
@@ -227,7 +271,15 @@ namespace ecopack.Api.Controllers
             }
             if (file.Length > MaxEvdDocBytes)
             {
-                return BadRequest(new EvdDocUploadResultDto { Success = false, Message = "파일 크기는 20MB를 넘을 수 없습니다." });
+                return BadRequest(new EvdDocUploadResultDto { Success = false, Message = $"파일 크기는 {UploadPolicy.MaxFileSizeDisplay}를 넘을 수 없습니다." });
+            }
+            if (!UploadPolicy.IsExtensionAllowed(file.FileName))
+            {
+                return BadRequest(new EvdDocUploadResultDto
+                {
+                    Success = false,
+                    Message = $"허용되지 않는 파일 형식입니다. ({UploadPolicy.AllowedExtensionsDisplay} 파일만 업로드할 수 있습니다.)"
+                });
             }
 
             // 본인이 만든 프로젝트의 문서에만 파일을 올릴 수 있다
@@ -255,8 +307,7 @@ namespace ecopack.Api.Controllers
                 var ext = Path.GetExtension(originalNm);
                 var storedNm = $"{slot}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
 
-                var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                var saveDir = Path.Combine(webRoot, "uploads", "doc2", prjId);
+                var saveDir = UploadPolicy.GetProjectDocDirectory(_env, "doc", PackLevel, prjId);
                 Directory.CreateDirectory(saveDir);
 
                 var savePath = Path.Combine(saveDir, storedNm);
@@ -265,9 +316,11 @@ namespace ecopack.Api.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                var url = $"/uploads/doc2/{prjId}/{storedNm}";
+                // DB엔 공개 URL이 아니라 업로드 루트 기준 상대경로만 저장한다.
+                // 실제 내려받기는 DownloadEvdDoc이 소유자 확인 후 처리한다.
+                var relativePath = UploadPolicy.ToRelativePath("doc", PackLevel, prjId, storedNm);
 
-                SetStringProperty(entity, $"EvdDocUrl{slot}", url);
+                SetStringProperty(entity, $"EvdDocUrl{slot}", relativePath);
                 SetStringProperty(entity, $"EvdDocNm{slot}", originalNm);
                 entity.LastWrtDt = DateOnly.FromDateTime(DateTime.Now);
 
@@ -278,7 +331,7 @@ namespace ecopack.Api.Controllers
                     Success = true,
                     Slot = slot,
                     FileNm = originalNm,
-                    FileUrl = url,
+                    FileUrl = relativePath,
                     Message = "근거문서가 업로드되었습니다."
                 });
             }
@@ -318,11 +371,10 @@ namespace ecopack.Api.Controllers
                     return NotFound(new { success = false, message = "적합성선언서를 찾을 수 없습니다." });
                 }
 
-                var url = GetStringProperty(entity, $"EvdDocUrl{slot}");
-                if (!string.IsNullOrWhiteSpace(url))
+                var relativePath = GetStringProperty(entity, $"EvdDocUrl{slot}");
+                if (!string.IsNullOrWhiteSpace(relativePath))
                 {
-                    var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                    var physical = Path.Combine(webRoot, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    var physical = UploadPolicy.ToPhysicalPath(_env, relativePath);
                     if (System.IO.File.Exists(physical))
                     {
                         System.IO.File.Delete(physical);
@@ -358,9 +410,11 @@ namespace ecopack.Api.Controllers
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .ToDictionary(p => p.Name, StringComparer.Ordinal);
 
-        /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목</summary>
+        /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목.
+        /// 근거문서명(EvdDocNm)은 업로드/삭제 액션에서만 바뀌어야 하므로 Save로는 못 바꾸게 막는다.</summary>
         private static readonly HashSet<string> SkipOnWrite =
-            new(StringComparer.Ordinal) { nameof(SecondaryDocDto.Pkg2DocId), nameof(SecondaryDocDto.LastWrtDt) };
+            new(StringComparer.Ordinal) { nameof(SecondaryDocDto.Pkg2DocId), nameof(SecondaryDocDto.LastWrtDt) ,
+            nameof(SecondaryDocDto.EvdDocNm1), nameof(SecondaryDocDto.EvdDocNm2), nameof(SecondaryDocDto.EvdDocNm3), nameof(SecondaryDocDto.EvdDocNm4), nameof(SecondaryDocDto.EvdDocNm5), nameof(SecondaryDocDto.EvdDocNm6), nameof(SecondaryDocDto.EvdDocNm7), nameof(SecondaryDocDto.EvdDocNm8) };
 
         private static SecondaryDocDto ToDto(SecondaryDoc entity)
         {

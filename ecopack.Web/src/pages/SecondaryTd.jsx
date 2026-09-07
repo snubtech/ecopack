@@ -42,6 +42,7 @@ import {
     SaveSecondaryTd,
     UploadAtchDoc,
     DeleteAtchDoc,
+    getAtchDocDownloadUrl,
 } from '../api/secondaryTd';
 import { fillFromMember } from '../utils/memberProfile';
 
@@ -904,7 +905,13 @@ export default function SecondaryTd() {
                             return (
                                 <tr key={`atch-${slot}`}>
                                     <td className="td-row-label">{annexLabel(slot)}</td>
-                                    <td>{input(`atchDocNm${slot}`)}</td>
+                                    <td>
+                                        {/* 실제 업로드한 원본 파일명을 그대로 보여준다 — 화면에서 임의로 바꾸면
+                                           다운로드 파일명과 실제 내용이 어긋나므로 읽기 전용으로 둔다 */}
+                                        <input type="text" className="td-input td-input-locked"
+                                            value={form[`atchDocNm${slot}`] || ''} readOnly
+                                            placeholder="파일을 올리면 자동으로 채워집니다" />
+                                    </td>
                                     <td className="td-noprint">
                                         <input
                                             type="file"
@@ -918,7 +925,7 @@ export default function SecondaryTd() {
                                             </button>
                                             {url && (
                                                 <>
-                                                    <a className="td-link" href={url} target="_blank" rel="noreferrer" download={nm || undefined}>
+                                                    <a className="td-link" href={getAtchDocDownloadUrl(prjId, slot)} target="_blank" rel="noreferrer" title={nm || undefined}>
                                                         다운로드
                                                     </a>
                                                     <button type="button" className="td-btn td-btn-sm" onClick={() => handleDeleteAtchFile(slot)}>
@@ -943,6 +950,9 @@ export default function SecondaryTd() {
                 </table>
                 <AddRowButton label="Annex 행 추가" onAdd={() => addRow('atch')}
                     current={rowCounts.atch} max={ROW_TABLES.atch.max} />
+                <p className="td-noprint" style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0' }}>
+                    * 파일 업로드는 최대 20MB까지 가능하며, MS오피스(Word·PPT·Excel)·한글(HWP)·PDF 파일만 올릴 수 있습니다.
+                </p>
 
                 {/* 12. 책임자 정보 */}
                 <h2 className="td-h2">12. 책임자 정보</h2>

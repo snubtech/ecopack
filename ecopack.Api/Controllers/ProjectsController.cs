@@ -367,12 +367,9 @@ namespace ecopack.Api.Controllers
         {
             try
             {
-                var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                // 1차는 uploads/td, 2·3차는 uploads/td2, uploads/td3 를 쓴다
-                var suffix = packLevel == "1" ? "" : packLevel;
                 foreach (var kind in new[] { "td", "doc" })
                 {
-                    var dir = Path.Combine(webRoot, "uploads", kind + suffix, prjId);
+                    var dir = UploadPolicy.GetProjectDocDirectory(_env, kind, packLevel, prjId);
                     if (Directory.Exists(dir))
                     {
                         Directory.Delete(dir, recursive: true);
