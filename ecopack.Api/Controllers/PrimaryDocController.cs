@@ -13,7 +13,8 @@
  *      화면에서 기술문서 번호가 자동으로 연결되게 합니다.
  * 
  * 3. Save — 신규/수정 통합 저장 (Upsert)
- *    - 신규일 때 문서 ID를 DOC-{포장차수}-{yyyyMMddHHmmssfff} 규칙으로 채번합니다.
+ *    - 신규일 때 문서 ID를 DOC-{포장차수}-{프로젝트번호} 규칙으로 채번합니다.
+ *      프로젝트번호(prjId)는 이미 유일하므로 문서 ID도 그것만으로 유일해집니다.
  *    - 개정번호(revNo)는 Rev.01, 물질 총합행 라벨(sbstTot)은 '총합' 을 기본값으로 채웁니다.
  *    - 기술문서 번호가 비어 있으면 같은 프로젝트의 기술문서를 찾아 연결합니다.
  *    - 저장할 때마다 발행일(lastWrtDt)을 서버 현재 날짜로 갱신합니다.
@@ -63,10 +64,10 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // 채번: DOC-{차수}-{yyyyMMddHHmmssfff}
+        // 채번: DOC-{차수}-{프로젝트번호}
         // ─────────────────────────────────────────────────────────────
-        private static string NewDocId() =>
-            $"DOC-{PackLevel}-{DateTime.Now:yyyyMMddHHmmssfff}";
+        private static string NewDocId(string prjId) =>
+            $"DOC-{PackLevel}-{prjId}";
 
         // ─────────────────────────────────────────────────────────────
         // GET: api/PrimaryDoc/Get?prjId=xxx
@@ -148,7 +149,7 @@ namespace ecopack.Api.Controllers
                     entity = new PrimaryDoc
                     {
                         Pkg1DocId = string.IsNullOrWhiteSpace(dto.Pkg1DocId)
-                            ? NewDocId()
+                            ? NewDocId(dto.PrjId)
                             : dto.Pkg1DocId
                     };
                     _context.PrimaryDoc.Add(entity);

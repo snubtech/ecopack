@@ -13,7 +13,8 @@
  * 
  * 3. Save — 신규/수정 통합 저장 (Upsert)
  *    - 같은 프로젝트의 문서가 있으면 수정하고, 없으면 새로 만듭니다.
- *    - 신규일 때 문서 ID를 TD-{포장차수}-{yyyyMMddHHmmssfff} 규칙으로 채번합니다.
+ *    - 신규일 때 문서 ID를 TD-{포장차수}-{프로젝트번호} 규칙으로 채번합니다.
+ *      프로젝트번호(prjId)는 이미 유일하므로 문서 ID도 그것만으로 유일해집니다.
  *      포장차수는 1차(판매) 고정이며, 2·3차는 별도 화면이 생길 때 값만 바꾸면 됩니다.
  *    - 문서번호(docNo)는 기술문서 번호(TD-1-...)와 같은 값으로 고정합니다.
  *      적합성 선언서가 참조하는 번호와 어긋나면 안 되므로 화면에서 고칠 수 없게 했습니다.
@@ -70,10 +71,10 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // 채번: TD-{차수}-{yyyyMMddHHmmssfff}
+        // 채번: TD-{차수}-{프로젝트번호}
         // ─────────────────────────────────────────────────────────────
-        private static string NewTechDocId() =>
-            $"TD-{PackLevel}-{DateTime.Now:yyyyMMddHHmmssfff}";
+        private static string NewTechDocId(string prjId) =>
+            $"TD-{PackLevel}-{prjId}";
 
         // ─────────────────────────────────────────────────────────────
         // GET: api/TertiaryTd/Get?prjId=xxx
@@ -144,7 +145,7 @@ namespace ecopack.Api.Controllers
                     {
                         // 프론트가 기존 ID를 보내오면 그대로 쓰고, 없으면 채번
                         Pkg3TechDocId = string.IsNullOrWhiteSpace(dto.Pkg3TechDocId)
-                            ? NewTechDocId()
+                            ? NewTechDocId(dto.PrjId)
                             : dto.Pkg3TechDocId
                     };
                     _context.TertiaryTd.Add(entity);
