@@ -16,7 +16,7 @@ namespace ecopack.Api.Controllers
             _context = context;
         }
 
-        // 주소가 /api/common/Appliedmaterial 로 아주 짧고 깔끔해집니다.
+        // 주소가 /api/common/Appliedmaterial 로 아주 짧고 깔끔해집니다. 적용소재
         [HttpGet("material")]
         public async Task<IActionResult> GetMaterialProperty()
         {
@@ -40,6 +40,7 @@ namespace ecopack.Api.Controllers
 
             return Ok(list);
         }
+        // 주소가 /api/common/packlevels 로 아주 짧고 깔끔해집니다. 포장차수
         [HttpGet("packlevels")]
         public async Task<IActionResult> GetPackLevels()
         {
@@ -54,7 +55,7 @@ namespace ecopack.Api.Controllers
 
             return Ok(list);
         }
-        //주소가 /api/common/mattype ]
+        //주소가 /api/common/mattype ]  포장재구분
         [HttpGet("mattype")]
         public async Task<IActionResult> GetMattypeProperty()
         {

@@ -5,7 +5,7 @@ import axiosInstance from './axiosInstance';
  */
 export const getMaterialProperty = async () => {
     try {
-        // 👇 백엔드의 [HttpGet("material")] 경로와 글자 하나 안 틀리고 일치해야 합니다!
+        //  백엔드의 [HttpGet("material")] 경로와 글자 하나 안 틀리고 일치해야 합니다!
         const response = await axiosInstance.get('/common/material');
         return response.data;
     } catch (error) {
