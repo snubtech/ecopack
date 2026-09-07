@@ -6,6 +6,7 @@ import Prjdefault from '../../pages/Prjdefault';
 //import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
 import Prjtemplate from '../../pages/Prjtemplate';
+import Prjdefaultresult from '../../pages/Prjdefaultresult';
 import Prjeval from '../../pages/Prjeval';
 import Prjevalresult from '../../pages/Prjevalresult';
 import PrimaryTd from '../../pages/PrimaryTd';
@@ -57,6 +58,7 @@ const DashboardLayout = ({ onLogout }) => {
     })();
 
     const renderBusinessContent = () => {
+        console.log("현재 선택된 currentMenu ID:", currentMenu); // 👈 이 부분을 추가해서 F12 콘솔을 확인해보세요!
         switch (currentMenu) {
             case 'project-history':
                 return <Projects onSelectItem={setCurrentMenu} />;
@@ -66,6 +68,17 @@ const DashboardLayout = ({ onLogout }) => {
                 return <Prjdefault onSelectItem={setCurrentMenu} />;
             case 'prjtemplate': // 'prjtemplate'로 와도 Prjdefault 컴포넌트를 띄운다!
                 return <Prjtemplate onSelectItem={setCurrentMenu} />;
+           // case 'prjdefaultresult': // 'prjdefaultresult'로 와도 Prjdefaultresult 컴포넌트를 띄운다!
+             //   return <Prjdefaultresult onSelectItem={setCurrentMenu} />;
+            // 💡 이 부분을 주석 해제하고 Prjdefaultresult 컴포넌트가 확실히 렌더링되도록 수정합니다.
+            case 'prjdefaultresult':
+                return (
+                    <Prjdefaultresult
+                        prjId={projectInfo.id}
+                        packLevel={projectInfo.packLevel || "1"}
+                        onSelectItem={setCurrentMenu}
+                    />
+                );
             case 'prjeval': // 'Prjeval'로 와도 Prjeval 컴포넌트를 띄운다!
                 return <Prjeval onSelectItem={setCurrentMenu} />;
             case 'prjevalresult': // 'Prjevalresult'로 와도 Prjevalresult 컴포넌트를 띄운다!
@@ -101,6 +114,9 @@ const DashboardLayout = ({ onLogout }) => {
                 );
         }
     };
+  
+      
+
 
     return (
         /* 💡 핵심: 외부 CSS의 grid 고정을 무력화하고 상태에 따라 그리드 컬럼 너비를 동적으로 변경 */

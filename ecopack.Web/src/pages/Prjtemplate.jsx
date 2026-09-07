@@ -102,10 +102,13 @@ function PackTemplatePage({ onSelectItem }) {
 
         if (typeof onSelectItem === 'function') {
             console.log("onSelectItem 함수 실행됨!");
-            onSelectItem('prjeval'); // 'prjeval'(평가지) 메뉴로 상태 변경 요청
+            //onSelectItem('prjeval'); // 'prjeval'(평가지) 메뉴로 상태 변경 요청
+            onSelectItem('prjdefaultresult'); // 'Prjdefaultresult'(프로젝트 기본결과) 메뉴로 상태 변경 요청
         } else {
             console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
         }
+
+
     };
     // 전체 페이지 수 계산
     const totalPages = Math.ceil(totalCount / pageSize);

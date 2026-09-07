@@ -571,5 +571,196 @@ namespace ecopack.Api.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
+        // ─────────────────────────────────────────────────────────────
+        // 💡 새로 추가된 4가지 분석 조회 엔드포인트 반영
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 1. 물성 (Physical Properties) 정보 조회
+        /// </summary>
+        // ─────────────────────────────────────────────────────────────
+        // API 호출명(getmaterial, getenvironment 등)에 맞춘 네이밍 적용
+        // ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 1. 물성 정보 조회
+        /// </summary>
+        [HttpGet("Getmaterial")]
+        public async Task<ActionResult<IEnumerable<GetMaterialListDto>>> GetMaterial(
+         [FromQuery] string packLevel,
+         [FromQuery] string appliedMaterial,
+         [FromQuery] string matType)
+        {
+            var query = _context.If001.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(packLevel))
+                query = query.Where(x => x.PackLevel == packLevel);
+            if (!string.IsNullOrWhiteSpace(appliedMaterial))
+                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+            if (!string.IsNullOrWhiteSpace(matType))
+                query = query.Where(x => x.MatType == matType);
+
+            // 💡 DB 쿼리를 먼저 실행하여 메모리로 가져온 후 처리 (식 트리 out 제약 및 SQL 함수 번역 문제 해결)
+            var rawList = await query.ToListAsync();
+
+            var groupedList = rawList
+                .GroupBy(x => new {
+                    x.PackLevel,
+                    x.PackLevelNm,
+                    x.AppliedMaterial,
+                    x.AppliedMaterialNm,
+                    x.MatType,
+                    x.MatTypeNm,
+                    x.Item,
+                    x.ItemNm,
+                    x.UnitNm,
+                    x.Unit
+                })
+                .Select(g =>
+                {
+                    // 메모리 상에서 안전하게 숫자로 파싱 가능한 값들만 추출하여 Min 계산
+                    decimal? minRange = null;
+                    var validValues = g.Select(x =>
+                    {
+                        if (x.AcceptableRange != null && decimal.TryParse(x.AcceptableRange.ToString(), out var val))
+                        {
+                            return (decimal?)val;
+                        }
+                        return null;
+                    }).Where(v => v.HasValue).Select(v => v.Value).ToList();
+
+                    if (validValues.Any())
+                    {
+                        minRange = validValues.Min();
+                    }
+
+                    return new GetMaterialListDto
+                    {
+                        PackLevel = g.Key.PackLevel,
+                        PackLevelNm = g.Key.PackLevelNm,
+                        AppliedMaterial = g.Key.AppliedMaterial,
+                        AppliedMaterialNm = g.Key.AppliedMaterialNm,
+                        MatType = g.Key.MatType,
+                        MatTypeNm = g.Key.MatTypeNm,
+                        Item = g.Key.Item,
+                        ItemName = g.Key.ItemNm,
+                        UnitNm = g.Key.UnitNm,
+                        Unit = g.Key.Unit,
+                        AcceptableRange = minRange
+                    };
+                })
+                .OrderBy(x => x.AppliedMaterial)
+                .ThenBy(x => x.MatType)
+                .ThenBy(x => x.Item)
+                .ToList();
+
+            return Ok(groupedList);
+        }
+        /// <summary>
+        /// 2. 환경규제 정보 조회
+        /// </summary>
+        [HttpGet("Getenvironment")]
+        public async Task<ActionResult<IEnumerable<GetEnvironmentListDto>>> GetEnvironment(
+            [FromQuery] string packLevel,
+            [FromQuery] string appliedMaterial,
+            [FromQuery] string exportCountry)
+        {
+            var query = _context.If004.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(packLevel))
+                query = query.Where(x => x.PackLevel == packLevel);
+            if (!string.IsNullOrWhiteSpace(appliedMaterial))
+                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+            if (!string.IsNullOrWhiteSpace(exportCountry))
+                query = query.Where(x => x.CountryCodeNm == exportCountry);
+
+            // SQL의 GROUP BY 및 ORDER BY 반영
+            var list = await query
+                .GroupBy(x => new
+                {
+                    x.RelatedReg,
+                    x.RegItem,
+                    x.DtlCont
+                })
+                .Select(g => new GetEnvironmentListDto
+                {
+                    RelatedReg = g.Key.RelatedReg,
+                    RegItem = g.Key.RegItem,
+                    DtlCont = g.Key.DtlCont
+                })
+                .OrderBy(x => x.RelatedReg)
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+        /// <summary>
+        /// 3. 공정도 정보 조회
+        /// </summary>
+        [HttpGet("Getprocessflow")]
+        public async Task<ActionResult<IEnumerable<GetProcessFlowListDto>>> GetProcessFlow(
+            [FromQuery] string appliedMaterial,
+            [FromQuery] string matType)
+        {
+            var query = _context.If003a.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(appliedMaterial))
+                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+            if (!string.IsNullOrWhiteSpace(matType))
+                query = query.Where(x => x.MatType == matType);
+
+            var list = await query
+                .Select(x => new GetProcessFlowListDto
+                {
+                    MatComp = x.MatComp,
+                    MatCompNm = x.MatCompNm,
+                    MemoImg = x.MemoImg,
+                    FileData = x.FileData
+                })
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+        /// <summary>
+        /// 4. 탄소배출량 정보 조회
+        /// </summary>
+        [HttpGet("Getcarconinfo")]
+        public async Task<ActionResult<GetCarconInfoListDto>> GetCarconInfo(
+            [FromQuery] string packLevel,
+            [FromQuery] string appliedMaterial,
+            [FromQuery] string matform)
+        {
+            var query = _context.If005.AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(packLevel))
+                query = query.Where(x => x.PackLevel == packLevel);
+            if (!string.IsNullOrWhiteSpace(appliedMaterial))
+                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
+            if (!string.IsNullOrWhiteSpace(matform))
+                query = query.Where(x => x.MatForm == matform); // 💡 Matform -> MatForm 수정
+
+            var x = await query.FirstOrDefaultAsync();
+
+            var item = x != null ? new GetCarconInfoListDto
+            {
+                PackLevel = x.PackLevel,
+                AppliedMaterial = x.AppliedMaterial,
+                Matform = x.MatForm,
+                // 문자열 데이터베이스 필드를 안전하게 decimal?로 파싱
+                MassCo2Mat = decimal.TryParse(x.MassCo2Mat?.ToString(), out var v1) ? v1 : (decimal?)null,
+                MassCo2Proc = decimal.TryParse(x.MassCo2Proc?.ToString(), out var v2) ? v2 : (decimal?)null,
+                MassCo2Scrap = decimal.TryParse(x.MassCo2Scrap?.ToString(), out var v3) ? v3 : (decimal?)null,
+                MassCo2Sum = decimal.TryParse(x.MassCo2Sum?.ToString(), out var v4) ? v4 : (decimal?)null,
+                UnitCo2Mat = decimal.TryParse(x.UnitCo2Mat?.ToString(), out var v5) ? v5 : (decimal?)null,
+                UnitCo2Proc = decimal.TryParse(x.UnitCo2Proc?.ToString(), out var v6) ? v6 : (decimal?)null,
+                UnitCo2Scrap = decimal.TryParse(x.UnitCo2Scrap?.ToString(), out var v7) ? v7 : (decimal?)null,
+                UnitCo2Sum = decimal.TryParse(x.UnitCo2Sum?.ToString(), out var v8) ? v8 : (decimal?)null,
+            } : new GetCarconInfoListDto();
+
+            return Ok(item);
+        }
+
     }
 }

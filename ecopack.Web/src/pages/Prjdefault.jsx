@@ -100,7 +100,8 @@ export default function Prjdefault({ onSelectItem }) {
     const handleSave = async () => {
         saveToSessionStorage();
         const currentPrjId = sessionStorage.getItem('currentPrjId') || 'DEFAULT_PRJ_ID';
-
+        const sessionUser = JSON.parse(sessionStorage.getItem('prjuserid') || '{}');
+        const prjUserId = sessionUser.repCustId || '';
         const dto = {
             prjId: currentPrjId,
             packLevel: currentPackLevel,
@@ -109,7 +110,7 @@ export default function Prjdefault({ onSelectItem }) {
             matUse: env,
             matType: matType,
             matForm: matForm,
-            prjuserid: sessionStorage.getItem('prjuserid') || 'system'
+            prjuserid: prjUserId 
         };
 
         try {

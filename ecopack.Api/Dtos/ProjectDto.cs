@@ -116,4 +116,61 @@ namespace ecopack.Api.Dtos
         public string? PrdExpCntryNm { get; set; }
         public string? Prjuserid { get; set; }
     }
+
+    /// <summary>
+    /// 1. 물성 정보 응답 DTO (getmaterial)
+    /// </summary>
+    public class GetMaterialListDto
+    {
+        public string? PackLevel { get; set; }
+        public string? PackLevelNm { get; set; }         // 포장차수명
+        public string? AppliedMaterial { get; set; }
+        public string? AppliedMaterialNm { get; set; }   // 적용소재명
+        public string? MatType { get; set; }
+        public string? MatTypeNm { get; set; }           // 사용환경명
+        public string? Item { get; set; }
+        public string? ItemName { get; set; }            // 성능항목명 (itemNm)
+        public string? UnitNm { get; set; }              // 단위명
+        public string? Unit { get; set; }                // 단위
+        public decimal? AcceptableRange { get; set; }    // 기준값 범위 최솟값 (min(acceptableRange))
+    }
+
+    /// <summary>
+    /// 2. 환경규제 정보 응답 DTO (getenvironment)
+    /// </summary>
+    public class GetEnvironmentListDto
+    {
+        public string? RelatedReg { get; set; }   // 관련규정 (relatedReg)
+        public string? RegItem { get; set; }      // 규제항목 (regItem)
+        public string? DtlCont { get; set; }      // 규제내용 (dtlCont)
+    }
+
+    /// <summary>
+    /// 3. 공정도 정보 응답 DTO (getprocessflow)
+    /// </summary>
+    public class GetProcessFlowListDto
+    {
+        public string? MatComp { get; set; }     // 구성요소 코드
+        public string? MatCompNm { get; set; }   // 구성요소명
+        public string? MemoImg { get; set; }     // 메모 이미지
+        public string? FileData { get; set; }    // 파일 데이터
+    }
+
+    /// <summary>
+    /// 4. 탄소배출량 정보 응답 DTO (getcarconinfo)
+    /// </summary>
+    public class GetCarconInfoListDto
+    {
+        public string? PackLevel { get; set; }
+        public string? AppliedMaterial { get; set; }
+        public string? Matform { get; set; }
+        public decimal? MassCo2Mat { get; set; }     // 중량당 탄소배출량-원료
+        public decimal? MassCo2Proc { get; set; }    // 중량당 탄소배출량-제조
+        public decimal? MassCo2Scrap { get; set; }   // 중량당 탄소배출량-폐기
+        public decimal? MassCo2Sum { get; set; }     // 중량당 탄소배출량-합계
+        public decimal? UnitCo2Mat { get; set; }     // 단위당 탄소배출량-원료
+        public decimal? UnitCo2Proc { get; set; }    // 단위당 탄소배출량-제조
+        public decimal? UnitCo2Scrap { get; set; }   // 단위당 탄소배출량-폐기
+        public decimal? UnitCo2Sum { get; set; }     // 단위당 탄소배출량-합계
+    }
 }

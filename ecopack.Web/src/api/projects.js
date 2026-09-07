@@ -65,7 +65,7 @@ export async function GetProjectDetail(prjId, packLevel) {
 }
 
 /**
- * 6. 프로젝트 상세 정보 저장 함수
+ * 6. 프로젝트 상세 정보 저장 함수 (템플릿 수정)
  */
 export async function templateUpdate(dto) {
     const response = await axios.post('/api/Projects/templateUpdate', dto);
@@ -107,6 +107,7 @@ export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
         return [];
     }
 };
+
 /**
  * 10. 모의평가 최종 결과 요약 및 산출 조회 함수 (ProjectevalController 연동)
  * - 저장된 답안을 바탕으로 서버에서 합계 및 영역별 평가 결과 데이터를 연산하여 가져옵니다.
@@ -122,3 +123,51 @@ export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
         return null;
     }
 };
+
+// ─────────────────────────────────────────────────────────────
+// 💡 추가된 4가지 분석 조회 API 함수 (백엔드 경로 매칭)
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * 11. 물성 정보 조회 함수
+ * - 백엔드의 [HttpGet("Getmaterial")]에 맞춰 호출합니다.
+ */
+export async function getMaterial(packLevel, appliedMaterial, matType) {
+    const response = await axios.get('/api/Projects/Getmaterial', {
+        params: { packLevel, appliedMaterial, matType }
+    });
+    return response.data;
+}
+
+/**
+ * 12. 환경규제 정보 조회 함수
+ * - 백엔드의 [HttpGet("Getenvironment")]에 맞춰 호출합니다.
+ */
+export async function getEnvironment(packLevel, appliedMaterial, exportCountry) {
+    const response = await axios.get('/api/Projects/Getenvironment', {
+        params: { packLevel, appliedMaterial, exportCountry }
+    });
+    return response.data;
+}
+
+/**
+ * 13. 공정도 정보 조회 함수
+ * - 백엔드의 [HttpGet("Getprocessflow")]에 맞춰 호출합니다.
+ */
+export async function getProcessFlow(appliedMaterial, matType) {
+    const response = await axios.get('/api/Projects/Getprocessflow', {
+        params: { appliedMaterial, matType }
+    });
+    return response.data;
+}
+
+/**
+ * 14. 탄소배출량 정보 조회 함수
+ * - 백엔드의 [HttpGet("Getcarconinfo")]에 맞춰 호출합니다.
+ */
+export async function getCarconInfo(packLevel, appliedMaterial, matform) {
+    const response = await axios.get('/api/Projects/Getcarconinfo', {
+        params: { packLevel, appliedMaterial, matform }
+    });
+    return response.data;
+}

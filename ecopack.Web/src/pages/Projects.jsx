@@ -30,7 +30,7 @@
  * 5. 화면 렌더링 (JSX)
  *    - 이력 표는 날짜·프로젝트명·프로젝트 번호·수출국가·포장 차수·담당자·진행상태와
  *      관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
- *    - 수출국가는 prdExpCntryNm1~8 중 'Y' 인 항목을 찾아 이름으로 보여줍니다.
+ *    - 수출국가는 백엔드에서 제공하는 CntryNm 값을 바로 출력합니다.
  * ==============================================================================
  */
 import { useEffect, useState } from 'react';
@@ -45,14 +45,14 @@ import { getProjects, createProject } from '../api/projects';
 
 // 1. 8개 전체 수출국 목록 및 DB 필드 매핑 정의
 const COUNTRIES = [
-    { key: 'usa', label: '미국 (USA)', field: 'prdExpCntryNm1' },
-    { key: 'eu', label: '유럽 (EU)', field: 'prdExpCntryNm2' },
-    { key: 'china', label: '중국 (China)', field: 'prdExpCntryNm3' },
-    { key: 'vietnam', label: '베트남 (Vietnam)', field: 'prdExpCntryNm4' },
-    { key: 'indonesia', label: '인도네시아 (Indonesia)', field: 'prdExpCntryNm5' },
-    { key: 'japan', label: '일본 (Japan)', field: 'prdExpCntryNm6' },
-    { key: 'australia', label: '호주 (Australia)', field: 'prdExpCntryNm7' },
-    { key: 'korea', label: '대한민국 (Korea)', field: 'prdExpCntryNm8' }
+    { key: 'usa', label: '미국', field: 'prdExpCntryNm1' },
+    { key: 'eu', label: 'EU', field: 'prdExpCntryNm2' },
+    { key: 'china', label: '중국', field: 'prdExpCntryNm3' },
+    { key: 'vietnam', label: '베트남', field: 'prdExpCntryNm4' },
+    { key: 'indonesia', label: '인도네시아', field: 'prdExpCntryNm5' },
+    { key: 'japan', label: '일본', field: 'prdExpCntryNm6' },
+    { key: 'australia', label: '호주', field: 'prdExpCntryNm7' },
+    { key: 'korea', label: '대한민국', field: 'prdExpCntryNm8' }
 ];
 
 const PACKAGING_LEVELS = [
@@ -72,7 +72,7 @@ export default function Projects({ onSelectItem }) {
     // 신규 프로젝트 폼 입력 상태 관리
     const [formData, setFormData] = useState({
         prjNm: '',
-        exportCountry: '미국 (USA)', // 기본값 미국
+        exportCountry: '미국', // 기본값 미국
         packagingLevels: { sales: true, group: false, transport: false },
         projectContent: '',
         repNm: ''
@@ -197,40 +197,42 @@ export default function Projects({ onSelectItem }) {
         }
     };
 
-    // 7. 이력 테이블에서 [수정] 버튼을 눌렀을 때 실행되는 핸들러 (matchedCountry를 인자로 받도록 수정)
-    // 선택한 프로젝트를 세션에 담고 지정한 화면으로 이동한다.
-    // 기본사항(prjdefault) / 기술문서(td) / 적합성 선언서(doc) 가 모두 이 정보를 기준으로 동작한다.
-    const goToScreen = (item, matchedCountry, menuId) => {
+    // 7. 이력 테이블에서 [수정] 버튼을 눌렀을 때 실행되는 핸들러
+    // 선택한 프로젝트 행(item)의 데이터를 바로 세션에 담고 지정한 화면으로 이동한다.
+    const goToScreen = (item, menuId) => {
+        const prjId = item.prjId || '';
+        const prjNm = item.prjNm || '';
+        const currentPackLevel = item.packLevel || item.PackLevel || '';
+        const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
+
         // 1. 세션 스토리지에 데이터 저장
-        sessionStorage.setItem('currentPrjNm', item.prjNm);
-        sessionStorage.setItem('currentPrjId', item.prjId);
-        sessionStorage.setItem('currentPackLevel', item.packLevel || '');
-        sessionStorage.setItem('currentExportCountry', matchedCountry || '');
+        sessionStorage.setItem('currentPrjNm', prjNm);
+        sessionStorage.setItem('currentPrjId', prjId);
+        sessionStorage.setItem('currentPackLevel', currentPackLevel);
+        sessionStorage.setItem('currentExportCountry', exportCountry);
 
         console.log("세션 저장 완료:", {
-            prjNm: item.prjNm,
-            prjId: item.prjId,
-            packLevel: item.packLevel,
-            exportCountry: matchedCountry,
+            prjNm,
+            prjId,
+            packLevel: currentPackLevel,
+            exportCountry,
             이동화면: menuId
         });
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
-            console.log("onSelectItem 함수 실행됨!");
             onSelectItem(menuId);
         } else {
-            console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
+            console.error("onSelectItem이 함수가 아닙니다!");
         }
     };
 
-    // [관리] 열의 수정 버튼 — 기본사항 화면으로 이동
-    const handleEditClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'prjdefault');
+    // [관리] 열의 수정 버튼 — 기본사항 화면으로 이동 (팝업창 없이 item 데이터 바로 연동)
+    const handleEditClick = (item) => goToScreen(item, 'prjdefault');
 
     // [TD] / [DOC] 열의 수정 버튼 — 기술문서 / 적합성 선언서 화면으로 이동
-    // 두 문서는 1차(판매) 포장 기준이라 1차 행에서만 열 수 있게 한다.
-    const handleTdClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'td');
-    const handleDocClick = (item, matchedCountry) => goToScreen(item, matchedCountry, 'doc');
+    const handleTdClick = (item) => goToScreen(item, 'td');
+    const handleDocClick = (item) => goToScreen(item, 'doc');
 
     return (
         <div style={{ padding: '40px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto', boxSizing: 'border-box' }}>
@@ -287,25 +289,21 @@ export default function Projects({ onSelectItem }) {
                             </tr>
                         ) : (
                             projectList.map((item, index) => {
-                                // item 데이터에서 'Y'로 되어 있는 수출 국가 찾기
-                                let matchedCountry = '-';
-                                COUNTRIES.forEach(country => {
-                                    if (item[country.field] === 'Y') {
-                                        matchedCountry = country.label;
-                                    }
-                                });
+                                // 백엔드에서 제공하는 CntryNm 값을 바로 사용
+                                const displayCountry = item.cntryNm || item.CntryNm || '-';
 
-                                // 기술문서(TD)와 적합성 선언서(DOC)는 차수별로 따로 작성한다.
-                                // 1/2/3차 모두 각자의 문서 화면이 있으므로 어느 행에서든 열 수 있다.
-                                const isPrimary = ['1', '2', '3'].includes(String(item.packLevel));
+                                // packLevel 속성명 대소문자 호환 처리
+                                const packLevelVal = item.packLevel || item.PackLevel || '';
+                                const isPrimary = ['1', '2', '3'].includes(String(packLevelVal));
+
                                 return (
-                                    <tr key={`${item.prjId}-${item.packLevel || index}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
+                                    <tr key={`${item.prjId}-${packLevelVal || index}`} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '13px', height: '28px' }}>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjFcrtDt || '2026-04-10'}</td>
                                         <td style={{ padding: '7px 8px', fontWeight: 'bold', color: '#222' }}>{item.prjNm}</td>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>{item.prjId}</td>
-                                        <td style={{ padding: '7px 8px', color: '#555' }}>{matchedCountry}</td>
+                                        <td style={{ padding: '7px 8px', color: '#555' }}>{displayCountry}</td>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>
-                                            {item.packLevel ? `${item.packLevel}차` : '-'}
+                                            {packLevelVal ? `${packLevelVal}차` : '-'}
                                         </td>
                                         <td style={{ padding: '7px 8px', color: '#555' }}>{item.repNm}</td>
                                         <td style={{ padding: '7px 8px' }}>
@@ -315,7 +313,7 @@ export default function Projects({ onSelectItem }) {
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                                             <button
-                                                onClick={() => handleEditClick(item, matchedCountry)}
+                                                onClick={() => handleEditClick(item)}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#333' }}
                                             >
                                                 수정
@@ -323,9 +321,9 @@ export default function Projects({ onSelectItem }) {
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                                             <button
-                                                onClick={() => handleTdClick(item, matchedCountry)}
+                                                onClick={() => handleTdClick(item)}
                                                 disabled={!isPrimary}
-                                                title={isPrimary ? `${item.packLevel}차 기술문서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
+                                                title={isPrimary ? `${packLevelVal}차 기술문서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
                                             >
                                                 수정
@@ -333,9 +331,9 @@ export default function Projects({ onSelectItem }) {
                                         </td>
                                         <td style={{ padding: '7px 8px', textAlign: 'center' }}>
                                             <button
-                                                onClick={() => handleDocClick(item, matchedCountry)}
+                                                onClick={() => handleDocClick(item)}
                                                 disabled={!isPrimary}
-                                                title={isPrimary ? `${item.packLevel}차 적합성 선언서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
+                                                title={isPrimary ? `${packLevelVal}차 적합성 선언서 작성/수정` : '포장차수가 지정되지 않아 열 수 없습니다'}
                                                 style={{ padding: '1px 6px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', fontSize: '11px', color: isPrimary ? '#333' : '#bbb', cursor: isPrimary ? 'pointer' : 'not-allowed' }}
                                             >
                                                 수정
