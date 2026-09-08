@@ -14,11 +14,10 @@ export default function Prjdefault({ onSelectItem }) {
     // 💡 프로젝트명은 신규 프로젝트 작성 시 입력한 이름과 같은 값이라, 세션에 담겨 온
     //    값으로 화면이 뜨는 즉시(공통코드·상세정보 조회를 기다리지 않고) 채워 둔다.
     //    아래 useEffect의 네트워크 요청 중 하나라도 실패해도 이름 칸은 항상 채워져 있다.
-    const [projectName, setProjectName] = useState(() => {
-        const currentPrjId = sessionStorage.getItem('currentPrjId');
-        const savedNm = sessionStorage.getItem('currentPrjNm') || '';
-        return currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID' ? savedNm : (savedNm || 'Foldable EPP Box');
-    });
+    //    프로젝트를 먼저 선택하지 않고 [기본사항]으로 바로 들어온 경우엔 세션에 담긴
+    //    이름도 없으므로 빈칸으로 두고, 입력칸의 placeholder로 안내한다
+    //    (예전엔 'Foldable EPP Box'라는 샘플 문구가 기본값으로 채워져 있었음).
+    const [projectName, setProjectName] = useState(() => sessionStorage.getItem('currentPrjNm') || '');
     const [material, setMaterial] = useState('');
     const [env, setEnv] = useState('');
     const [matType, setMatType] = useState('');
@@ -183,7 +182,7 @@ export default function Prjdefault({ onSelectItem }) {
                         className="form-input"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
-                        placeholder="프로젝트명 (제품명)을 15글자 내외로 입력해 주세요"
+                        placeholder="프로젝트명을 입력해 주세요"
                     />
                 </div>
 
