@@ -206,10 +206,14 @@ const DashboardLayout = ({ onLogout }) => {
                 </div>
             </main>
 
-            {/* 3. 우측 AI 챗봇 패널 */}
-            <aside className="dashboard-panel assistant-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
-                <AssistantPanel />
-            </aside>
+            {/* 3. 우측 AI 챗봇 패널
+                💡 AssistantPanel 이 스스로 <aside className="dashboard-panel assistant-panel"> 를 만든다.
+                   예전처럼 여기서 한 번 더 감싸면 같은 패널이 이중으로 겹쳐 여백과 스크롤이 어긋난다.
+                   그래서 그리드 칸에 바로 놓는다.
+                💡 currentMenu 와 projectInfo 를 넘기는 이유:
+                   AI 가 답할 때 "지금 중앙 화면이 무엇을 보고 있는지"를 알아야
+                   그 프로젝트의 전 과정(기본사항·모의평가·TD·DOC)을 서버에서 읽어 답할 수 있다. */}
+            <AssistantPanel currentMenu={currentMenu} projectInfo={projectInfo} />
 
             {/* 회원정보 수정 — 사이드바의 톱니바퀴 버튼으로 열린다 */}
             {showProfile && (
