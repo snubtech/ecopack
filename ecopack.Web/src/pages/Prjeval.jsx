@@ -241,18 +241,11 @@ function PrjevalPage({ onSelectItem }) {
             try {
                 // 화면에 "로딩 중..." 판넬을 띄우기 위해 신호를 true로 바꿔요.
                 setLoading(true);
-                //  전송하는 파라미터 값들이 정확한지 먼저 콘솔로 확인
-                console.log("🚀 서버에 데이터 조회 요청 파라미터:", {
-                    prjId,
-                    prjUserId,
-                    packLevel                    
-                });
                 //  [1단계] 서버에 동시에 요청해서 "시험지 원본"과 "내가 예전에 저장했던 답"을 가져와요!
                 const [questionData, savedAnswersData] = await Promise.all([
                     getLatestEvalQuestions(packLevel, appliedMaterial),
                     prjId ? getSavedEvalResults(prjId, prjUserId, packLevel).catch(() => []) : Promise.resolve([])
                 ]);
-                console.log("서버에서 받아온 기존 저장 내역 원본:", savedAnswersData);
 
                 // 🧩 [2단계] 가져온 시험지 원본을 화면에 예쁘게 그릴 수 있도록 3단계 트리 구조로 뚝딱 조립해요.
                 const formattedData = transformEvalData(questionData);
@@ -272,7 +265,6 @@ function PrjevalPage({ onSelectItem }) {
                     // 정리된 장바구니를 answers 상태에 척 하니 넣어줍니다! 
                     // 이 순간 리액트가 화면을 다시 그리면서 라디오 버튼들이 알아서 척척 체크돼요.
                     setAnswers(restoredAnswers);
-                    console.log("마법처럼 복원된 기존 답변들:", restoredAnswers);
                 }
 
             } catch (error) {
@@ -393,7 +385,6 @@ function PrjevalPage({ onSelectItem }) {
 
         try {
             const savelist = createEvalSaveList();
-            console.log("서버로 보낼 평가 리스트 데이터:", savelist);
 
             if (savelist.length === 0) {
                 alert('저장할 평가 항목이 없습니다. 문항을 선택해 주세요.');

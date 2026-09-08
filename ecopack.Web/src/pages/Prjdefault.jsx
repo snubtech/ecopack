@@ -136,8 +136,7 @@ export default function Prjdefault({ onSelectItem }) {
         };
 
         try {
-            const result = await SaveProjectDetail(dto);
-            console.log('저장 성공 결과:', result);
+            await SaveProjectDetail(dto);
             alert('입력하신 정보가 저장되었습니다.');
         } catch (error) {
             console.error('저장 실패:', error);
@@ -151,7 +150,6 @@ export default function Prjdefault({ onSelectItem }) {
     const handleNextStep = async () => {
         saveToSessionStorage();
         if (typeof onSelectItem === 'function') {
-            console.log("onSelectItem 함수 실행됨!");
             onSelectItem('prjtemplate');
         } else {
             console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
@@ -268,7 +266,7 @@ export default function Prjdefault({ onSelectItem }) {
 
                 {/* 하단 버튼 영역 */}
                 <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button className="btn-secondary-line" onClick={() => console.log('취소 클릭')}>취소</button>
+                    <button className="btn-secondary-line" onClick={() => {}}>취소</button>
                     <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>
                 </div>

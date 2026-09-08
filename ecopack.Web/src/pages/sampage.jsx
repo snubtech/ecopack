@@ -78,16 +78,7 @@ export default function SamplePage() {
     };
 
     const handleNextStep = () => {
-        const formData = {
-            projectName,
-            countries,
-            packLevels: selectedPackLevels, // 💡 선택된 복수 포장 차수 코드 배열
-            material,
-            env,
-            recycling
-        };
-        console.log('수집된 폼 데이터:', formData);
-        alert('데이터가 성공적으로 수집되었습니다. 콘솔을 확인해 주세요!');
+        alert('데이터가 성공적으로 수집되었습니다.');
     };
 
     return (
@@ -232,7 +223,7 @@ export default function SamplePage() {
                 </div>
 
                 <div className="form-footer-buttons">
-                    <button className="btn-secondary-line" onClick={() => console.log('취소 클릭')}>취소</button>
+                    <button className="btn-secondary-line" onClick={() => {}}>취소</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>
                 </div>
             </div>

@@ -221,14 +221,6 @@ export default function Projects({ onSelectItem }) {
         sessionStorage.setItem('currentPackLevel', currentPackLevel);
         sessionStorage.setItem('currentExportCountry', exportCountry);
 
-        console.log("세션 저장 완료:", {
-            prjNm,
-            prjId,
-            packLevel: currentPackLevel,
-            exportCountry,
-            이동화면: menuId
-        });
-
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
             onSelectItem(menuId);

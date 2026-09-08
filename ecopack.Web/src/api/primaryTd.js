@@ -103,3 +103,33 @@ export function getAtchDocDownloadUrl(prjId, slot) {
     const params = new URLSearchParams({ prjId, slot, repCustId: getCurrentCustomerId() });
     return `/api/PrimaryTd/DownloadAtchDoc?${params.toString()}`;
 }
+
+/**
+ * 6. 제조 도면 업로드
+ * - 이미지 파일(png/jpg/jpeg/svg)만 허용한다. 슬롯이 아니라 한 장만 유지하므로
+ *   다시 올리면 서버가 이전 이미지를 지우고 새로 바꾼다.
+ * @param {string} prjId 프로젝트 ID
+ * @param {File} file 업로드할 이미지 파일
+ * @returns {Promise<{success:boolean, imageDataUri?:string, message:string}>}
+ */
+export async function UploadMfrDrw(prjId, file) {
+    const formData = new FormData();
+    formData.append('prjId', prjId);
+    formData.append('file', file);
+
+    const response = await axios.post('/api/PrimaryTd/UploadMfrDrw', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        params: { repCustId: getCurrentCustomerId() },
+    });
+    return response.data;
+}
+
+/**
+ * 7. 제조 도면 삭제
+ */
+export async function DeleteMfrDrw(prjId) {
+    const response = await axios.delete('/api/PrimaryTd/DeleteMfrDrw', {
+        params: { prjId, repCustId: getCurrentCustomerId() },
+    });
+    return response.data;
+}

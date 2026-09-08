@@ -854,11 +854,6 @@ public partial class PrimaryTd
     public string? SocHvyMetMngTestRsltPhrs { get; set; }
 
     /// <summary>
-    /// 8. 제조공정의 제조공정 이미지 저장 URL을 넣는 필드이다.
-    /// </summary>
-    public string? MfrPrcsUrl { get; set; }
-
-    /// <summary>
     /// 8. 제조공정의 제조공정 이미지에 대한 설명을 고정 문구로 넣는 필드이다.
     /// </summary>
     public string? MfrPrcsCntn { get; set; }

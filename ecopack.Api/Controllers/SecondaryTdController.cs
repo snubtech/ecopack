@@ -30,7 +30,17 @@
  *    - 업로드 확장자는 화이트리스트(UploadPolicy)로 제한합니다: doc/ppt/excel/hwp/pdf.
  *    - 삭제하면 컬럼을 비우고 서버의 실제 파일도 지웁니다.
  * 
- * 5. DTO ↔ 엔티티 매핑 (ToDto / ApplyDtoToEntity)
+ * 5. UploadMfrDrw / DeleteMfrDrw — 제조 도면
+ *    - 3번 항목의 제조 도면은 첨부문서와 달리 이미지 한 장만 관리한다.
+ *      png/jpg/jpeg/svg 파일만 허용하고, 다시 올리면 이전 이미지는 지운다.
+ *    - 화면에는 base64 데이터 URI로 곧바로 그릴 수 있게 내려준다(ToDto 참고).
+ * 
+ * 6. 8. 제조 공정의 공정도 이미지
+ *    - 기본 평가지 조회 화면의 '3. 공정도'와 같은 데이터(If003a)를
+ *      화면이 /api/Projects/Getprocessflow 로 직접 불러와 보여준다.
+ *      이 컨트롤러에는 별도 API가 없다.
+ * 
+ * 7. DTO ↔ 엔티티 매핑 (ToDto / ApplyDtoToEntity)
  *    - 항목이 200개가 넘어 수기로 옮기지 않고 이름이 같은 것끼리 리플렉션으로 옮깁니다.
  *    - 화면은 모든 값을 글자로 다루므로, DB가 숫자인 컬럼은 여기서 변환합니다.
  *      ('1,234.56' → 1234.56, '12개' → 12 처럼 단위나 구분자가 섞여 있어도 숫자만 뽑습니다)
@@ -109,7 +119,7 @@ namespace ecopack.Api.Controllers
                     return Ok(new { success = true, isNew = true, data = new SecondaryTdDto { PrjId = prjId } });
                 }
 
-                return Ok(new { success = true, isNew = false, data = ToDto(entity) });
+                return Ok(new { success = true, isNew = false, data = ToDto(entity, _env) });
             }
             catch (Exception ex)
             {
@@ -179,7 +189,7 @@ namespace ecopack.Api.Controllers
                     pkg2TechDocId = entity.Pkg2TechDocId,
                     lastWrtDtm = entity.LastWrtDtm,
                     message = isNew ? "기술문서가 생성되었습니다." : "기술문서가 저장되었습니다.",
-                    data = ToDto(entity)
+                    data = ToDto(entity, _env)
                 });
             }
             catch (Exception ex)
@@ -227,6 +237,139 @@ namespace ecopack.Api.Controllers
 
             var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
             return File(bytes, "application/octet-stream", originalNm);
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // POST: api/SecondaryTd/UploadMfrDrw   (multipart/form-data)
+        // 제조 도면 이미지를 업로드하고 mfrDrwUrl 에 반영한다. 이미지 파일만 허용하며,
+        // 슬롯이 아니라 한 장만 유지하므로 다시 올리면 이전 이미지를 지운다.
+        // ─────────────────────────────────────────────────────────────
+        [HttpPost("UploadMfrDrw")]
+        [RequestSizeLimit(MaxAtchDocBytes)]
+        public async Task<IActionResult> UploadMfrDrw(
+            [FromForm] string prjId,
+            IFormFile file,
+            [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId))
+            {
+                return BadRequest(new { success = false, message = "prjId가 필요합니다." });
+            }
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { success = false, message = "업로드할 파일이 없습니다." });
+            }
+            if (file.Length > MaxAtchDocBytes)
+            {
+                return BadRequest(new { success = false, message = $"파일 크기는 {UploadPolicy.MaxFileSizeDisplay}를 넘을 수 없습니다." });
+            }
+            if (!UploadPolicy.IsImageExtensionAllowed(file.FileName))
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = $"이미지 파일({UploadPolicy.AllowedImageExtensionsDisplay})만 업로드할 수 있습니다."
+                });
+            }
+
+            // 본인이 만든 프로젝트의 문서에만 올릴 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            try
+            {
+                var entity = await _context.SecondaryTd.FirstOrDefaultAsync(x => x.PrjId == prjId);
+                if (entity == null)
+                {
+                    return NotFound(new { success = false, message = "기술문서를 먼저 저장한 뒤 제조 도면을 올려주세요." });
+                }
+
+                // 슬롯이 아니라 한 장만 유지하므로, 다시 올리면 이전 파일부터 지운다
+                if (!string.IsNullOrWhiteSpace(entity.MfrDrwUrl))
+                {
+                    var oldPhysical = UploadPolicy.ToPhysicalPath(_env, entity.MfrDrwUrl);
+                    if (System.IO.File.Exists(oldPhysical))
+                    {
+                        System.IO.File.Delete(oldPhysical);
+                    }
+                }
+
+                var originalNm = Path.GetFileName(file.FileName);
+                var ext = Path.GetExtension(originalNm);
+                var storedNm = $"drawing_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
+
+                var saveDir = UploadPolicy.GetProjectDocDirectory(_env, "td", PackLevel, prjId);
+                Directory.CreateDirectory(saveDir);
+
+                var savePath = Path.Combine(saveDir, storedNm);
+                using (var stream = new FileStream(savePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                entity.MfrDrwUrl = UploadPolicy.ToRelativePath("td", PackLevel, prjId, storedNm);
+                entity.LastWrtDtm = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                var bytes = await System.IO.File.ReadAllBytesAsync(savePath);
+                var imageDataUri = ImageDataUri.FromFile(originalNm, Convert.ToBase64String(bytes));
+
+                return Ok(new { success = true, imageDataUri, message = "제조 도면이 업로드되었습니다." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "업로드 중 오류가 발생했습니다: " + ex.Message });
+            }
+        }
+
+        // ─────────────────────────────────────────────────────────────
+        // DELETE: api/SecondaryTd/DeleteMfrDrw?prjId=xxx
+        // 제조 도면 이미지를 지운다. (물리 파일도 함께 삭제)
+        // ─────────────────────────────────────────────────────────────
+        [HttpDelete("DeleteMfrDrw")]
+        public async Task<IActionResult> DeleteMfrDrw([FromQuery] string prjId, [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId))
+            {
+                return BadRequest(new { success = false, message = "prjId가 필요합니다." });
+            }
+
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            try
+            {
+                var entity = await _context.SecondaryTd.FirstOrDefaultAsync(x => x.PrjId == prjId);
+                if (entity == null)
+                {
+                    return NotFound(new { success = false, message = "기술문서를 찾을 수 없습니다." });
+                }
+
+                if (!string.IsNullOrWhiteSpace(entity.MfrDrwUrl))
+                {
+                    var physical = UploadPolicy.ToPhysicalPath(_env, entity.MfrDrwUrl);
+                    if (System.IO.File.Exists(physical))
+                    {
+                        System.IO.File.Delete(physical);
+                    }
+                }
+
+                entity.MfrDrwUrl = null;
+                entity.LastWrtDtm = DateTime.Now;
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, message = "제조 도면을 삭제했습니다." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, message = "삭제 중 오류가 발생했습니다.", error = ex.Message });
+            }
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -399,10 +542,10 @@ namespace ecopack.Api.Controllers
         /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목.
         /// 첨부문서명(AtchDocNm)은 업로드/삭제 액션에서만 바뀌어야 하므로 Save로는 못 바꾸게 막는다.</summary>
         private static readonly HashSet<string> SkipOnWrite =
-            new(StringComparer.Ordinal) { nameof(SecondaryTdDto.Pkg2TechDocId), nameof(SecondaryTdDto.LastWrtDtm) ,
+            new(StringComparer.Ordinal) { nameof(SecondaryTdDto.Pkg2TechDocId), nameof(SecondaryTdDto.LastWrtDtm), nameof(SecondaryTdDto.MfrDrwUrl),
             nameof(SecondaryTdDto.AtchDocNm1), nameof(SecondaryTdDto.AtchDocNm2), nameof(SecondaryTdDto.AtchDocNm3), nameof(SecondaryTdDto.AtchDocNm4), nameof(SecondaryTdDto.AtchDocNm5), nameof(SecondaryTdDto.AtchDocNm6), nameof(SecondaryTdDto.AtchDocNm7), nameof(SecondaryTdDto.AtchDocNm8) };
 
-        private static SecondaryTdDto ToDto(SecondaryTd entity)
+        private static SecondaryTdDto ToDto(SecondaryTd entity, IWebHostEnvironment env)
         {
             var dto = new SecondaryTdDto();
 
@@ -425,7 +568,28 @@ namespace ecopack.Api.Controllers
                 }
             }
 
+            // 제조 도면: DB엔 파일 경로만 있고, 화면엔 바로 그릴 수 있는 데이터 URI로 바꿔서 내려준다.
+            dto.MfrDrwUrl = BuildMfrDrwDataUri(entity.MfrDrwUrl, env);
+
             return dto;
+        }
+
+        /// <summary>제조 도면 상대경로를 읽어 화면이 바로 그릴 수 있는 data URI로 바꾼다. 파일이 없으면 null.</summary>
+        private static string? BuildMfrDrwDataUri(string? relativePath, IWebHostEnvironment env)
+        {
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                return null;
+            }
+
+            var physicalPath = UploadPolicy.ToPhysicalPath(env, relativePath);
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                return null;
+            }
+
+            var bytes = System.IO.File.ReadAllBytes(physicalPath);
+            return ImageDataUri.FromFile(Path.GetFileName(relativePath), Convert.ToBase64String(bytes));
         }
 
         private static void ApplyDtoToEntity(SecondaryTdDto dto, SecondaryTd entity)

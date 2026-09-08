@@ -18,7 +18,6 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                console.log("📌 전송 파라미터 확인:", { prjId, packLevel, appliedMaterial, matType, matform, currentExportCountry });
 
                 // 1. 물성 정보 조회
                 const matRes = await axios.get('/api/Projects/Getmaterial', {

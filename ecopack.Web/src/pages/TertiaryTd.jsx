@@ -43,8 +43,13 @@ import {
     UploadAtchDoc,
     DeleteAtchDoc,
     getAtchDocDownloadUrl,
+    UploadMfrDrw,
+    DeleteMfrDrw,
 } from '../api/tertiaryTd';
+import { getProcessFlow } from '../api/projects';
 import { fillFromMember } from '../utils/memberProfile';
+import { shrinkImagesForDocx } from '../utils/docxImage';
+import { applyDocxColumnWidths } from '../utils/docxTable';
 
 /**
  * 기술문서 — 1차포장 기술문서 화면 / tertiary_td 테이블
@@ -112,7 +117,7 @@ const SINGLE_KEYS = [
     'socHvyMetMngRsltTot', 'socHvyMetMngTestRsltTot', 'socHvyMetMngRegCritTot',
     // 합계행 시험방법: 데이터행이 Cntn1~5를 쓰므로 합계는 Cntn6을 사용한다
     'socHvyMetMngTestMthdCntn6', 'socHvyMetMngTestRsltPhrs',
-    'mfrPrcsUrl', 'mfrPrcsCntn',
+    'mfrPrcsCntn',
     'cmplDclCntn',
     'bizNm2', 'repNm', 'roleNm', 'emlAddr', 'mbTelNo', 'techDocLastPhrsCntn',
 ];
@@ -345,6 +350,10 @@ export default function TertiaryTd() {
     const snapshotRef = useRef(null);   // 취소 시 되돌릴 값 { form, rowCounts }
     const docRef = useRef(null);        // 인쇄/추출 대상 영역
     const fileInputRefs = useRef({});   // 첨부 슬롯별 file input
+    const mfrDrwInputRef = useRef(null); // 제조 도면 file input (슬롯 없이 한 장)
+
+    // 8. 제조 공정에 보여줄 공정도 이미지 — 기본 평가지 조회 화면의 '3. 공정도'와 같은 데이터(If003a)
+    const [processFlows, setProcessFlows] = useState([]);
 
     const setField = useCallback((key) => (value) => {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -390,6 +399,31 @@ export default function TertiaryTd() {
         load();
         return () => { alive = false; };
     }, [prjId, prjNm]);
+
+    // ── 8. 제조 공정에 보여줄 공정도 이미지 로드 ────────────────
+    // 기본사항(Prjdefault)에서 고른 적용소재·포장재종류로, 기본 평가지 조회 화면의
+    // '3. 공정도'와 똑같은 데이터를 불러와 참고 이미지로 보여준다.
+    useEffect(() => {
+        let alive = true;
+
+        const loadProcessFlows = async () => {
+            const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
+            const matType = sessionStorage.getItem('currentMatType') || '';
+            if (!appliedMaterial || !matType) {
+                return;
+            }
+
+            try {
+                const data = await getProcessFlow(appliedMaterial, matType);
+                if (alive) setProcessFlows(data || []);
+            } catch (err) {
+                console.error('공정도 이미지 조회 실패:', err);
+            }
+        };
+
+        loadProcessFlows();
+        return () => { alive = false; };
+    }, []);
 
     // ── 행 추가 / 삭제 ───────────────────────────────────────
     const addRow = useCallback((tableKey) => {
@@ -538,17 +572,70 @@ export default function TertiaryTd() {
         }
     };
 
+    // ── 제조 도면 (슬롯 없이 한 장만 관리) ───────────────────
+    const MFR_DRW_ALLOWED_EXT = /\.(png|jpe?g|svg)$/i;
+    const MFR_DRW_ALLOWED_EXT_DISPLAY = 'jpeg, jpg, png, svg';
+
+    const handlePickMfrDrw = () => {
+        if (isNew) {
+            alert('기술문서를 먼저 저장한 뒤 제조 도면을 올려주세요.');
+            return;
+        }
+        mfrDrwInputRef.current?.click();
+    };
+
+    const handleUploadMfrDrw = async (file) => {
+        if (!file) return;
+        if (!MFR_DRW_ALLOWED_EXT.test(file.name)) {
+            alert(`이미지 파일(${MFR_DRW_ALLOWED_EXT_DISPLAY})만 업로드할 수 있습니다.`);
+            if (mfrDrwInputRef.current) mfrDrwInputRef.current.value = '';
+            return;
+        }
+
+        try {
+            const res = await UploadMfrDrw(prjId, file);
+            if (res?.success) {
+                setForm((prev) => ({ ...prev, mfrDrwUrl: res.imageDataUri || '' }));
+                setMessage('제조 도면을 업로드했습니다.');
+            } else {
+                alert(res?.message || '업로드에 실패했습니다.');
+            }
+        } catch (err) {
+            console.error('제조 도면 업로드 실패:', err);
+            alert(err?.response?.data?.message || '업로드 중 오류가 발생했습니다.');
+        } finally {
+            if (mfrDrwInputRef.current) mfrDrwInputRef.current.value = '';
+        }
+    };
+
+    const handleDeleteMfrDrw = async () => {
+        if (!window.confirm('제조 도면을 삭제할까요?')) return;
+        try {
+            const res = await DeleteMfrDrw(prjId);
+            if (res?.success) {
+                setForm((prev) => ({ ...prev, mfrDrwUrl: '' }));
+                setMessage('제조 도면을 삭제했습니다.');
+            }
+        } catch (err) {
+            console.error('제조 도면 삭제 실패:', err);
+            alert('삭제 중 오류가 발생했습니다.');
+        }
+    };
+
     // ── PDF 추출 (브라우저 인쇄 → PDF로 저장) ────────────────
     const handleExportPdf = () => {
         window.print();
     };
 
     // ── DOCX(Word) 추출 ──────────────────────────────────────
-    const handleExportDocx = () => {
+    const handleExportDocx = async () => {
         const source = docRef.current;
         if (!source) return;
 
         // 입력 요소를 값 텍스트로 치환한 사본을 만든다 (Word에서 폼 컨트롤이 아닌 문서로 보이도록)
+        // A4 세로, 여백 2cm 기준 본문 가로폭. 제조 도면 이미지 폭도 이 값에 맞춘다.
+        const DOCX_CONTENT_WIDTH_CM = 17;
+
         const clone = source.cloneNode(true);
         clone.querySelectorAll('.td-noprint, .td-screen-only').forEach((el) => el.remove());
         clone.querySelectorAll('input, textarea').forEach((el) => {
@@ -557,21 +644,46 @@ export default function TertiaryTd() {
             el.replaceWith(span);
         });
 
-        const html = `<!DOCTYPE html>
+        // 표 열 폭: table-layout:fixed + CSS width로는 Word가 안 지켜서(내용 길이에 맞춰
+        // 자기 마음대로 다시 계산) 화면에서 좁혀 둔 번호/구성품/물질/항목 등 열 폭이
+        // 계속 무시되고 있었다. Word 자신이 "웹 페이지로 저장"할 때 쓰는 방식과 똑같이
+        // <colgroup><col width="..."></colgroup>을 직접 박아 넣어야 확실히 지켜진다.
+        applyDocxColumnWidths(clone);
+
+        // 제조 도면 + 공정도(memoImg) 이미지 전부: CSS width/max-width(%, cm 모두)로는
+        // Word가 지켜주지 않는다는 게 재현 테스트로 확인됐다 — Word의 HTML 가져오기 엔진은
+        // <img> 파일 자체의 픽셀 크기를 기준으로 그리기 때문이다. 그래서 CSS로 "눌러 보이게"
+        // 하는 대신, 이미지 파일 자체를 캔버스로 다시 그려 문서 폭에 맞는 픽셀 크기로
+        // 축소한다 (utils/docxImage.js). 원본이 2430×1349px 같은 큰 이미지라도 이렇게 하면
+        // Word가 원본 크기 그대로 그려도 이미 문서 폭에 맞아떨어진다.
+        await shrinkImagesForDocx(clone, DOCX_CONTENT_WIDTH_CM);
+
+    const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
       xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8" />
 <title>3차 기술문서</title>
 <style>
+  @page { size: 21cm 29.7cm; margin: 2cm; }
   body { font-family: 'Malgun Gothic', 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.6; }
+  img { max-width: 100%; height: auto; }
   h1 { font-size: 18pt; } h2 { font-size: 13pt; margin-top: 18pt; } h3 { font-size: 11pt; }
-  table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
+  /* ⚠️ 진짜 원인: table-layout이 빠져 있으면 Word(그리고 브라우저)가 각 th/td에 준
+     width를 무시하고 내용물 길이에 맞춰 열 폭을 자기 마음대로 다시 계산해버린다(auto
+     레이아웃의 기본 동작). 화면(.td-table)에는 table-layout:fixed가 있어서 우리가
+     지정한 폭이 그대로 지켜지는데, 추출용 <style>에는 이게 빠져 있어서 지금까지
+     번호/구성품/물질/항목 등 좁혀둔 폭이 전부 무시되고 있었다. */
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; table-layout: fixed; }
   th, td { border: 1px solid #999; padding: 4pt 6pt; vertical-align: top; font-size: 9.5pt; }
   th { background: #f2f2f2; font-weight: bold; }
   .td-table-plain, .td-table-plain th, .td-table-plain td { border: none; background: transparent; }
+  /* 화면의 .td-table-kv th{width:170px}는 클래스 규칙이라 clone에 안 딸려 온다 — 그래서
+     "2. 제품 설명" 같은 라벨 표의 왼쪽 칸이 Word 기본 폭(거의 절반)으로 커져 있었다.
+     여기서 직접 다시 선언해 줘야 화면과 같은 폭·좌측 정렬로 나온다. */
+  .td-table-kv th { width: 170px; text-align: left; }
   .td-result-phrase { margin: 8pt 0; }
-  .td-row-label { font-weight: bold; }
+  .td-row-label { font-weight: bold; text-align: left; }
 </style>
 </head><body>${clone.innerHTML}</body></html>`;
 
@@ -678,7 +790,7 @@ export default function TertiaryTd() {
                 <h3 className="td-h3">1) 제품사양</h3>
                 <table className="td-table">
                     <thead>
-                        <tr><th style={{ width: '28%' }}>항목</th><th>규격</th></tr>
+                        <tr><th style={{ width: '110px', textAlign: 'left' }}>항목</th><th>규격</th></tr>
                     </thead>
                     <tbody>
                         <tr><td className="td-row-label">외부 치수</td><td>{input('prdExtDimSpecVal')}</td></tr>
@@ -693,7 +805,32 @@ export default function TertiaryTd() {
                 </table>
 
                 <h3 className="td-h3">2) 제조 도면</h3>
-                {input('mfrDrwUrl')}
+                <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.svg,image/*"
+                    style={{ display: 'none' }}
+                    ref={mfrDrwInputRef}
+                    onChange={(e) => handleUploadMfrDrw(e.target.files?.[0])}
+                />
+                <div className="td-noprint td-atch-actions">
+                    <button type="button" className="td-btn td-btn-sm" onClick={handlePickMfrDrw}>업로드</button>
+                    {form.mfrDrwUrl && (
+                        <button type="button" className="td-btn td-btn-sm" onClick={handleDeleteMfrDrw}>이미지 삭제</button>
+                    )}
+                </div>
+                {form.mfrDrwUrl ? (
+                    // 표(.td-table)와 가로 폭을 맞추기 위해 문서 폭을 그대로 쓴다 (PDF 추출 시에도 동일)
+                    <div style={{ marginTop: '0.5rem', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff', width: '100%', boxSizing: 'border-box' }}>
+                        <img src={form.mfrDrwUrl} alt="제조 도면" className="td-mfr-drw-img" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                    </div>
+                ) : (
+                    <div className="td-noprint" style={{ color: '#9ca3af', fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                        등록된 제조 도면이 없습니다.
+                    </div>
+                )}
+                <p className="td-noprint" style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0' }}>
+                    * 이미지 파일(jpeg, jpg, png, svg)만 업로드할 수 있습니다.
+                </p>
 
                 {/* 4. 재질구성 */}
                 <h2 className="td-h2">4. 재질구성(Material Composition)</h2>
@@ -701,7 +838,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th>구성품</th><th>재질</th>
+                            <th style={{ width: '160px', textAlign: 'left' }}>구성품</th><th>재질</th>
                             <th style={{ width: '16%' }}>중량(g)</th><th style={{ width: '16%' }}>중량비율(%)</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
@@ -764,7 +901,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '24%' }}>시험항목</th><th>기준</th><th>결과</th><th>시험방법</th>
+                            <th style={{ width: '140px', textAlign: 'left' }}>시험항목</th><th>기준</th><th>결과</th><th>시험방법</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
                     </thead>
@@ -793,7 +930,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '28%' }}>항목</th><th>평가</th><th>시험방법</th>
+                            <th style={{ width: '130px', textAlign: 'left' }}>항목</th><th>평가</th><th>시험방법</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
                     </thead>
@@ -821,7 +958,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '25%' }}>물질</th><th>결과(mg/kg)</th><th>규제 기준</th><th>시험방법</th>
+                            <th style={{ width: '110px', textAlign: 'left' }}>물질</th><th>결과(mg/kg)</th><th>규제 기준</th><th>시험방법</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
                     </thead>
@@ -849,7 +986,7 @@ export default function TertiaryTd() {
                 {/* 화면에서는 표 형태로 입력받고, PDF/DOCX 추출 시에는 아래 문구 형태로 나간다 */}
                 <table className="td-table td-table-kv td-table-plain td-screen-only">
                     <tbody>
-                        <tr><th style={{ width: '18%' }}>결과</th><td>{input('socHvyMetMngTestRsltPhrs')}</td></tr>
+                        <tr><th style={{ width: '90px' }}>결과</th><td>{input('socHvyMetMngTestRsltPhrs')}</td></tr>
                     </tbody>
                 </table>
                 <p className="td-export-only td-result-phrase">
@@ -858,7 +995,30 @@ export default function TertiaryTd() {
 
                 {/* 8. 제조 공정 */}
                 <h2 className="td-h2">8. 제조 공정</h2>
-                {input('mfrPrcsUrl')}
+
+                {/* 기본 평가지 조회 화면의 '3. 공정도'와 같은 참고 이미지를 텍스트보다 먼저 보여준다 */}
+                {processFlows.length > 0 && (
+                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                        {processFlows.map((proc, index) => (
+                            <div key={index} style={{ flex: '1', minWidth: '260px', padding: '0.75rem', border: '1px solid #e5e7eb', borderRadius: '6px', background: '#fff' }}>
+                                <div style={{ fontWeight: '600', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}>
+                                    재질 구성: {proc.matCompNm || proc.matComp || '-'}
+                                </div>
+                                {proc.memoImg ? (
+                                    <div
+                                        style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}
+                                        dangerouslySetInnerHTML={{ __html: proc.memoImg }}
+                                    />
+                                ) : (
+                                    <div style={{ color: '#9ca3af', fontSize: '0.75rem', textAlign: 'center' }}>
+                                        등록된 공정도 이미지가 없습니다.
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {area('mfrPrcsCntn', 3)}
 
                 {/* 9. 품질관리 */}
@@ -866,7 +1026,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '30%' }}>검사 항목</th><th>검사 방법</th><th style={{ width: '20%' }}>빈도</th>
+                            <th style={{ width: '140px', textAlign: 'left' }}>검사 항목</th><th>검사 방법</th><th style={{ width: '100px', textAlign: 'left' }}>빈도</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
                     </thead>
@@ -893,7 +1053,7 @@ export default function TertiaryTd() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '14%' }}>번호</th>
+                            <th style={{ width: '90px', textAlign: 'left' }}>번호</th>
                             <th>문서명</th>
                             <th className="td-noprint" style={{ width: '30%' }}>파일 / 관리</th>
                         </tr>
@@ -958,7 +1118,7 @@ export default function TertiaryTd() {
                 <h2 className="td-h2">12. 책임자 정보</h2>
                 <table className="td-table td-table-kv td-table-plain">
                     <tbody>
-                        <tr><th style={{ width: '20%' }}>회사명</th><td>{input('bizNm2')}</td></tr>
+                        <tr><th style={{ width: '100px' }}>회사명</th><td>{input('bizNm2')}</td></tr>
                         <tr><th>담당자</th><td>{input('repNm')}</td></tr>
                         <tr><th>직책</th><td>{input('roleNm')}</td></tr>
                         <tr><th>이메일</th><td>{input('emlAddr')}</td></tr>
@@ -1027,6 +1187,10 @@ const TD_STYLES = `
 
 /* 문서 본문 — 위에서 아래로 흐르는 수직 구성 */
 .td-doc { background: #fff; padding: 8px 4px 60px; color: #111827; line-height: 1.7; }
+/* 공정도(memoImg, if003a 원본 HTML)는 원본 픽셀 크기 그대로인 <img>를 그대로 꽂아 넣는 자리라
+   이 규칙이 없으면 화면에서도, 인쇄(PDF)에서도 카드/페이지 폭을 넘어 원본 크기로 튀어나온다.
+   제조 도면(.td-mfr-drw-img)은 이미 인라인 width:100%가 있지만 여기에도 안전망으로 포함한다. */
+.td-doc img { max-width: 100%; height: auto; }
 .td-title { font-size: 24px; font-weight: 700; margin: 0 0 20px; }
 .td-title-center { text-align: center; }
 .td-h2 { font-size: 17px; font-weight: 700; margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #111827; }
@@ -1034,8 +1198,10 @@ const TD_STYLES = `
 
 .td-table { width: 100%; border-collapse: collapse; margin: 8px 0 4px; table-layout: fixed; }
 .td-table th, .td-table td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: middle; font-size: 13px; word-break: break-word; }
+/* 값 칸은 좌측 정렬로 고정한다 — 제조자정보·제품식별정보 같은 고정값 라벨/값 모두 해당 */
+.td-table td { text-align: left; }
 .td-table th { background: #f3f4f6; font-weight: 600; text-align: center; color: #374151; }
-.td-table-kv th { text-align: left; width: 22%; }
+.td-table-kv th { text-align: left; width: 170px; }
 
 /* 1. 제품 식별 정보 / 12. 책임자 정보 — 테두리 없이 배경 투명한 평문 표 */
 .td-table-plain,
@@ -1043,7 +1209,7 @@ const TD_STYLES = `
 .td-table-plain td { border: none; background: transparent; }
 .td-table-plain th { padding-left: 0; }
 
-.td-row-label { background: #fafafa; font-weight: 500; }
+.td-row-label { background: #fafafa; font-weight: 500; text-align: left; }
 .td-total-row td { background: #f9fafb; font-weight: 600; }
 .td-table-bom { min-width: 1000px; }
 .td-scroll-x { overflow-x: auto; }
@@ -1082,14 +1248,32 @@ const TD_STYLES = `
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
 
   /* 대시보드 셸의 100vh / overflow:hidden 인라인 스타일 해제 */
-  .dashboard-shell { display: block !important; width: auto !important; height: auto !important; overflow: visible !important; }
+  /* ⚠️ 진짜 원인: 전역 dashboard.css의 .dashboard-shell은 position:fixed(뷰포트에 고정)이다.
+     지금까지 height/overflow만 풀어주고 position은 그대로 둬서, 셸 전체가 여전히 화면
+     한 장 크기에 박제된 채였다 — 브라우저 인쇄 엔진이 position:fixed 조상 아래 내용은
+     한 페이지 분량만 찍고 마는 경우가 많다. position을 static으로 되돌려야
+     #td-doc이 진짜 '보통 문서 흐름'을 타고 여러 페이지로 이어서 찍힌다. */
+  .dashboard-shell { display: block !important; position: static !important; width: auto !important; height: auto !important; overflow: visible !important; }
   .dashboard-panel, .main-panel { height: auto !important; overflow: visible !important; }
+  /* 위 규칙만으로는 안 잡히던, 실제 스크롤이 걸린 안쪽 컨텐츠 영역(className 없는 div)도 해제.
+     이게 빠져 있으면 인쇄 시 화면에 보이던 첫 페이지 분량만 찍히고 스크롤해야 보이는
+     아래 내용은 잘려서 안 나온다. */
+  .dashboard-content-area { height: auto !important; overflow: visible !important; }
   .sidebar-nav, .assistant-panel { display: none !important; }
+  /* 사이드바를 감싸는 바깥 <aside>와 상단 정보 바는 그 자체엔 숨김 클래스가 없어서
+     내용만 안 보일 뿐 자리(레이아웃 공간)는 그대로 차지하고 있었다. 자리까지 없애야
+     #td-doc이 문서 맨 위부터 정상적인 흐름(position:absolute 없이)으로 이어지고,
+     브라우저가 전체 높이를 제대로 계산해 여러 페이지로 나눠 찍는다. */
+  .dashboard-shell > aside:first-child { display: none !important; }
+  .dashboard-topbar { display: none !important; }
 
   body * { visibility: hidden !important; }
   #td-doc, #td-doc * { visibility: visible !important; }
   #td-doc {
-    position: absolute !important; left: 0 !important; top: 0 !important;
+    /* ⚠️ 예전엔 position:absolute로 문서를 페이지 좌상단에 강제로 떼어 붙였는데,
+       그러면 문서가 일반적인 문서 흐름에서 빠져나가 버려 브라우저가 전체 내용
+       높이를 제대로 못 재고 첫 페이지 분량만 찍고 끝나는 문제가 있었다.
+       absolute를 빼고 그냥 자연스러운 흐름대로 두면 여러 페이지로 이어서 찍힌다. */
     width: 100% !important; padding: 0 !important; margin: 0 !important;
   }
 

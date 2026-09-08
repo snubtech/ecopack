@@ -83,8 +83,7 @@ function PackTemplatePage({ onSelectItem }) {
         };
 
         try {
-            const result = await templateUpdate(dto);
-            console.log("업데이트 결과:", result);
+            await templateUpdate(dto);
             alert('성공적으로 저장되었습니다.');
         } catch (error) {
             console.error('저장 중 에러 발생:', error);
@@ -101,7 +100,6 @@ function PackTemplatePage({ onSelectItem }) {
         sessionStorage.setItem('currentPackDsgnTplId', selectedItem.packDsgnTplId);
 
         if (typeof onSelectItem === 'function') {
-            console.log("onSelectItem 함수 실행됨!");
             //onSelectItem('prjeval'); // 'prjeval'(평가지) 메뉴로 상태 변경 요청
             onSelectItem('prjdefaultresult'); // 'Prjdefaultresult'(프로젝트 기본결과) 메뉴로 상태 변경 요청
         } else {

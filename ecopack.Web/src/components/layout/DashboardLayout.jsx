@@ -58,7 +58,6 @@ const DashboardLayout = ({ onLogout }) => {
     })();
 
     const renderBusinessContent = () => {
-        console.log("현재 선택된 currentMenu ID:", currentMenu); // 👈 이 부분을 추가해서 F12 콘솔을 확인해보세요!
         switch (currentMenu) {
             case 'project-history':
                 return <Projects onSelectItem={setCurrentMenu} />;
@@ -162,8 +161,8 @@ const DashboardLayout = ({ onLogout }) => {
                 height: '100%',
                 minWidth: 0
             }}>
-                {/* 상단 페이지 정보 영역 */}
-                <div style={{
+                {/* 상단 페이지 정보 영역 — 인쇄 시 dashboard-topbar 클래스로 감춘다 */}
+                <div className="dashboard-topbar" style={{
                     padding: '0.5rem 1.5rem',
                     borderBottom: '1px solid #e5e7eb',
                     backgroundColor: '#ffffff',
@@ -196,8 +195,13 @@ const DashboardLayout = ({ onLogout }) => {
                     )}
                 </div>
 
-                {/* 실제 동적 컨텐츠 영역 */}
-                <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', boxSizing: 'border-box' }}>
+                {/* 실제 동적 컨텐츠 영역
+                    💡 className을 붙여 둔 이유: TD/DOC 화면의 인쇄용 CSS(@media print)가
+                    .dashboard-shell/.dashboard-panel/.main-panel의 height·overflow는 초기화하는데,
+                    정작 스크롤이 걸리는 이 안쪽 div는 이름이 없어 그 규칙이 안 먹었다.
+                    그래서 인쇄(PDF 추출) 시 화면에 보이는 첫 페이지만 찍히고 스크롤해야 보이던
+                    아래 내용은 잘려 나갔다. 이 클래스를 각 화면의 인쇄 CSS에서 초기화한다. */}
+                <div className="dashboard-content-area" style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', boxSizing: 'border-box' }}>
                     {renderBusinessContent()}
                 </div>
             </main>
