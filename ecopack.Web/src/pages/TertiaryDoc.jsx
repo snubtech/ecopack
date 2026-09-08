@@ -41,6 +41,7 @@ import {
     SaveTertiaryDoc,
     UploadEvdDoc,
     DeleteEvdDoc,
+    getEvdDocDownloadUrl,
 } from '../api/tertiaryDoc';
 import { fillFromMember } from '../utils/memberProfile';
 
@@ -770,7 +771,13 @@ export default function TertiaryDoc() {
                             return (
                                 <tr key={`evd-${slot}`}>
                                     <td className="td-row-label">{annexLabel(slot)}</td>
-                                    <td>{input(`evdDocNm${slot}`)}</td>
+                                    <td>
+                                        {/* 실제 업로드한 원본 파일명을 그대로 보여준다 — 화면에서 임의로 바꾸면
+                                           다운로드 파일명과 실제 내용이 어긋나므로 읽기 전용으로 둔다 */}
+                                        <input type="text" className="td-input td-input-locked"
+                                            value={form[`evdDocNm${slot}`] || ''} readOnly
+                                            placeholder="파일을 올리면 자동으로 채워집니다" />
+                                    </td>
                                     <td className="td-noprint">
                                         <input type="file" style={{ display: 'none' }}
                                             ref={(el) => { fileInputRefs.current[slot] = el; }}
@@ -780,8 +787,7 @@ export default function TertiaryDoc() {
                                                 onClick={() => handlePickFile(slot)}>업로드</button>
                                             {url && (
                                                 <>
-                                                    <a className="td-link" href={url} target="_blank" rel="noreferrer"
-                                                        download={nm || undefined}>다운로드</a>
+                                                    <a className="td-link" href={getEvdDocDownloadUrl(prjId, slot)} target="_blank" rel="noreferrer" title={nm || undefined}>다운로드</a>
                                                     <button type="button" className="td-btn td-btn-sm"
                                                         onClick={() => handleDeleteFile(slot)}>파일 삭제</button>
                                                 </>
@@ -798,6 +804,9 @@ export default function TertiaryDoc() {
                 </table>
                 <AddRowButton label="부속서 행 추가" onAdd={() => addRow('evd')}
                     current={rowCounts.evd} max={ROW_TABLES.evd.max} />
+                <p className="td-noprint" style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0' }}>
+                    * 파일 업로드는 최대 20MB까지 가능하며, MS오피스(Word·PPT·Excel)·한글(HWP)·PDF 파일만 올릴 수 있습니다.
+                </p>
 
                 {/* 6. 적용 규정 및 표준 */}
                 <h2 className="td-h2">6. 적용 규정 및 표준</h2>

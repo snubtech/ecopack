@@ -13,17 +13,21 @@
  * 
  * 3. Save — 신규/수정 통합 저장 (Upsert)
  *    - 같은 프로젝트의 문서가 있으면 수정하고, 없으면 새로 만듭니다.
- *    - 신규일 때 문서 ID를 TD-{포장차수}-{yyyyMMddHHmmssfff} 규칙으로 채번합니다.
+ *    - 신규일 때 문서 ID를 TD-{포장차수}-{프로젝트번호} 규칙으로 채번합니다.
+ *      프로젝트번호(prjId)는 이미 유일하므로 문서 ID도 그것만으로 유일해집니다.
  *      포장차수는 1차(판매) 고정이며, 2·3차는 별도 화면이 생길 때 값만 바꾸면 됩니다.
  *    - 문서번호(docNo)는 기술문서 번호(TD-1-...)와 같은 값으로 고정합니다.
  *      적합성 선언서가 참조하는 번호와 어긋나면 안 되므로 화면에서 고칠 수 없게 했습니다.
  *    - 개정번호(revNo)가 비어 있으면 Rev.01 을 넣고,
  *      저장할 때마다 작성일시(lastWrtDtm)를 서버 현재 시각으로 갱신합니다.
  * 
- * 4. UploadAtchDoc / DeleteAtchDoc — 첨부문서
- *    - 파일은 wwwroot/uploads/td/{프로젝트ID}/ 아래에 두고,
- *      atchDocUrl{슬롯} 에 경로를, atchDocNm{슬롯} 에 확장자 포함 원본 파일명을 기록합니다.
+ * 4. UploadAtchDoc / DownloadAtchDoc / DeleteAtchDoc — 첨부문서
+ *    - 파일은 wwwroot 밖(App_Data/uploads/projects/td/{포장차수}/{프로젝트번호}/)에 두고,
+ *      atchDocUrl{슬롯} 에는 그 안에서의 상대경로를, atchDocNm{슬롯} 에는 확장자 포함
+ *      원본 파일명을 기록합니다. wwwroot 밖이라 URL로 직접 접근할 수 없고,
+ *      Download 액션이 소유자 확인을 통과한 요청에만 파일을 내려줍니다.
  *    - 실제 저장 파일명은 슬롯 번호와 타임스탬프로 새로 만들어 이름 충돌을 막습니다.
+ *    - 업로드 확장자는 화이트리스트(UploadPolicy)로 제한합니다: doc/ppt/excel/hwp/pdf.
  *    - 삭제하면 컬럼을 비우고 서버의 실제 파일도 지웁니다.
  * 
  * 5. DTO ↔ 엔티티 매핑 (ToDto / ApplyDtoToEntity)
@@ -70,10 +74,10 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // 채번: TD-{차수}-{yyyyMMddHHmmssfff}
+        // 채번: TD-{차수}-{프로젝트번호}
         // ─────────────────────────────────────────────────────────────
-        private static string NewTechDocId() =>
-            $"TD-{PackLevel}-{DateTime.Now:yyyyMMddHHmmssfff}";
+        private static string NewTechDocId(string prjId) =>
+            $"TD-{PackLevel}-{prjId}";
 
         // ─────────────────────────────────────────────────────────────
         // GET: api/TertiaryTd/Get?prjId=xxx
@@ -144,7 +148,7 @@ namespace ecopack.Api.Controllers
                     {
                         // 프론트가 기존 ID를 보내오면 그대로 쓰고, 없으면 채번
                         Pkg3TechDocId = string.IsNullOrWhiteSpace(dto.Pkg3TechDocId)
-                            ? NewTechDocId()
+                            ? NewTechDocId(dto.PrjId)
                             : dto.Pkg3TechDocId
                     };
                     _context.TertiaryTd.Add(entity);
@@ -185,6 +189,47 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
+        // GET: api/TertiaryTd/DownloadAtchDoc?prjId=xxx&slot=1
+        // 첨부문서 원본 파일을 내려준다. 소유자 확인을 통과해야만 내려받을 수 있다.
+        // ─────────────────────────────────────────────────────────────
+        [HttpGet("DownloadAtchDoc")]
+        public async Task<IActionResult> DownloadAtchDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > AtchDocSlotCount)
+            {
+                return BadRequest(new { success = false, message = "prjId와 slot(1~8)이 필요합니다." });
+            }
+
+            // 본인이 만든 프로젝트의 문서만 내려받을 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            var entity = await _context.TertiaryTd.AsNoTracking().FirstOrDefaultAsync(x => x.PrjId == prjId);
+            if (entity == null)
+            {
+                return NotFound(new { success = false, message = "기술문서를 찾을 수 없습니다." });
+            }
+
+            var relativePath = GetStringProperty(entity, $"AtchDocUrl{slot}");
+            var originalNm = GetStringProperty(entity, $"AtchDocNm{slot}") ?? $"attachment{slot}";
+            if (string.IsNullOrWhiteSpace(relativePath))
+            {
+                return NotFound(new { success = false, message = "첨부된 파일이 없습니다." });
+            }
+
+            var physicalPath = UploadPolicy.ToPhysicalPath(_env, relativePath);
+            if (!System.IO.File.Exists(physicalPath))
+            {
+                return NotFound(new { success = false, message = "파일을 찾을 수 없습니다." });
+            }
+
+            var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+            return File(bytes, "application/octet-stream", originalNm);
+        }
+
+        // ─────────────────────────────────────────────────────────────
         // POST: api/TertiaryTd/UploadAtchDoc   (multipart/form-data)
         // 첨부문서를 업로드하고 atchDocUrl{slot} / atchDocNm{slot} 에 반영한다.
         // 문서명은 확장자를 포함한 원본 파일명 그대로 저장한다.
@@ -211,7 +256,15 @@ namespace ecopack.Api.Controllers
             }
             if (file.Length > MaxAtchDocBytes)
             {
-                return BadRequest(new AtchDocUploadResultDto { Success = false, Message = "파일 크기는 20MB를 넘을 수 없습니다." });
+                return BadRequest(new AtchDocUploadResultDto { Success = false, Message = $"파일 크기는 {UploadPolicy.MaxFileSizeDisplay}를 넘을 수 없습니다." });
+            }
+            if (!UploadPolicy.IsExtensionAllowed(file.FileName))
+            {
+                return BadRequest(new AtchDocUploadResultDto
+                {
+                    Success = false,
+                    Message = $"허용되지 않는 파일 형식입니다. ({UploadPolicy.AllowedExtensionsDisplay} 파일만 업로드할 수 있습니다.)"
+                });
             }
 
             // 본인이 만든 프로젝트의 문서에만 파일을 올릴 수 있다
@@ -239,8 +292,7 @@ namespace ecopack.Api.Controllers
                 var ext = Path.GetExtension(originalNm);
                 var storedNm = $"{slot}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
 
-                var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                var saveDir = Path.Combine(webRoot, "uploads", "td3", prjId);
+                var saveDir = UploadPolicy.GetProjectDocDirectory(_env, "td", PackLevel, prjId);
                 Directory.CreateDirectory(saveDir);
 
                 var savePath = Path.Combine(saveDir, storedNm);
@@ -249,9 +301,11 @@ namespace ecopack.Api.Controllers
                     await file.CopyToAsync(stream);
                 }
 
-                var url = $"/uploads/td3/{prjId}/{storedNm}";
+                // DB엔 공개 URL이 아니라 업로드 루트 기준 상대경로만 저장한다.
+                // 실제 내려받기는 DownloadAtchDoc이 소유자 확인 후 처리한다.
+                var relativePath = UploadPolicy.ToRelativePath("td", PackLevel, prjId, storedNm);
 
-                SetStringProperty(entity, $"AtchDocUrl{slot}", url);
+                SetStringProperty(entity, $"AtchDocUrl{slot}", relativePath);
                 SetStringProperty(entity, $"AtchDocNm{slot}", originalNm);
                 entity.LastWrtDtm = DateTime.Now;
 
@@ -262,7 +316,7 @@ namespace ecopack.Api.Controllers
                     Success = true,
                     Slot = slot,
                     FileNm = originalNm,
-                    FileUrl = url,
+                    FileUrl = relativePath,
                     Message = "첨부문서가 업로드되었습니다."
                 });
             }
@@ -302,11 +356,10 @@ namespace ecopack.Api.Controllers
                     return NotFound(new { success = false, message = "기술문서를 찾을 수 없습니다." });
                 }
 
-                var url = GetStringProperty(entity, $"AtchDocUrl{slot}");
-                if (!string.IsNullOrWhiteSpace(url))
+                var relativePath = GetStringProperty(entity, $"AtchDocUrl{slot}");
+                if (!string.IsNullOrWhiteSpace(relativePath))
                 {
-                    var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                    var physical = Path.Combine(webRoot, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+                    var physical = UploadPolicy.ToPhysicalPath(_env, relativePath);
                     if (System.IO.File.Exists(physical))
                     {
                         System.IO.File.Delete(physical);
@@ -343,9 +396,11 @@ namespace ecopack.Api.Controllers
                 .GetProperties(BindingFlags.Public | BindingFlags.Instance)
                 .ToDictionary(p => p.Name, StringComparer.Ordinal);
 
-        /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목</summary>
+        /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목.
+        /// 첨부문서명(AtchDocNm)은 업로드/삭제 액션에서만 바뀌어야 하므로 Save로는 못 바꾸게 막는다.</summary>
         private static readonly HashSet<string> SkipOnWrite =
-            new(StringComparer.Ordinal) { nameof(TertiaryTdDto.Pkg3TechDocId), nameof(TertiaryTdDto.LastWrtDtm) };
+            new(StringComparer.Ordinal) { nameof(TertiaryTdDto.Pkg3TechDocId), nameof(TertiaryTdDto.LastWrtDtm) ,
+            nameof(TertiaryTdDto.AtchDocNm1), nameof(TertiaryTdDto.AtchDocNm2), nameof(TertiaryTdDto.AtchDocNm3), nameof(TertiaryTdDto.AtchDocNm4), nameof(TertiaryTdDto.AtchDocNm5), nameof(TertiaryTdDto.AtchDocNm6), nameof(TertiaryTdDto.AtchDocNm7), nameof(TertiaryTdDto.AtchDocNm8) };
 
         private static TertiaryTdDto ToDto(TertiaryTd entity)
         {

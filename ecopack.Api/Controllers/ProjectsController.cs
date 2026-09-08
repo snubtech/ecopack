@@ -367,12 +367,9 @@ namespace ecopack.Api.Controllers
         {
             try
             {
-                var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-                // 1차는 uploads/td, 2·3차는 uploads/td2, uploads/td3 를 쓴다
-                var suffix = packLevel == "1" ? "" : packLevel;
                 foreach (var kind in new[] { "td", "doc" })
                 {
-                    var dir = Path.Combine(webRoot, "uploads", kind + suffix, prjId);
+                    var dir = UploadPolicy.GetProjectDocDirectory(_env, kind, packLevel, prjId);
                     if (Directory.Exists(dir))
                     {
                         Directory.Delete(dir, recursive: true);
@@ -399,11 +396,15 @@ namespace ecopack.Api.Controllers
                 return; // 포장차수가 없으면 문서를 만들지 않는다
             }
 
-            var stamp = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            var techDocId = $"TD-{level}-{stamp}";
-            var declDocId = $"DOC-{level}-{stamp}";
-
             var prjId    = project.PrjId;
+
+            // 채번: TD/DOC-{차수}-{프로젝트번호}. 프로젝트번호(prjId)가 이미 유일하므로
+            // 별도 타임스탬프 없이 이것만으로 문서 ID도 유일해진다. Primary/Secondary/
+            // TertiaryTdController.Save() 의 자체 채번 로직도 같은 규칙을 쓰므로,
+            // 여기서 만든 문서가 없어 그쪽에서 새로 채번하더라도 같은 ID가 나온다.
+            var techDocId = $"TD-{level}-{prjId}";
+            var declDocId = $"DOC-{level}-{prjId}";
+
             var prjfNm   = project.PrjNm;
             var bizNm    = member?.BizNm    ?? project.BizNm;
             var cntryNm  = member?.CntryNm  ?? project.CntryNm;

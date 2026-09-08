@@ -185,7 +185,7 @@ const DashboardLayout = ({ onLogout }) => {
                     {projectInfo.id && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.0rem' }}>
                             <span style={{ backgroundColor: '#f3f4f6', padding: '2px 8px', borderRadius: '4px', color: '#374151' }}>
-                                📌현재 프로젝트명: <b>{projectInfo.name}</b> 번호:({projectInfo.id})
+                                📌현재 프로젝트명: <b>{projectInfo.name}</b> ({projectInfo.id})
                             </span>
                             {projectInfo.packLevel && (
                                 <span style={{ backgroundColor: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: '4px', fontWeight: '500' }}>

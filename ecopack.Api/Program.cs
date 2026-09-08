@@ -32,8 +32,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// 첨부문서(wwwroot/uploads/**) 정적 서빙 — 기술문서 화면의 첨부파일 다운로드용
-app.UseStaticFiles();
+// ⚠️ 첨부문서(TD/DOC 근거문서)는 이제 wwwroot 밖(App_Data/uploads)에 저장한다.
+// 예전엔 여기서 UseStaticFiles()로 wwwroot/uploads를 통째로 공개해서,
+// 로그인 없이 URL만 알면 누구나 남의 프로젝트 첨부파일을 내려받을 수 있었다.
+// 지금은 각 컨트롤러의 Download 액션이 소유자 확인을 거친 뒤에만 파일을 내려주므로
+// wwwroot에 공개로 서빙할 게 없어 UseStaticFiles() 자체를 쓰지 않는다.
 
 // 3. 컨트롤러 라우팅 매핑 추가 (만들어둔 ProductsController가 동작하도록 연결)
 app.MapControllers();
