@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCurrentCustomerId } from '../utils/memberProfile';
-import { GetProjectDetailReport, getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport } from '../api/projects';
+import { getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport } from '../api/projects';
 
 const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     const [materials, setMaterials] = useState([]);
@@ -9,7 +9,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     const [carconInfo, setCarconInfo] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const [reportMeta, setReportMeta] = useState({
+    const [reportMeta] = useState({
         item: '',
         itemNm: '',
         unit: '',
@@ -40,32 +40,14 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
             try {
                 setLoading(true);
 
+                const currentPackLevel = packLevel || sessionStorage.getItem('currentPackLevel') || '';
                 const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
                 const matType = sessionStorage.getItem('currentMatType') || '';
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                console.log("📌 전송 파라미터 확인:", { prjId, packLevel, appliedMaterial, matType, matform, currentExportCountry });
+                console.log("📌 전송 파라미터 확인:", { prjId, packLevel: currentPackLevel, appliedMaterial, matType, matform, currentExportCountry });
 
-                        setCarconInfo({
-                            massCo2Mat: savedReportData.massCo2Mat,
-                            massCo2Proc: savedReportData.massCo2Proc,
-                            massCo2Scrap: savedReportData.massCo2Scrap,
-                            massCo2Sum: savedReportData.massCo2Sum,
-                            unitCo2Mat: savedReportData.unitCo2Mat,
-                            unitCo2Proc: savedReportData.unitCo2Proc,
-                            unitCo2Scrap: savedReportData.unitCo2Scrap,
-                            unitCo2Sum: savedReportData.unitCo2Sum,
-                        });
-
-                        setLoading(false);
-                        return;
-                    
-                } catch (err) {
-                    console.log("저장된 상세 리포트가 없음. 신규 분석 데이터 조회 프로세스로 진행합니다.", err);
-                }
-
-                // 저장된 데이터가 없을 경우 정상적인 신규 분석 데이터 조회 수행
                 const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
                 if (!isMounted) return;
                 setMaterials(matData || []);
@@ -96,7 +78,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
         return () => {
             isMounted = false;
         };
-    
+
     }, [prjId, packLevel]);
 
     const handleSave = async () => {
@@ -114,7 +96,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
             const matForm = sessionStorage.getItem('currentMatForm') || '';
             const matFormNm = sessionStorage.getItem('currentMatFormNm') || '';
 
-            // 첫 번째 공정 정보에서 재질 구성 추출 (있는 경우)
             const firstProc = processFlows[0] || {};
 
             const saveData = {
@@ -131,7 +112,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 matForm: matForm,
                 matFormNm: matFormNm,
 
-                // 탄소 배출량 공통 데이터
                 massCo2Mat: String(carconInfo?.massCo2Mat || 0),
                 massCo2Proc: String(carconInfo?.massCo2Proc || 0),
                 massCo2Scrap: String(carconInfo?.massCo2Scrap || 0),
@@ -141,13 +121,11 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 unitCo2Scrap: String(carconInfo?.unitCo2Scrap || 0),
                 unitCo2Sum: String(carconInfo?.unitCo2Sum || 0),
 
-                // 공정도 관련 단건 정보
                 matComp: firstProc.matComp || '',
                 matCompNm: firstProc.matCompNm || '',
                 memoImg: firstProc.memoImg || '',
                 fileData: reportMeta.fileData || '',
 
-                // 1. 물성 정보 리스트 (실제 state인 materials 반영)
                 materials: (materials || []).map(item => ({
                     item: item.item || '',
                     itemName: item.itemName || item.item || '',
@@ -158,7 +136,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                         : String(item.acceptableRange || '')
                 })),
 
-                // 2. 환경 규제 정보 리스트 (실제 state인 environments 반영)
                 environments: (environments || []).map(env => ({
                     relatedReg: env.relatedReg || '',
                     regItem: env.regItem || '',
@@ -166,7 +143,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 }))
             };
 
-            // 정의된 API 호출 함수 사용
             await SaveProjectDetailReport(saveData);
             alert('저장되었습니다.');
         } catch (error) {
@@ -174,8 +150,8 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
             alert('저장에 실패했습니다.');
         }
     };
+
     const handleNextStep = async () => {
-        // 필요 시 저장 로직 추가 가능 (현재는 세션 저장 및 탭 전환 수행)
         if (typeof onSelectItem === 'function') {
             onSelectItem('prjeval');
         } else {
@@ -453,7 +429,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     );
 };
 
-// 스타일 정의 객체들...
+// 스타일 정의 객체들
 const sectionStyle = {
     marginBottom: '2rem',
     background: '#ffffff',
