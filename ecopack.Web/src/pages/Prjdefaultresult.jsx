@@ -1,14 +1,41 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { getCurrentCustomerId } from '../utils/memberProfile';
+import { GetProjectDetailReport, getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport } from '../api/projects';
 
-const Prjdefaultresult = ({ prjId, packLevel }) => {
+const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     const [materials, setMaterials] = useState([]);
     const [environments, setEnvironments] = useState([]);
     const [processFlows, setProcessFlows] = useState([]);
     const [carconInfo, setCarconInfo] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    const [reportMeta, setReportMeta] = useState({
+        item: '',
+        itemNm: '',
+        unit: '',
+        unitNm: '',
+        acceptableRange: '',
+        relatedReg: '',
+        regItem: '',
+        dtlCont: '',
+        matComp: '',
+        matCompNm: '',
+        memoImg: '',
+        fileData: '',
+        packLevelNm: '',
+        appliedMaterial: '',
+        appliedMaterialNm: '',
+        prdExpCntry: '',
+        prdExpCntryNm: '',
+        matType: '',
+        matTypeNm: '',
+        matForm: '',
+        matFormNm: '',
+    });
+
     useEffect(() => {
+        let isMounted = true;
+
         const fetchData = async () => {
             try {
                 setLoading(true);
@@ -18,49 +45,187 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                console.log("📌 전송 파라미터 확인:", { prjId, packLevel, appliedMaterial, matType, matform, currentExportCountry });
+                const currentPrjId = prjId || sessionStorage.getItem('currentPrjId') || '';
+                const currentPackLevel = packLevel || sessionStorage.getItem('currentPackLevel') || '';
+                console.log("🔍 [Prjdefaultresult] 상세 리포트 조회 시도 - prjId:", currentPrjId, "packLevel:", currentPackLevel);
+                try {
+                    const savedReportData = await GetProjectDetailReport(currentPrjId, currentPackLevel);
 
-                // 1. 물성 정보 조회
-                const matRes = await axios.get('/api/Projects/Getmaterial', {
-                    params: { prjId, packLevel, appliedMaterial, matType }
-                });
-                setMaterials(matRes.data || []);
+                    if (savedReportData) {
+                        console.log("✅ [Prjdefaultresult] 기존 저장된 상세 리포트 조회 성공:", savedReportData);
+                        if (!isMounted) return;
 
-                // 2. 환경규제 정보 조회
-                const envRes = await axios.get('/api/Projects/Getenvironment', {
-                    params: { prjId, packLevel, appliedMaterial, exportCountry: currentExportCountry }
-                });
-                setEnvironments(envRes.data || []);
+                        setReportMeta(savedReportData);
 
-                // 3. 공정도 정보 조회
-                const procRes = await axios.get('/api/Projects/Getprocessflow', {
-                    params: { prjId, appliedMaterial, matType }
-                });
-                setProcessFlows(procRes.data || []);
+                        // 서버에서 내려온 materials 리스트가 있으면 그대로 사용, 없으면 단건 필드 fallback 처리
+                        setMaterials(
+                            savedReportData.materials && savedReportData.materials.length > 0
+                                ? savedReportData.materials
+                                : [{
+                                    itemName: savedReportData.itemNm || savedReportData.item,
+                                    unit: savedReportData.unit,
+                                    unitNm: savedReportData.unitNm,
+                                    acceptableRange: savedReportData.acceptableRange
+                                }]
+                        );
 
-                // 4. 탄소배출량 정보 조회
-                const carRes = await axios.get('/api/Projects/Getcarconinfo', {
-                    params: { prjId, packLevel, appliedMaterial, matform }
-                });
-                setCarconInfo(carRes.data || null);
+                        // 서버에서 내려온 environments 리스트가 있으면 그대로 사용, 없으면 단건 필드 fallback 처리
+                        setEnvironments(
+                            savedReportData.environments && savedReportData.environments.length > 0
+                                ? savedReportData.environments
+                                : [{
+                                    relatedReg: savedReportData.relatedReg,
+                                    regItem: savedReportData.regItem,
+                                    dtlCont: savedReportData.dtlCont
+                                }]
+                        );
+
+                        setProcessFlows([{
+                            matComp: savedReportData.matComp,
+                            matCompNm: savedReportData.matCompNm,
+                            memoImg: savedReportData.memoImg
+                        }]);
+
+                        setCarconInfo({
+                            massCo2Mat: savedReportData.massCo2Mat,
+                            massCo2Proc: savedReportData.massCo2Proc,
+                            massCo2Scrap: savedReportData.massCo2Scrap,
+                            massCo2Sum: savedReportData.massCo2Sum,
+                            unitCo2Mat: savedReportData.unitCo2Mat,
+                            unitCo2Proc: savedReportData.unitCo2Proc,
+                            unitCo2Scrap: savedReportData.unitCo2Scrap,
+                            unitCo2Sum: savedReportData.unitCo2Sum,
+                        });
+
+                        setLoading(false);
+                        return;
+                    }
+                } catch (err) {
+                    console.log("저장된 상세 리포트가 없음. 신규 분석 데이터 조회 프로세스로 진행합니다.", err);
+                }
+
+                // 저장된 데이터가 없을 경우 정상적인 신규 분석 데이터 조회 수행
+                const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
+                if (!isMounted) return;
+                setMaterials(matData || []);
+
+                const envData = await getEnvironment(currentPackLevel, appliedMaterial, currentExportCountry);
+                if (!isMounted) return;
+                setEnvironments(envData || []);
+
+                const procData = await getProcessFlow(appliedMaterial, matType);
+                if (!isMounted) return;
+                setProcessFlows(procData || []);
+
+                const carData = await getCarconInfo(currentPackLevel, appliedMaterial, matform);
+                if (!isMounted) return;
+                setCarconInfo(carData || null);
 
             } catch (error) {
                 console.error("데이터 조회 중 오류 발생:", error);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         if (prjId && packLevel) {
             fetchData();
         }
+
+        return () => {
+            isMounted = false;
+        };
+    
     }, [prjId, packLevel]);
+
+    const handleSave = async () => {
+        try {
+            const currentPrjId = prjId || sessionStorage.getItem('currentPrjId') || '';
+            const currentPackLevel = packLevel || sessionStorage.getItem('currentPackLevel') || '';
+            const userId = getCurrentCustomerId() || '';
+
+            const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
+            const appliedMaterialNm = sessionStorage.getItem('currentMaterialNm') || '';
+            const prdExpCntry = sessionStorage.getItem('currentExportCountry') || '';
+            const prdExpCntryNm = sessionStorage.getItem('currentExportCountryNm') || '';
+            const matType = sessionStorage.getItem('currentMatType') || '';
+            const matTypeNm = sessionStorage.getItem('currentMatTypeNm') || '';
+            const matForm = sessionStorage.getItem('currentMatForm') || '';
+            const matFormNm = sessionStorage.getItem('currentMatFormNm') || '';
+
+            // 첫 번째 공정 정보에서 재질 구성 추출 (있는 경우)
+            const firstProc = processFlows[0] || {};
+
+            const saveData = {
+                prjId: currentPrjId,
+                packLevel: currentPackLevel,
+                prjuserid: userId,
+                packLevelNm: reportMeta.packLevelNm || '',
+                appliedMaterial: appliedMaterial,
+                appliedMaterialNm: appliedMaterialNm,
+                prdExpCntry: prdExpCntry,
+                prdExpCntryNm: prdExpCntryNm,
+                matType: matType,
+                matTypeNm: matTypeNm,
+                matForm: matForm,
+                matFormNm: matFormNm,
+
+                // 탄소 배출량 공통 데이터
+                massCo2Mat: String(carconInfo?.massCo2Mat || 0),
+                massCo2Proc: String(carconInfo?.massCo2Proc || 0),
+                massCo2Scrap: String(carconInfo?.massCo2Scrap || 0),
+                massCo2Sum: String(carconInfo?.massCo2Sum || 0),
+                unitCo2Mat: String(carconInfo?.unitCo2Mat || 0),
+                unitCo2Proc: String(carconInfo?.unitCo2Proc || 0),
+                unitCo2Scrap: String(carconInfo?.unitCo2Scrap || 0),
+                unitCo2Sum: String(carconInfo?.unitCo2Sum || 0),
+
+                // 공정도 관련 단건 정보
+                matComp: firstProc.matComp || '',
+                matCompNm: firstProc.matCompNm || '',
+                memoImg: firstProc.memoImg || '',
+                fileData: reportMeta.fileData || '',
+
+                // 1. 물성 정보 리스트 (실제 state인 materials 반영)
+                materials: (materials || []).map(item => ({
+                    item: item.item || '',
+                    itemName: item.itemName || item.item || '',
+                    unit: item.unit || '',
+                    unitNm: item.unitNm || '',
+                    acceptableRange: typeof item.acceptableRange === 'object'
+                        ? JSON.stringify(item.acceptableRange)
+                        : String(item.acceptableRange || '')
+                })),
+
+                // 2. 환경 규제 정보 리스트 (실제 state인 environments 반영)
+                environments: (environments || []).map(env => ({
+                    relatedReg: env.relatedReg || '',
+                    regItem: env.regItem || '',
+                    dtlCont: env.dtlCont || ''
+                }))
+            };
+
+            // 정의된 API 호출 함수 사용
+            await SaveProjectDetailReport(saveData);
+            alert('저장되었습니다.');
+        } catch (error) {
+            console.error("저장 중 오류 발생:", error);
+            alert('저장에 실패했습니다.');
+        }
+    };
+    const handleNextStep = async () => {
+        // 필요 시 저장 로직 추가 가능 (현재는 세션 저장 및 탭 전환 수행)
+        if (typeof onSelectItem === 'function') {
+            onSelectItem('prjeval');
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다!");
+        }
+    };
 
     if (loading) {
         return <div style={{ padding: '2rem', textAlign: 'center' }}>데이터를 불러오는 중입니다...</div>;
     }
 
-    // 탄소배출량 차트 데이터 가공 헬퍼
     const getCarbonData = (matVal, procVal, scrapVal, sumVal) => {
         const m = Number(matVal) || 0;
         const p = Number(procVal) || 0;
@@ -100,7 +265,7 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
     return (
         <div style={{ padding: '1rem', boxSizing: 'border-box', backgroundColor: '#f9fafb', minHeight: '100%' }}>
             <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem', color: '#111827' }}>
-                📌 기본평가 결과 조회 (포장차수: {packLevel}차)
+                📌 기본평가 결과 조회 (프로젝트 번호: {prjId} / 포장차수: {packLevel}차)
             </h2>
 
             {/* 1. 물성 정보 */}
@@ -204,7 +369,7 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                 )}
             </div>
 
-            {/* 4. 탄소배출량 정보 (두 카드를 가로 한 줄로 나란히 배치) */}
+            {/* 4. 탄소배출량 정보 */}
             <div style={sectionStyle}>
                 <h3 style={titleStyle}>4. 탄소배출량</h3>
                 <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1.2rem' }}>
@@ -213,12 +378,9 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
 
                 {carconInfo ? (
                     <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-
-                        {/* 중량 당 탄소배출량 카드 */}
                         <div style={carbonCardStyle}>
                             <div style={carbonHeaderStyle}>중량 당 탄소배출량 <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6b7280' }}>(kgCO2eq/kg)</span></div>
                             <div style={carbonContentLayout}>
-                                {/* 도넛 차트 영역 */}
                                 <div style={donutContainerStyle}>
                                     <div style={{ ...donutStyle, background: massData.gradientStyle }}>
                                         <div style={donutHoleStyle}>
@@ -232,8 +394,6 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                                         <div style={legendItemStyle}><span style={{ ...legendDotStyle, backgroundColor: '#9ca3af' }}></span>폐기</div>
                                     </div>
                                 </div>
-
-                                {/* 상세 수치 영역 */}
                                 <div style={carbonStatsStyle}>
                                     <div style={statColStyle}>
                                         <div style={badgeStyle('#064e3b')}>원료</div>
@@ -254,11 +414,9 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                             </div>
                         </div>
 
-                        {/* 단위 당 탄소배출량 카드 */}
                         <div style={carbonCardStyle}>
                             <div style={carbonHeaderStyle}>단위 당 탄소배출량 <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#6b7280' }}>(kgCO2eq/관리단위)</span></div>
                             <div style={carbonContentLayout}>
-                                {/* 도넛 차트 영역 */}
                                 <div style={donutContainerStyle}>
                                     <div style={{ ...donutStyle, background: unitData.gradientStyle }}>
                                         <div style={donutHoleStyle}>
@@ -272,8 +430,6 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                                         <div style={legendItemStyle}><span style={{ ...legendDotStyle, backgroundColor: '#9ca3af' }}></span>폐기</div>
                                     </div>
                                 </div>
-
-                                {/* 상세 수치 영역 */}
                                 <div style={carbonStatsStyle}>
                                     <div style={statColStyle}>
                                         <div style={badgeStyle('#064e3b')}>원료</div>
@@ -293,17 +449,50 @@ const Prjdefaultresult = ({ prjId, packLevel }) => {
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 ) : (
                     <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>조회된 탄소배출량 정보가 없습니다.</p>
                 )}
             </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '2rem', paddingBottom: '1rem' }}>
+                <button
+                    onClick={handleSave}
+                    style={{
+                        padding: '0.6rem 1.2rem',
+                        backgroundColor: '#10b981',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
+                    }}
+                >
+                    저장
+                </button>
+                <button
+                    className="btn-primary"
+                    onClick={handleNextStep}
+                    style={{
+                        padding: '0.6rem 1.2rem',
+                        backgroundColor: '#374151',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer'
+                    }}
+                >
+                    다음 &gt;
+                </button>
+            </div>
         </div>
     );
 };
 
-// 스타일 정의
+// 스타일 정의 객체들...
 const sectionStyle = {
     marginBottom: '2rem',
     background: '#ffffff',
@@ -413,7 +602,6 @@ const emptyTdStyle = {
     fontSize: '0.75rem'
 };
 
-// 탄소배출량 카드 가로 배치를 위한 스타일 (flex: 1 및 minWidth 조정)
 const carbonCardStyle = {
     flex: '1',
     minWidth: '450px',

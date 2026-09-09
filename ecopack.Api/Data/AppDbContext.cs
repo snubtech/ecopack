@@ -33,6 +33,7 @@ namespace ecopack.Api.Data
         public DbSet<TertiaryDoc> TertiaryDoc => Set<TertiaryDoc>();
         public DbSet<Project> Project => Set<Project>();
         public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
+        public DbSet<ProjectDetailReport> ProjectDetailReport => Set<ProjectDetailReport>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

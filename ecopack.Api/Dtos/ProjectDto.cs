@@ -173,4 +173,86 @@ namespace ecopack.Api.Dtos
         public decimal? UnitCo2Scrap { get; set; }   // 단위당 탄소배출량-폐기
         public decimal? UnitCo2Sum { get; set; }     // 단위당 탄소배출량-합계
     }
+
+
+    /// <summary>
+    /// 프로젝트 상세 리포트 신규/수정 저장용 DTO
+    /// </summary>
+    public class ProjectDetailReportSaveDto
+    {
+        [Required(ErrorMessage = "프로젝트 ID는 필수입니다.")]
+        public string PrjId { get; set; } = null!;
+
+        [Required(ErrorMessage = "포장차수는 필수입니다.")]
+        public string PackLevel { get; set; } = null!;
+
+        public string? Prjuserid { get; set; }
+        public string? PackLevelNm { get; set; }
+        public string? AppliedMaterial { get; set; }
+        public string? AppliedMaterialNm { get; set; }
+        public string? PrdExpCntry { get; set; }
+        public string? PrdExpCntryNm { get; set; }
+        public string? MatType { get; set; }
+        public string? MatTypeNm { get; set; }
+        public string? MatForm { get; set; }
+        public string? MatFormNm { get; set; }
+
+        // [참고] 기존 단일 필드들은 호환성을 위해 남겨둘 수 있으나, 
+        // 여러 행을 처리할 때는 아래의 Materials와 Environments 리스트가 핵심으로 사용됩니다.
+        public string? Item { get; set; }
+        public string? ItemNm { get; set; }
+        public string? Unit { get; set; }
+        public string? UnitNm { get; set; }
+        public string? AcceptableRange { get; set; }
+        public string? RelatedReg { get; set; }
+        public string? RegItem { get; set; }
+        public string? DtlCont { get; set; }
+
+        public string? MatComp { get; set; }
+        public string? MatCompNm { get; set; }
+        public string? MemoImg { get; set; }
+        public string? FileData { get; set; }
+        public string? MassCo2Mat { get; set; }
+        public string? MassCo2Proc { get; set; }
+        public string? MassCo2Scrap { get; set; }
+        public string? MassCo2Sum { get; set; }
+        public string? UnitCo2Mat { get; set; }
+        public string? UnitCo2Proc { get; set; }
+        public string? UnitCo2Scrap { get; set; }
+        public string? UnitCo2Sum { get; set; }
+
+        // === [추가] 여러 줄의 데이터를 받기 위한 리스트 속성 ===
+        /// <summary>
+        /// 1. 물성 정보 목록 (여러 줄)
+        /// </summary>
+        public List<ProjectMaterialItemDto>? Materials { get; set; }
+
+        /// <summary>
+        /// 2. 환경 규제 정보 목록 (여러 줄)
+        /// </summary>
+        public List<ProjectEnvironmentItemDto>? Environments { get; set; }
+    }
+
+    /// <summary>
+    /// 물성 행 데이터 DTO
+    /// </summary>
+    public class ProjectMaterialItemDto
+    {
+        public string? Item { get; set; }
+        public string? ItemName { get; set; }
+        public string? Unit { get; set; }
+        public string? UnitNm { get; set; }
+        public string? AcceptableRange { get; set; }
+    }
+
+    /// <summary>
+    /// 환경규제 행 데이터 DTO
+    /// </summary>
+    public class ProjectEnvironmentItemDto
+    {
+        public string? RelatedReg { get; set; }
+        public string? RegItem { get; set; }
+        public string? DtlCont { get; set; }
+    }
+
 }
