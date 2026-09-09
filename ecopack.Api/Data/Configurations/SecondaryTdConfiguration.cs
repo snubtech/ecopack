@@ -213,7 +213,6 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.SocHvyMetMngTestMthdCntn5).HasColumnName("socHvyMetMngTestMthdCntn5").HasColumnType("text");
             builder.Property(e => e.SocHvyMetMngTestMthdCntn6).HasColumnName("socHvyMetMngTestMthdCntn6").HasColumnType("text");
             builder.Property(e => e.SocHvyMetMngTestRsltPhrs).HasColumnName("socHvyMetMngTestRsltPhrs").HasColumnType("text");
-            builder.Property(e => e.MfrPrcsUrl).HasColumnName("mfrPrcsUrl").HasColumnType("text");
             builder.Property(e => e.MfrPrcsCntn).HasColumnName("mfrPrcsCntn").HasColumnType("text");
             builder.Property(e => e.QltMngInspItemCntn1).HasColumnName("qltMngInspItemCntn1").HasColumnType("text");
             builder.Property(e => e.QltMngInspItemCntn2).HasColumnName("qltMngInspItemCntn2").HasColumnType("text");

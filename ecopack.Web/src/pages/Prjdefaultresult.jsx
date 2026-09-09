@@ -45,46 +45,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                const currentPrjId = prjId || sessionStorage.getItem('currentPrjId') || '';
-                const currentPackLevel = packLevel || sessionStorage.getItem('currentPackLevel') || '';
-                console.log("🔍 [Prjdefaultresult] 상세 리포트 조회 시도 - prjId:", currentPrjId, "packLevel:", currentPackLevel);
-                try {
-                    const savedReportData = await GetProjectDetailReport(currentPrjId, currentPackLevel);
-
-                    if (savedReportData) {
-                        console.log("✅ [Prjdefaultresult] 기존 저장된 상세 리포트 조회 성공:", savedReportData);
-                        if (!isMounted) return;
-
-                        setReportMeta(savedReportData);
-
-                        // 서버에서 내려온 materials 리스트가 있으면 그대로 사용, 없으면 단건 필드 fallback 처리
-                        setMaterials(
-                            savedReportData.materials && savedReportData.materials.length > 0
-                                ? savedReportData.materials
-                                : [{
-                                    itemName: savedReportData.itemNm || savedReportData.item,
-                                    unit: savedReportData.unit,
-                                    unitNm: savedReportData.unitNm,
-                                    acceptableRange: savedReportData.acceptableRange
-                                }]
-                        );
-
-                        // 서버에서 내려온 environments 리스트가 있으면 그대로 사용, 없으면 단건 필드 fallback 처리
-                        setEnvironments(
-                            savedReportData.environments && savedReportData.environments.length > 0
-                                ? savedReportData.environments
-                                : [{
-                                    relatedReg: savedReportData.relatedReg,
-                                    regItem: savedReportData.regItem,
-                                    dtlCont: savedReportData.dtlCont
-                                }]
-                        );
-
-                        setProcessFlows([{
-                            matComp: savedReportData.matComp,
-                            matCompNm: savedReportData.matCompNm,
-                            memoImg: savedReportData.memoImg
-                        }]);
+                console.log("📌 전송 파라미터 확인:", { prjId, packLevel, appliedMaterial, matType, matform, currentExportCountry });
 
                         setCarconInfo({
                             massCo2Mat: savedReportData.massCo2Mat,

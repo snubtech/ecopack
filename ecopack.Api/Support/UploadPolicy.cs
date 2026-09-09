@@ -60,6 +60,24 @@ namespace ecopack.Api.Support
         public static bool IsExtensionAllowed(string fileName) =>
             AllowedExtensions.Contains(Path.GetExtension(fileName));
 
+        /// <summary>
+        /// 제조 도면처럼 "이미지 파일만" 받는 자리에 쓰는 별도 화이트리스트.
+        /// 문서 화이트리스트(AllowedExtensions)와는 쓰임새가 달라 따로 둔다.
+        /// </summary>
+        public static readonly IReadOnlySet<string> AllowedImageExtensions = new HashSet<string>(
+            StringComparer.OrdinalIgnoreCase)
+        {
+            ".png", ".jpg", ".jpeg", ".svg",
+        };
+
+        /// <summary>화면 안내·오류 문구에 쓸 이미지 확장자 목록 (예: "jpeg, jpg, png, svg").</summary>
+        public static string AllowedImageExtensionsDisplay =>
+            string.Join(", ", AllowedImageExtensions.Select(e => e.TrimStart('.')).OrderBy(e => e));
+
+        /// <summary>파일명의 확장자가 이미지 화이트리스트에 있는지 확인한다.</summary>
+        public static bool IsImageExtensionAllowed(string fileName) =>
+            AllowedImageExtensions.Contains(Path.GetExtension(fileName));
+
         /// <summary>업로드 파일이 저장되는 최상위 폴더. wwwroot 밖이라 UseStaticFiles로 노출되지 않는다.</summary>
         public static string GetUploadsRoot(IWebHostEnvironment env) =>
             Path.Combine(env.ContentRootPath, "App_Data", "uploads");

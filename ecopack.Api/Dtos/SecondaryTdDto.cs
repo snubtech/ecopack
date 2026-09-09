@@ -83,7 +83,6 @@ namespace ecopack.Api.Dtos
         public string? SocHvyMetMngTestRsltPhrs { get; set; }
 
         // ── 8. 제조 공정 ──────────────────────────────────────
-        public string? MfrPrcsUrl { get; set; }
         public string? MfrPrcsCntn { get; set; }
 
         // ── 10. 준수 선언 ─────────────────────────────────────

@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useMemo, useState } from 'react'
 import { authApi } from '../api/auth'
+import { closeChatSession } from '../api/llmChat'
 
 /**
  * [1] 로그인 정보를 앱 전체(어디서든)에 공유하기 위한 '빈 도화지(Context)'를 만듭니다.
@@ -62,6 +63,12 @@ export function AuthProvider({ children }) {
 
         // 🚪 [로그아웃 함수]
         async logout() {
+            // 💡 우측 AI 채팅창의 대화 세션을 먼저 닫습니다.
+            //    닫아도 대화 기록은 지우지 않습니다(상태만 CLOSED). 지난 대화 목록에서 다시 볼 수 있고,
+            //    2일이 지나면 서버가 알아서 백업 테이블과 JSON 파일로 옮깁니다.
+            //    토큰을 지운 뒤에 부르면 인증이 풀려 실패하므로 반드시 로그아웃보다 먼저 호출합니다.
+            await closeChatSession(sessionStorage.getItem('ecopack.llmSessionId'))
+
             await authApi.logout()
 
             // 1. 리액트 상태 비우기
@@ -70,6 +77,8 @@ export function AuthProvider({ children }) {
             // 💡 [수정 포인트 3] 로그아웃 시 'prjuserid'와 액세스 토큰을 깔끔하게 지웁니다.
             sessionStorage.removeItem('prjuserid');
             sessionStorage.removeItem('ecopack.accessToken');
+            // 다음 사람이 로그인했을 때 앞사람 대화가 딸려 오지 않도록 채팅 세션 ID도 지웁니다.
+            sessionStorage.removeItem('ecopack.llmSessionId');
         },
     }), [user]) // user 값이 바뀔 때만 보따리를 새로 갱신합니다.
 

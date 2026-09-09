@@ -44,6 +44,7 @@ import {
     getEvdDocDownloadUrl,
 } from '../api/primaryDoc';
 import { fillFromMember } from '../utils/memberProfile';
+import { applyDocxColumnWidths } from '../utils/docxTable';
 
 /**
  * DOC (적합성 선언서) — PPWR 적합성 선언서 화면 / primary_doc 테이블
@@ -568,6 +569,12 @@ export default function PrimaryDoc() {
             el.replaceWith(span);
         });
 
+        // 표 열 폭: table-layout:fixed + CSS width로는 Word가 안 지켜서(내용 길이에 맞춰
+        // 자기 마음대로 다시 계산) 화면에서 좁혀 둔 번호/구성품/물질 등 열 폭이 계속
+        // 무시되고 있었다. Word 자신이 "웹 페이지로 저장"할 때 쓰는 방식과 똑같이
+        // <colgroup><col width="..."></colgroup>을 직접 박아 넣어야 확실히 지켜진다.
+        applyDocxColumnWidths(clone);
+
         const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
       xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -577,10 +584,19 @@ export default function PrimaryDoc() {
 <style>
   body { font-family: 'Malgun Gothic', 'Pretendard', sans-serif; font-size: 10.5pt; line-height: 1.6; }
   h1 { font-size: 18pt; text-align: center; } h2 { font-size: 13pt; margin-top: 18pt; } h3 { font-size: 11pt; }
-  table { border-collapse: collapse; width: 100%; margin: 8pt 0; }
+  /* ⚠️ 진짜 원인: table-layout이 빠져 있으면 Word(그리고 브라우저)가 각 th/td에 준
+     width를 무시하고 내용물 길이에 맞춰 열 폭을 자기 마음대로 다시 계산해버린다(auto
+     레이아웃의 기본 동작). 화면(.td-table)에는 table-layout:fixed가 있어서 우리가
+     지정한 폭이 그대로 지켜지는데, 추출용 <style>에는 이게 빠져 있어서 지금까지
+     번호/구성품/물질/항목 등 좁혀둔 폭이 전부 무시되고 있었다. */
+  table { border-collapse: collapse; width: 100%; margin: 8pt 0; table-layout: fixed; }
   th, td { border: 1px solid #999; padding: 4pt 6pt; vertical-align: top; font-size: 9.5pt; }
   th { background: #f2f2f2; font-weight: bold; }
   .td-table-plain, .td-table-plain th, .td-table-plain td { border: none; background: transparent; }
+  /* 화면의 .td-table-kv th{width:170px}는 클래스 규칙이라 clone에 안 딸려 온다 — 그래서
+     "1. 제조자 정보" / "2. 제품 식별 정보" 라벨 표의 왼쪽 칸이 Word 기본 폭(거의 절반)으로
+     커져 있었다. 여기서 직접 다시 선언해 줘야 화면과 같은 폭·좌측 정렬로 나온다. */
+  .td-table-kv th { width: 170px; text-align: left; }
   .doc-subtitle { text-align: center; font-weight: bold; }
   .td-result-phrase { margin: 8pt 0; }
   .doc-matinfo-row span { margin-right: 6pt; }
@@ -692,7 +708,7 @@ export default function PrimaryDoc() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '50%' }}>물질</th>
+                            <th style={{ width: '110px', textAlign: 'left' }}>물질</th>
                             <th>시험결과 (mg/kg)</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
@@ -720,7 +736,7 @@ export default function PrimaryDoc() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '45%' }}>구성품</th>
+                            <th style={{ width: '160px', textAlign: 'left' }}>구성품</th>
                             <th>재질</th>
                             <th className="td-noprint" style={{ width: '92px' }}>관리</th>
                         </tr>
@@ -738,11 +754,13 @@ export default function PrimaryDoc() {
                 <AddRowButton label="재질 정보 행 추가" onAdd={() => addRow('matInfo')}
                     current={rowCounts.matInfo} max={ROW_TABLES.matInfo.max} />
 
-                {/* 총 중량 값과 하단 고정문구를 한 행에 나란히 둔다 (표 아님) */}
-                <table className="td-table td-table-kv td-table-plain">
+                {/* 총 중량: 화면에서는 값 입력용으로 표를 쓰지만, 인쇄/DOCX 추출 시에는
+                   재질정보 표 아래에 "총 중량 : ..." 한 줄 문구로 나가야 한다(표 형태 금지).
+                   그래서 표는 화면 전용(td-screen-only)으로 감추고, 인쇄/추출 전용 문구를 별도로 둔다. */}
+                <table className="td-table td-table-kv td-table-plain td-screen-only">
                     <tbody>
                         <tr>
-                            <th style={{ width: '14%' }}>총 중량</th>
+                            <th style={{ width: '90px' }}>총 중량</th>
                             <td>
                                 <div className="doc-matinfo-row">
                                     {input('matInfoTotWtVal')}
@@ -752,6 +770,9 @@ export default function PrimaryDoc() {
                         </tr>
                     </tbody>
                 </table>
+                <p className="td-export-only td-result-phrase">
+                    총 중량 : {form.matInfoTotWtVal} {form.matInfoCntn}
+                </p>
 
                 {/* 5. 근거 문서 */}
                 <h2 className="td-h2">5. 근거 문서</h2>
@@ -759,7 +780,7 @@ export default function PrimaryDoc() {
                 <table className="td-table">
                     <thead>
                         <tr>
-                            <th style={{ width: '16%' }}>번호</th>
+                            <th style={{ width: '90px', textAlign: 'left' }}>번호</th>
                             <th>문서명</th>
                             <th className="td-noprint" style={{ width: '30%' }}>파일 / 관리</th>
                         </tr>
@@ -819,7 +840,7 @@ export default function PrimaryDoc() {
                 <table className="td-table td-table-kv td-table-plain doc-sign">
                     <tbody>
                         <tr>
-                            <th style={{ width: '18%' }}>발행일</th>
+                            <th style={{ width: '140px' }}>발행일</th>
                             <td>
                                 <input type="text" className="td-input td-input-locked"
                                     value={formatDate(form.lastWrtDt)} readOnly
@@ -912,8 +933,10 @@ const TD_STYLES = `
 
 .td-table { width: 100%; border-collapse: collapse; margin: 8px 0 4px; table-layout: fixed; }
 .td-table th, .td-table td { border: 1px solid #d1d5db; padding: 6px 8px; vertical-align: middle; font-size: 13px; word-break: break-word; }
+/* 값 칸은 좌측 정렬로 고정한다 — 제조자정보·제품식별정보 같은 고정값 라벨/값 모두 해당 */
+.td-table td { text-align: left; }
 .td-table th { background: #f3f4f6; font-weight: 600; text-align: center; color: #374151; }
-.td-table-kv th { text-align: left; width: 22%; }
+.td-table-kv th { text-align: left; width: 170px; }
 
 /* 1. 제품 식별 정보 / 12. 책임자 정보 — 테두리 없이 배경 투명한 평문 표 */
 .td-table-plain,
@@ -921,7 +944,7 @@ const TD_STYLES = `
 .td-table-plain td { border: none; background: transparent; }
 .td-table-plain th { padding-left: 0; }
 
-.td-row-label { background: #fafafa; font-weight: 500; }
+.td-row-label { background: #fafafa; font-weight: 500; text-align: left; }
 .td-total-row td { background: #f9fafb; font-weight: 600; }
 .td-table-bom { min-width: 1000px; }
 .td-scroll-x { overflow-x: auto; }
@@ -961,14 +984,32 @@ const TD_STYLES = `
   html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
 
   /* 대시보드 셸의 100vh / overflow:hidden 인라인 스타일 해제 */
-  .dashboard-shell { display: block !important; width: auto !important; height: auto !important; overflow: visible !important; }
+  /* ⚠️ 진짜 원인: 전역 dashboard.css의 .dashboard-shell은 position:fixed(뷰포트에 고정)이다.
+     지금까지 height/overflow만 풀어주고 position은 그대로 둬서, 셸 전체가 여전히 화면
+     한 장 크기에 박제된 채였다 — 브라우저 인쇄 엔진이 position:fixed 조상 아래 내용은
+     한 페이지 분량만 찍고 마는 경우가 많다. position을 static으로 되돌려야
+     #td-doc이 진짜 '보통 문서 흐름'을 타고 여러 페이지로 이어서 찍힌다. */
+  .dashboard-shell { display: block !important; position: static !important; width: auto !important; height: auto !important; overflow: visible !important; }
   .dashboard-panel, .main-panel { height: auto !important; overflow: visible !important; }
+  /* 위 규칙만으로는 안 잡히던, 실제 스크롤이 걸린 안쪽 컨텐츠 영역(className 없는 div)도 해제.
+     이게 빠져 있으면 인쇄 시 화면에 보이던 첫 페이지 분량만 찍히고 스크롤해야 보이는
+     아래 내용은 잘려서 안 나온다. */
+  .dashboard-content-area { height: auto !important; overflow: visible !important; }
   .sidebar-nav, .assistant-panel { display: none !important; }
+  /* 사이드바를 감싸는 바깥 <aside>와 상단 정보 바는 그 자체엔 숨김 클래스가 없어서
+     내용만 안 보일 뿐 자리(레이아웃 공간)는 그대로 차지하고 있었다. 자리까지 없애야
+     #td-doc이 문서 맨 위부터 정상적인 흐름(position:absolute 없이)으로 이어지고,
+     브라우저가 전체 높이를 제대로 계산해 여러 페이지로 나눠 찍는다. */
+  .dashboard-shell > aside:first-child { display: none !important; }
+  .dashboard-topbar { display: none !important; }
 
   body * { visibility: hidden !important; }
   #td-doc, #td-doc * { visibility: visible !important; }
   #td-doc {
-    position: absolute !important; left: 0 !important; top: 0 !important;
+    /* ⚠️ 예전엔 position:absolute로 문서를 페이지 좌상단에 강제로 떼어 붙였는데,
+       그러면 문서가 일반적인 문서 흐름에서 빠져나가 버려 브라우저가 전체 내용
+       높이를 제대로 못 재고 첫 페이지 분량만 찍고 끝나는 문제가 있었다.
+       absolute를 빼고 그냥 자연스러운 흐름대로 두면 여러 페이지로 이어서 찍힌다. */
     width: 100% !important; padding: 0 !important; margin: 0 !important;
   }
 

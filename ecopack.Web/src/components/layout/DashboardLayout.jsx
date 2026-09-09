@@ -58,7 +58,6 @@ const DashboardLayout = ({ onLogout }) => {
     })();
 
     const renderBusinessContent = () => {
-        console.log("현재 선택된 currentMenu ID:", currentMenu); // 👈 이 부분을 추가해서 F12 콘솔을 확인해보세요!
         switch (currentMenu) {
             case 'project-history':
                 return <Projects onSelectItem={setCurrentMenu} />;
@@ -162,8 +161,8 @@ const DashboardLayout = ({ onLogout }) => {
                 height: '100%',
                 minWidth: 0
             }}>
-                {/* 상단 페이지 정보 영역 */}
-                <div style={{
+                {/* 상단 페이지 정보 영역 — 인쇄 시 dashboard-topbar 클래스로 감춘다 */}
+                <div className="dashboard-topbar" style={{
                     padding: '0.5rem 1.5rem',
                     borderBottom: '1px solid #e5e7eb',
                     backgroundColor: '#ffffff',
@@ -196,16 +195,25 @@ const DashboardLayout = ({ onLogout }) => {
                     )}
                 </div>
 
-                {/* 실제 동적 컨텐츠 영역 */}
-                <div style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', boxSizing: 'border-box' }}>
+                {/* 실제 동적 컨텐츠 영역
+                    💡 className을 붙여 둔 이유: TD/DOC 화면의 인쇄용 CSS(@media print)가
+                    .dashboard-shell/.dashboard-panel/.main-panel의 height·overflow는 초기화하는데,
+                    정작 스크롤이 걸리는 이 안쪽 div는 이름이 없어 그 규칙이 안 먹었다.
+                    그래서 인쇄(PDF 추출) 시 화면에 보이는 첫 페이지만 찍히고 스크롤해야 보이던
+                    아래 내용은 잘려 나갔다. 이 클래스를 각 화면의 인쇄 CSS에서 초기화한다. */}
+                <div className="dashboard-content-area" style={{ flex: 1, padding: '1.5rem', overflowY: 'auto', boxSizing: 'border-box' }}>
                     {renderBusinessContent()}
                 </div>
             </main>
 
-            {/* 3. 우측 AI 챗봇 패널 */}
-            <aside className="dashboard-panel assistant-panel" style={{ height: '100%', boxSizing: 'border-box' }}>
-                <AssistantPanel />
-            </aside>
+            {/* 3. 우측 AI 챗봇 패널
+                💡 AssistantPanel 이 스스로 <aside className="dashboard-panel assistant-panel"> 를 만든다.
+                   예전처럼 여기서 한 번 더 감싸면 같은 패널이 이중으로 겹쳐 여백과 스크롤이 어긋난다.
+                   그래서 그리드 칸에 바로 놓는다.
+                💡 currentMenu 와 projectInfo 를 넘기는 이유:
+                   AI 가 답할 때 "지금 중앙 화면이 무엇을 보고 있는지"를 알아야
+                   그 프로젝트의 전 과정(기본사항·모의평가·TD·DOC)을 서버에서 읽어 답할 수 있다. */}
+            <AssistantPanel currentMenu={currentMenu} projectInfo={projectInfo} />
 
             {/* 회원정보 수정 — 사이드바의 톱니바퀴 버튼으로 열린다 */}
             {showProfile && (

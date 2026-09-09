@@ -10,12 +10,15 @@ export default function Prjdefault({ onSelectItem }) {
     const [matTypesList, setMatTypesList] = useState([]);
     const [matFormsList, setMatFormsList] = useState([]);
 
+    // 폼 입력 상태 관리
+    // 💡 프로젝트명은 신규 프로젝트 작성 시 입력한 이름과 같은 값이라, 세션에 담겨 온
+    //    값으로 화면이 뜨는 즉시(공통코드·상세정보 조회를 기다리지 않고) 채워 둔다.
+    //    아래 useEffect의 네트워크 요청 중 하나라도 실패해도 이름 칸은 항상 채워져 있다.
     const [projectName, setProjectName] = useState(() => {
         const currentPrjId = sessionStorage.getItem('currentPrjId');
         const savedNm = sessionStorage.getItem('currentPrjNm') || '';
         return currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID' ? savedNm : (savedNm || 'Foldable EPP Box');
     });
-
     const [material, setMaterial] = useState('');
     const [env, setEnv] = useState('');
     const [matType, setMatType] = useState('');
@@ -135,8 +138,7 @@ export default function Prjdefault({ onSelectItem }) {
         };
 
         try {
-            const result = await SaveProjectDetail(dto);
-            console.log('저장 성공 결과:', result);
+            await SaveProjectDetail(dto);
             alert('입력하신 정보가 저장되었습니다.');
         } catch (error) {
             console.error('저장 실패:', error);
@@ -177,7 +179,7 @@ export default function Prjdefault({ onSelectItem }) {
                         className="form-input"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
-                        placeholder="프로젝트명 (제품명)을 15글자 내외로 입력해 주세요"
+                        placeholder="프로젝트명을 입력해 주세요"
                     />
                 </div>
 
@@ -265,7 +267,7 @@ export default function Prjdefault({ onSelectItem }) {
                 </div>
 
                 <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button className="btn-secondary-line" onClick={() => console.log('취소 클릭')}>취소</button>
+                    <button className="btn-secondary-line" onClick={() => {}}>취소</button>
                     <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>
                 </div>

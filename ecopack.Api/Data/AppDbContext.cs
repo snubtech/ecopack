@@ -35,6 +35,12 @@ namespace ecopack.Api.Data
         public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
         public DbSet<ProjectDetailReport> ProjectDetailReport => Set<ProjectDetailReport>();
 
+        // 우측 LLM 채팅창(AI 어시스턴트). 세션/메시지와 2일 지난 대화의 백업본.
+        public DbSet<LlmChatSession> LlmChatSession => Set<LlmChatSession>();
+        public DbSet<LlmChatMsg> LlmChatMsg => Set<LlmChatMsg>();
+        public DbSet<LlmChatSessionArch> LlmChatSessionArch => Set<LlmChatSessionArch>();
+        public DbSet<LlmChatMsgArch> LlmChatMsgArch => Set<LlmChatMsgArch>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

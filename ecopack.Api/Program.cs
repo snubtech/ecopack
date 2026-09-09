@@ -19,6 +19,24 @@ builder.Services.AddControllers()
     });
 builder.Services.AddOpenApi(); // 기존 템플릿의 OpenAPI 설정 유지
 
+// 3. 우측 AI 채팅창(LLM) 설정
+//    - appsettings.json 의 "LlmChat" 구역을 읽는다.
+//    - API 키는 여기에 적지 말고 환경변수 ANTHROPIC_API_KEY 로 넣는 것을 권한다.
+builder.Services.Configure<ecopack.Api.Support.LlmChatOptions>(
+    builder.Configuration.GetSection(ecopack.Api.Support.LlmChatOptions.SectionName));
+
+// Claude 호출은 상태가 없고 HTTP 연결을 재사용하는 편이 좋아 싱글턴으로 둔다.
+builder.Services.AddSingleton<ecopack.Api.Services.IClaudeChatService,
+                              ecopack.Api.Services.ClaudeChatService>();
+
+// 대화 백업은 DbContext(스코프)를 쓰므로 스코프로 둔다.
+builder.Services.AddScoped<ecopack.Api.Services.ILlmChatArchiveService,
+                           ecopack.Api.Services.LlmChatArchiveService>();
+
+// 2일 지난 대화를 주기적으로 백업하는 백그라운드 작업.
+// LlmChat:ArchiveIntervalHours 를 0 으로 두면 돌지 않는다(수동 API 는 그대로 사용 가능).
+builder.Services.AddHostedService<ecopack.Api.Services.LlmChatArchiveHostedService>();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -38,7 +56,7 @@ app.UseHttpsRedirection();
 // 지금은 각 컨트롤러의 Download 액션이 소유자 확인을 거친 뒤에만 파일을 내려주므로
 // wwwroot에 공개로 서빙할 게 없어 UseStaticFiles() 자체를 쓰지 않는다.
 
-// 3. 컨트롤러 라우팅 매핑 추가 (만들어둔 ProductsController가 동작하도록 연결)
+// 4. 컨트롤러 라우팅 매핑 추가 (만들어둔 ProductsController가 동작하도록 연결)
 app.MapControllers();
 
 // 기존 템플릿에 있던 날씨 예제 API도 그대로 유지해 둡니다 (테스트용으로 삭제 안 함)
