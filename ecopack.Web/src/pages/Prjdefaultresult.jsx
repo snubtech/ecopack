@@ -60,7 +60,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
 
                         setLoading(false);
                         return;
-                    }
+                    
                 } catch (err) {
                     console.log("저장된 상세 리포트가 없음. 신규 분석 데이터 조회 프로세스로 진행합니다.", err);
                 }
