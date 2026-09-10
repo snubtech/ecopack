@@ -5,11 +5,11 @@ namespace ecopack.Api.Dtos
 	// --- 2D 이미지 관련 DTO ---
 	public class CreateAiJobRequestDto
 	{
-		public string RequestId { get; set; }
-		public string? Prompt { get; set; }
-		public string? Material { get; set; }
-		public string? EcoFix { get; set; }
-		public string? Image { get; set; } // base64 또는 이미지 데이터
+		public string RequestId { get; set; }  // 프로젝트번호_포장차수
+		public string? Prompt { get; set; }   //  일단은 빈칸으로
+		public string? Material { get; set; } //  적용소재.
+		public string? EcoFix { get; set; }   //  개선안.
+		public string? Image { get; set; }    //  디자인템프릿 base64 또는 이미지 데이터
 	}
 
 	public class AiJobResponseWrapper

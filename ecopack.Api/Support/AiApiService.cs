@@ -7,9 +7,11 @@ using ecopack.Api.Dtos;
 namespace ecopack.Api.Dtos
 {
     /// <summary>
+    /// using ecopack.Api.Dtos;만 지정하면 dtos의 모든 DTO를 바로 쓸 수 있도록 하는 네임스페이스 .dtos의 파일명을 지정하지 않아도 인덱스되있는  dtos의 정보를 찾을수있다.
     /// 외부 AI 이미지 생성 및 3D GLB 변환 서버 연동 인터페이스
+    /// IExternalAiService 이함수명은 program.cs 에서 등록되어 있으며 동일한 명칭으로 적용해야됨 ,외부서버 주소를 불러다 쓰기 위해서 program.cs 에서 AddHttpClient 로 등록되어 있음
     /// </summary>
-    public interface IExternalAiService
+    public interface IExternalAiService   
     {
         /// <summary>2D AI 이미지 작업 생성</summary>
         Task<AiJobResponseWrapper> CreateAiJobAsync(CreateAiJobRequestDto dto);

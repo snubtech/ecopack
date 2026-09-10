@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
+using ecopack.Api.Services; // IExternalAiService, ExternalAiService를 위해 추가해주면 좋습니다.
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,13 +30,22 @@ builder.Services.Configure<ecopack.Api.Support.LlmChatOptions>(
 builder.Services.AddSingleton<ecopack.Api.Services.IClaudeChatService,
                               ecopack.Api.Services.ClaudeChatService>();
 
-// 대화 백업은 DbContext(스코프)를 쓰므로 스코프로 둔다.
+// 대화 백업은 DbContext(스코프)를 쓰므로 스코프라 둔다.
 builder.Services.AddScoped<ecopack.Api.Services.ILlmChatArchiveService,
                            ecopack.Api.Services.LlmChatArchiveService>();
 
 // 2일 지난 대화를 주기적으로 백업하는 백그라운드 작업.
 // LlmChat:ArchiveIntervalHours 를 0 으로 두면 돌지 않는다(수동 API 는 그대로 사용 가능).
 builder.Services.AddHostedService<ecopack.Api.Services.LlmChatArchiveHostedService>();
+
+// 4. 외부 AI 이미지/3D 서버 연동 서비스 설정 추가 (appsettings.json의 이미지서버 주소 자동 주입)
+builder.Services.AddHttpClient<ecopack.Api.Dtos.IExternalAiService, ecopack.Api.Dtos.ExternalAiService>(client =>
+{
+    // appsettings.json의  ExternalAiSettings 설정 파일의 값을 그대로 믿고 사용 (설정이 누락되었다면 여기서 바로 예외가 나므로 실수를 즉시 발견 가능)
+    var baseUrl = builder.Configuration["ExternalAiSettings:BaseUrl"]
+                  ?? throw new InvalidOperationException("ExternalAiSettings:BaseUrl is not configured in appsettings.json.");
+    client.BaseAddress = new Uri(baseUrl);
+});
 
 var app = builder.Build();
 
