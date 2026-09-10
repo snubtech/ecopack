@@ -1,170 +1,185 @@
-//using Microsoft.AspNetCore.Mvc;
-//using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using ecopack.Api.Data;
+using ecopack.Api.Dtos;
+using ecopack.Api.Services;
 
-//[ApiController]
-//[Route("api/projects/ai-jobs")]
-//public class ProjectAiimageController : ControllerBase
-//{
-//    private readonly IAiApiService _aiService;
-//    private readonly ApplicationDbContext _context;
+namespace ecopack.Api.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ProjectAiimageController : ControllerBase
+    {
+        private readonly AppDbContext _dbContext;
+        private readonly IExternalAiService _aiExternalService;
 
-//    public ProjectAiimageController(IAiApiService aiService, ApplicationDbContext context)
-//    {
-//        _aiService = aiService;
-//        _context = context;
-//    }
+        public ProjectAiimageController(AppDbContext dbContext, IExternalAiService aiExternalService)
+        {
+            _dbContext = dbContext;
+            _aiExternalService = aiExternalService;
+        }
 
-//    // --- 2D AI 이미지 작업 엔드포인트 ---
+        [HttpPost("GetDesignTemplate")]
+        public async Task<IActionResult> GetDesignTemplate([FromBody] DesignTemplateRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.PrjId) || string.IsNullOrEmpty(request.PackLevel))
+            {
+                return BadRequest(new { message = "프로젝트 ID 또는 패키지 레벨이 누락되었습니다." });
+            }
 
-//    [HttpPost("ai/trigger")]
-//    public async Task<IActionResult> TriggerAiJob([FromBody] AiJobTriggerRequestDto dto)
-//    {
-//        var externalRes = await _aiService.CreateAiJobAsync(new CreateAiJobRequestDto
-//        {
-//            RequestId = dto.RequestId,
-//            Prompt = dto.Prompt,
-//            Material = dto.Material,
-//            EcoFix = dto.EcoFix,
-//            Image = dto.Image
-//        });
+            var projectDetail = await _dbContext.ProjectDetail
+                .FirstOrDefaultAsync(pd => pd.PrjId == request.PrjId && pd.PackLevel == request.PackLevel);
 
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId && x.PackLevel == dto.PackLevel && x.Prjuserid == dto.PrjUserId);
+            if (projectDetail == null || string.IsNullOrEmpty(projectDetail.PackDsgnTplId))
+            {
+                return NotFound(new { message = "해당하는 디자인 템플릿 정보를 찾을 수 없습니다." });
+            }
 
-//        if (report != null)
-//        {
-//            report.AiJobId = externalRes.Job.JobId;
-//            report.AiJobStatus = externalRes.Job.Status;
-//            await _context.SaveChangesAsync();
-//        }
+            var if02Data = await _dbContext.If002a
+                .FirstOrDefaultAsync(if02 => if02.PackDsgnTplId == projectDetail.PackDsgnTplId);
 
-//        return Ok(new { success = true, jobId = externalRes.Job.JobId, status = externalRes.Job.Status });
-//    }
+            if (if02Data == null)
+            {
+                return NotFound(new { message = "해당하는 디자인 템플릿 데이터를 찾을 수 없습니다." });
+            }
 
-//    [HttpGet("ai/{jobId}/sync")]
-//    public async Task<IActionResult> SyncAiJob(
-//        string jobId, 
-//        [FromQuery] string prjId, 
-//        [FromQuery] string packLevel, 
-//        [FromQuery] string prjUserId,
-//        [FromQuery] int index = 0)
-//    {
-//        var statusRes = await _aiService.GetAiJobStatusAsync(jobId);
+            return Ok(new { fileData = if02Data.FileData });
+        }
 
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel && x.Prjuserid == prjUserId);
+        [HttpPost("Generate2DImage")]
+        public async Task<IActionResult> Generate2DImage([FromBody] Generate2DRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.PrjId) || string.IsNullOrEmpty(request.PackLevel) || string.IsNullOrEmpty(request.AppliedMaterial))
+            {
+                return BadRequest(new { message = "요청 파라미터 정보가 누락되었습니다." });
+            }
 
-//        if (report == null) return NotFound(new { success = false, message = "리포트를 찾을 수 없습니다." });
+            var evalList = await _dbContext.AiPkgEvalInfoBscs
+                .Where(x => x.Prjid == request.PrjId
+                            && x.PackLevel == request.PackLevel
+                            && x.AppliedMaterial == request.AppliedMaterial)
+                .ToListAsync();
 
-//        report.AiJobStatus = statusRes.Status;
+            evalList = evalList
+                .Where(x => !string.IsNullOrEmpty(x.DsgnRecmImp))
+                .OrderByDescending(x => x.EcoPackLarType)
+                .ToList();
 
-//        if (statusRes.Status == "SUCCEEDED" || statusRes.Status == "COMPLETE")
-//        {
-//            var fileBytes = await _aiService.DownloadAiJobResultFileAsync(jobId, index);
-//            string savedPath = SaveFileLocally(fileBytes, jobId, $"ai_{index}", "png");
-//            report.AiResultFilePath = savedPath;
-//        }
+            string ecoFix = string.Join("; ", evalList
+                .GroupBy(x => x.EcoPackLarType)
+                .Select(g => $"{g.Key}=={string.Join(" / ", g.Select(x => x.DsgnRecmImp?.Replace("\r", "").Replace("\n", " ") ?? string.Empty))}"));
 
-//        await _context.SaveChangesAsync();
+            var projectDetail = await _dbContext.ProjectDetail
+                .FirstOrDefaultAsync(pd => pd.PrjId == request.PrjId && pd.PackLevel == request.PackLevel);
 
-//        return Ok(new { success = true, status = statusRes.Status, progress = statusRes.Progress, filePath = report.AiResultFilePath });
-//    }
+            string templateData = string.Empty;
+            if (projectDetail != null && !string.IsNullOrEmpty(projectDetail.PackDsgnTplId))
+            {
+                var if02Data = await _dbContext.If002a
+                    .FirstOrDefaultAsync(if02 => if02.PackDsgnTplId == projectDetail.PackDsgnTplId);
 
-//    [HttpPost("ai/{jobId}/cancel")]
-//    public async Task<IActionResult> CancelAiJob(string jobId, [FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string prjUserId)
-//    {
-//        var cancelRes = await _aiService.CancelAiJobAsync(jobId);
+                if (if02Data != null)
+                {
+                    templateData = if02Data.FileData ?? string.Empty;
+                }
+            }
 
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel && x.Prjuserid == prjUserId);
+            var requestDto = new ecopack.Api.Dtos.CreateAiJobRequestDto
+            {
+                RequestId = $"{request.PrjId}_{request.PackLevel}",
+                Prompt = !string.IsNullOrEmpty(ecoFix) ? string.Empty : $"{request.AppliedMaterial} packaging design update",
+                Material = request.AppliedMaterial,
+                EcoFix = ecoFix,
+                Image = templateData
+            };
 
-//        if (report != null)
-//        {
-//            report.AiJobStatus = cancelRes.Status;
-//            await _context.SaveChangesAsync();
-//        }
+            AiJobResponseWrapper apiResponse = await _aiExternalService.CreateAiJobAsync(requestDto);
 
-//        return Ok(cancelRes);
-//    }
+            if (apiResponse == null || !apiResponse.Success)
+            {
+                Console.WriteLine($"[AI API 오류 발생] Response: {System.Text.Json.JsonSerializer.Serialize(apiResponse)}");
+                return StatusCode(500, new { message = "외부 AI 이미지 생성 API 호출에 실패했습니다.", response = apiResponse });
+            }
 
-//    // --- 3D GLB 작업 엔드포인트 ---
+            var aiImageEntity = new ProjectAiImage
+            {
+                PrjId = request.PrjId,
+                PackLevel = request.PackLevel,
+                JobId = apiResponse.Job?.JobId ?? string.Empty,
+                Status = apiResponse.Job?.Status ?? string.Empty,
+                CreatedAt = DateTime.Now
+            };
 
-//    [HttpPost("glb/trigger")]
-//    public async Task<IActionResult> TriggerGlbJob([FromBody] GlbJobTriggerRequestDto dto)
-//    {
-//        var externalRes = await _aiService.CreateGlbJobAsync(new CreateGlbJobRequestDto
-//        {
-//            RequestId = dto.RequestId,
-//            SourceImageId = dto.SourceImageId
-//        });
+            _dbContext.ProjectAiImages.Add(aiImageEntity);
+            await _dbContext.SaveChangesAsync();
 
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId && x.PackLevel == dto.PackLevel && x.Prjuserid == dto.PrjUserId);
+            return Ok(new
+            {
+                success = true,
+                jobId = apiResponse.Job?.JobId,
+                status = apiResponse.Job?.Status,
+                message = "AI 이미지 생성 작업 요청 및 저장이 완료되었습니다."
+            });
+        }
 
-//        if (report != null)
-//        {
-//            report.GlbJobId = externalRes.Job.JobId;
-//            report.GlbJobStatus = externalRes.Job.Status;
-//            await _context.SaveChangesAsync();
-//        }
+        [HttpPost("GetAiJobStatus")]
+        public async Task<IActionResult> GetAiJobStatus([FromBody] AiJobStatusRequestDto request)
+        {
+            if (request == null || string.IsNullOrEmpty(request.JobId))
+            {
+                return BadRequest(new { message = "작업 ID(JobId)가 누락되었습니다." });
+            }
 
-//        return Ok(new { success = true, jobId = externalRes.Job.JobId, status = externalRes.Job.Status });
-//    }
+            try
+            {
+                AiJobStatusDto statusResponse = await _aiExternalService.GetAiJobStatusAsync(request.JobId);
 
-//    [HttpGet("glb/{jobId}/sync")]
-//    public async Task<IActionResult> SyncGlbJob(
-//        string jobId, 
-//        [FromQuery] string prjId, 
-//        [FromQuery] string packLevel, 
-//        [FromQuery] string prjUserId)
-//    {
-//        var statusRes = await _aiService.GetGlbJobStatusAsync(jobId);
+                if (statusResponse == null)
+                {
+                    return StatusCode(500, new { message = "AI 작업 상태 조회 응답이 비어 있습니다." });
+                }
 
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel && x.Prjuserid == prjUserId);
+                var aiImageEntity = await _dbContext.ProjectAiImages
+                    .FirstOrDefaultAsync(x => x.JobId == request.JobId);
 
-//        if (report == null) return NotFound(new { success = false, message = "리포트를 찾을 수 없습니다." });
+                if (aiImageEntity != null)
+                {
+                    aiImageEntity.Status = statusResponse.Status ?? aiImageEntity.Status;
+                    await _dbContext.SaveChangesAsync();
+                }
 
-//        report.GlbJobStatus = statusRes.Status;
+                return Ok(new
+                {
+                    success = statusResponse.Success,
+                    jobId = statusResponse.JobId,
+                    status = statusResponse.Status,
+                    progress = statusResponse.Progress,
+                    message = statusResponse.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AI 상태 조회 오류] {ex.Message}");
+                return StatusCode(500, new { message = "AI 작업 상태 조회 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+    }
 
-//        if (statusRes.Status == "SUCCEEDED" || statusRes.Status == "COMPLETE")
-//        {
-//            var fileBytes = await _aiService.DownloadGlbJobResultFileAsync(jobId);
-//            string savedPath = SaveFileLocally(fileBytes, jobId, "glb_model", "glb");
-//            report.GlbResultFilePath = savedPath;
-//        }
+    public class DesignTemplateRequestDto
+    {
+        public string? PrjId { get; set; }
+        public string? PackLevel { get; set; }
+    }
 
-//        await _context.SaveChangesAsync();
+    public class Generate2DRequestDto
+    {
+        public string? PrjId { get; set; }
+        public string? PackLevel { get; set; }
+        public string? AppliedMaterial { get; set; }
+    }
 
-//        return Ok(new { success = true, status = statusRes.Status, progress = statusRes.Progress, filePath = report.GlbResultFilePath });
-//    }
-
-//    [HttpPost("glb/{jobId}/cancel")]
-//    public async Task<IActionResult> CancelGlbJob(string jobId, [FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string prjUserId)
-//    {
-//        var cancelRes = await _aiService.CancelGlbJobAsync(jobId);
-
-//        var report = await _context.ProjectDetailReport
-//            .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel && x.Prjuserid == prjUserId);
-
-//        if (report != null)
-//        {
-//            report.GlbJobStatus = cancelRes.Status;
-//            await _context.SaveChangesAsync();
-//        }
-
-//        return Ok(cancelRes);
-//    }
-
-//    private string SaveFileLocally(byte[] bytes, string jobId, string prefix, string extension)
-//    {
-//        string folderPath = Path.Combine("wwwroot", "uploads", "results");
-//        if (!Directory.Exists(folderPath)) Directory.CreateDirectory(folderPath);
-
-//        string fileName = $"{prefix}_{jobId}.{extension}";
-//        string fullPath = Path.Combine(folderPath, fileName);
-//        System.IO.File.WriteAllBytes(fullPath, bytes);
-
-//        return $"/uploads/results/{fileName}";
-//    }
-//}
+    public class AiJobStatusRequestDto
+    {
+        public string? JobId { get; set; }
+    }
+}

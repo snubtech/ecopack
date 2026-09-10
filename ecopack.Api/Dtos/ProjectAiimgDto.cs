@@ -2,8 +2,15 @@ using ecopack.Api.Data; // 💡 AiPkgEvalInfoBsc 엔티티가 있는 네임스�
 namespace ecopack.Api.Dtos
 {
 
-	// --- 2D 이미지 관련 DTO ---
-	public class CreateAiJobRequestDto
+    public class DesignTemplateRequestDto
+    {
+        public string PrjId { get; set; }
+        public string PackLevel { get; set; }
+    }
+
+
+    // --- 2D 이미지 관련 DTO ---
+    public class CreateAiJobRequestDto
 	{
 		public string RequestId { get; set; }  // 프로젝트번호_포장차수
 		public string? Prompt { get; set; }   //  일단은 빈칸으로
@@ -19,7 +26,12 @@ namespace ecopack.Api.Dtos
 		public JobInfo Job { get; set; }
 	}
 
-	public class JobInfo
+    public class AiJobStatusRequestDto
+    {
+        public string? JobId { get; set; }
+    }
+
+    public class JobInfo
 	{
 		public string JobId { get; set; }
 		public string Status { get; set; }

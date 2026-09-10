@@ -53,6 +53,9 @@ builder.Services.AddHttpClient<ecopack.Api.Dtos.IExternalAiService, ecopack.Api.
     client.BaseAddress = new Uri(baseUrl);
 });
 
+// (참고) IHttpContextAccessor는 다른 곳에서 필요할 수 있어 남겨두거나 필요 없으면 제거 가능합니다.
+builder.Services.AddHttpContextAccessor();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

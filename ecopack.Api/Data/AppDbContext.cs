@@ -34,6 +34,7 @@ namespace ecopack.Api.Data
         public DbSet<Project> Project => Set<Project>();
         public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
         public DbSet<ProjectDetailReport> ProjectDetailReport => Set<ProjectDetailReport>();
+        public DbSet<ProjectAiImage> ProjectAiImages => Set<ProjectAiImage>();
 
         // 우측 LLM 채팅창(AI 어시스턴트). 세션/메시지와 2일 지난 대화의 백업본.
         public DbSet<LlmChatSession> LlmChatSession => Set<LlmChatSession>();
@@ -44,7 +45,8 @@ namespace ecopack.Api.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            modelBuilder.UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+            //modelBuilder.UseCollation("utf8mb4_0900_ai_ci").HasCharSet("utf8mb4");
+            modelBuilder.UseCollation("utf8mb4_unicode_ci").HasCharSet("utf8mb4");
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         }

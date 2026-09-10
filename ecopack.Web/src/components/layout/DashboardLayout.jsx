@@ -9,6 +9,7 @@ import Prjtemplate from '../../pages/Prjtemplate';
 import Prjdefaultresult from '../../pages/Prjdefaultresult';
 import Prjeval from '../../pages/Prjeval';
 import Prjevalresult from '../../pages/Prjevalresult';
+import PrjaiImage from '../../pages/PrjaiImage';
 import PrimaryTd from '../../pages/PrimaryTd';
 import PrimaryDoc from '../../pages/PrimaryDoc';
 import SecondaryTd from '../../pages/SecondaryTd';
@@ -82,6 +83,8 @@ const DashboardLayout = ({ onLogout }) => {
                 return <Prjeval onSelectItem={setCurrentMenu} />;
             case 'prjevalresult': // 'Prjevalresult'로 와도 Prjevalresult 컴포넌트를 띄운다!
                 return <Prjevalresult onSelectItem={setCurrentMenu} />;
+            case 'PrjaiImage': // 'PrjaiImage'로 와도 PrjaiImage 컴포넌트를 띄운다!
+                return <PrjaiImage onSelectItem={setCurrentMenu} />;
             case 'td': // 기술문서 — 선택한 포장차수의 화면을 띄운다
                 if (packLevel === '2') return <SecondaryTd onSelectItem={setCurrentMenu} />;
                 if (packLevel === '3') return <TertiaryTd onSelectItem={setCurrentMenu} />;

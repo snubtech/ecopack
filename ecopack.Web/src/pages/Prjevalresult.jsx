@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { getEvalSummary } from '../api/projects'; // 프로젝트 경로에 맞게 API 함수 경로 확인
+import { getEvalSummary } from '../api/projects';
 
-function Prjevalresult() {
+function Prjevalresult({ onSelectItem }) {
     const [loading, setLoading] = useState(true);
     const [totalScore, setTotalScore] = useState(0);
     const [maxScore, setMaxScore] = useState(100);
@@ -22,13 +22,33 @@ function Prjevalresult() {
 
             try {
                 setLoading(true);
-                // 백엔드 GetEvalSummary API 호출
                 const data = await getEvalSummary(prjId, prjUserId, packLevel);
 
                 if (data) {
-                    setTotalScore(data.totalScore || 0);
-                    setMaxScore(data.maxScore || 100);
-                    setSavedItems(data.savedItems || []);
+                    const items = data.savedItems || [];
+
+                    let calculatedTotal = 0;
+                    let calculatedMax = 0;
+
+                    items.forEach((item) => {
+                        const criteriaStr = String(item.scoringCriteria ?? '').toLowerCase();
+                        const pointStr = String(item.asmtpoint ?? '').toLowerCase();
+
+                        const isPassFail = criteriaStr === 'pass' || pointStr === 'pass';
+
+                        if (!isPassFail) {
+                            const point = parseInt(item.asmtpoint, 10) || 0;
+                            const rawCriteria = item.scoringCriteria ?? item.maxPoint ?? item.itemMaxPoint ?? item.maxScore ?? 10;
+                            const maxP = !isNaN(parseInt(rawCriteria, 10)) ? parseInt(rawCriteria, 10) : 10;
+
+                            calculatedTotal += point;
+                            calculatedMax += maxP;
+                        }
+                    });
+
+                    setTotalScore(calculatedTotal);
+                    setMaxScore(calculatedMax > 0 ? calculatedMax : (data.maxScore || 100));
+                    setSavedItems(items);
                 }
             } catch (error) {
                 console.error('평가 결과 로딩 실패:', error);
@@ -40,13 +60,34 @@ function Prjevalresult() {
         fetchEvalResultData();
     }, [prjId, prjUserId, packLevel]);
 
+    // 버튼 클릭 핸들러 추가
+    const handleGoProjectStatus = () => {
+        //console.log('프로젝트 현황 보기 이동');
+        if (typeof onSelectItem === 'function') {
+            onSelectItem('project-history');
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다!");
+        }
+        // 예: navigate('/project-status'); 또는 라우팅 로직 구현
+    };
+
+    const handleGoAiImage = () => {
+        console.log('AI 추천 이미지 생성 이동');
+        if (typeof onSelectItem === 'function') {
+            onSelectItem('PrjaiImage');
+        } else {
+            console.error("onSelectItem이 함수가 아닙니다!");
+        }
+        // 예: navigate('/ai-image'); 또는 라우팅 로직 구현
+    };
+
     if (loading) {
         return <div style={{ textAlign: 'center', padding: '50px', fontSize: '16px', color: '#57606a' }}>평가 결과를 불러오는 중입니다...</div>;
     }
 
     return (
         <div style={styles.container}>
-            {/* 1. 좌측 패널 (종합점수, 6각형 차트, 영역별 점수 요약) */}
+            {/* 1. 좌측 패널 (종합점수, 6각형 차트, 영역별 점수 요약, 하단 버튼 2개) */}
             <div style={styles.leftPanel}>
                 <div style={styles.scoreCard}>
                     <h4 style={styles.scoreTitle}>모의평가 종합점수</h4>
@@ -60,7 +101,6 @@ function Prjevalresult() {
                         <div style={styles.hexagonPolygon1}></div>
                         <div style={styles.hexagonPolygon2}></div>
                         <div style={styles.hexagonPolygon3}></div>
-                        {/* 6개 항목 레이블 */}
                         <span style={{ position: 'absolute', top: '4px', fontSize: '10px', fontWeight: '600', color: '#57606a' }}>SAFETY</span>
                         <span style={{ position: 'absolute', top: '35%', left: '4px', fontSize: '10px', fontWeight: '600', color: '#57606a' }}>REDUCE</span>
                         <span style={{ position: 'absolute', bottom: '20px', left: '16px', fontSize: '10px', fontWeight: '600', color: '#57606a' }}>REUSE</span>
@@ -77,15 +117,22 @@ function Prjevalresult() {
                         savedItems.forEach((item) => {
                             const areaKey = item.ecoPackLarType || item.ecoPackAreaNm || 'SAFETY';
                             if (!areaScoreMap[areaKey]) {
-                                areaScoreMap[areaKey] = { currentScore: 0, maxScore: 0 };
+                                areaScoreMap[areaKey] = { currentScore: 0, maxScore: 0, hasNumeric: false };
                             }
 
-                            const point = parseInt(item.asmtpoint, 10) || 0;
-                            const rawCriteria = item.scoringCriteria ?? item.maxPoint ?? item.itemMaxPoint ?? item.maxScore ?? 10;
-                            const maxP = !isNaN(parseInt(rawCriteria, 10)) ? parseInt(rawCriteria, 10) : 0;
+                            const criteriaStr = String(item.scoringCriteria ?? '').toLowerCase();
+                            const pointStr = String(item.asmtpoint ?? '').toLowerCase();
+                            const isPassFail = criteriaStr === 'pass' || pointStr === 'pass';
 
-                            areaScoreMap[areaKey].currentScore += point;
-                            areaScoreMap[areaKey].maxScore += maxP;
+                            if (!isPassFail) {
+                                const point = parseInt(item.asmtpoint, 10) || 0;
+                                const rawCriteria = item.scoringCriteria ?? item.maxPoint ?? item.itemMaxPoint ?? item.maxScore ?? 10;
+                                const maxP = !isNaN(parseInt(rawCriteria, 10)) ? parseInt(rawCriteria, 10) : 10;
+
+                                areaScoreMap[areaKey].currentScore += point;
+                                areaScoreMap[areaKey].maxScore += maxP;
+                                areaScoreMap[areaKey].hasNumeric = true;
+                            }
                         });
 
                         const areaScores = Object.entries(areaScoreMap);
@@ -101,12 +148,28 @@ function Prjevalresult() {
                                     <span style={styles.areaNameText}>{areaName}</span>
                                 </div>
                                 <div style={styles.areaScoreValue}>
-                                    <span style={styles.currentScoreNum}>{scores.currentScore}</span>
-                                    <span style={styles.maxScoreNum}> / {scores.maxScore}</span>
+                                    {scores.hasNumeric ? (
+                                        <>
+                                            <span style={styles.currentScoreNum}>{scores.currentScore}</span>
+                                            <span style={styles.maxScoreNum}> / {scores.maxScore}</span>
+                                        </>
+                                    ) : (
+                                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#1a7f37' }}>PASS</span>
+                                    )}
                                 </div>
                             </div>
                         ));
                     })()}
+                </div>
+
+                {/* 좌측 패널 하단 버튼 2개 추가 */}
+                <div style={styles.buttonGroup}>
+                    <button style={styles.actionButtonSecondary} onClick={handleGoProjectStatus}>
+                        프로젝트현황보기
+                    </button>
+                    <button style={styles.actionButtonPrimary} onClick={handleGoAiImage}>
+                        AI추천이미지생성
+                    </button>
                 </div>
             </div>
 
@@ -140,13 +203,18 @@ function Prjevalresult() {
                         const uniqueRegs = [...new Set(group.items.map(i => i.natRglAls || i.NatRglAls).filter(Boolean))];
                         const uniqueImps = [...new Set(group.items.map(i => i.dsgnRecmImp || i.DsgnRecmImp || i.dsgn_recm_imp).filter(Boolean))];
 
+                        const isAllPass = group.items.every(i =>
+                            String(i.scoringCriteria ?? '').toLowerCase() === 'pass' ||
+                            String(i.asmtpoint ?? '').toLowerCase() === 'pass'
+                        );
+
                         return (
                             <div key={group.larType || index} style={styles.card}>
                                 <div style={styles.cardHeader}>
                                     <strong style={styles.cardTitleNum}>
                                         {index + 1}. {group.larType}
                                     </strong>
-                                    <span style={styles.statusBadge}>appropriate</span>
+                                    <span style={styles.statusBadge}>{isAllPass ? 'PASS' : 'appropriate'}</span>
                                 </div>
 
                                 <div style={styles.cardSubBox}>
@@ -310,15 +378,46 @@ const styles = {
         color: '#8c959f',
         marginLeft: '2px'
     },
+    buttonGroup: {
+        display: 'flex',
+        gap: '10px',
+        marginTop: '4px'
+    },
+    actionButtonSecondary: {
+        flex: 1,
+        backgroundColor: '#ffffff',
+        color: '#24292f',
+        border: '1px solid #d0d7de',
+        padding: '12px 10px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+        textAlign: 'center'
+    },
+    actionButtonPrimary: {
+        flex: 1,
+        backgroundColor: '#1f883d',
+        color: '#ffffff',
+        border: 'none',
+        padding: '12px 10px',
+        borderRadius: '10px',
+        fontSize: '13px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        boxShadow: '0 2px 6px rgba(31, 136, 61, 0.2)',
+        textAlign: 'center'
+    },
     rightPanel: {
         width: '68%',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px' // 카드 간격도 약간 축소
+        gap: '12px'
     },
     card: {
         backgroundColor: '#ffffff',
-        padding: '10px 14px', // 흰색 상자(카드) 패딩 축소 (기존 12px 16px)
+        padding: '10px 14px',
         borderRadius: '10px',
         border: '1px solid #d0d7de',
         boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
@@ -327,7 +426,7 @@ const styles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '4px' // 헤더 하단 여백 축소
+        marginBottom: '4px'
     },
     cardTitleNum: {
         fontSize: '14px',
@@ -344,7 +443,7 @@ const styles = {
     },
     cardSubBox: {
         backgroundColor: '#f6f8fa',
-        padding: '6px 8px', // 회색 박스 패딩 축소 (기존 8px 10px)
+        padding: '6px 8px',
         borderRadius: '6px',
         color: '#57606a'
     }
