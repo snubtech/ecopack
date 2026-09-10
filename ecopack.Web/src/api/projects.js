@@ -171,3 +171,25 @@ export async function getCarconInfo(packLevel, appliedMaterial, matform) {
     });
     return response.data;
 }
+
+/**
+ * 15. 프로젝트 상세 리포트 정보 저장 함수 (Upsert)
+ * - 백엔드의 [HttpPost("detailreport")]에 맞춰 호출합니다.
+ */
+export async function SaveProjectDetailReport(dto) {
+    // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
+    const response = await axios.post('/api/Projects/detailreport', dto, {
+        params: { repCustId: getCurrentCustomerId() },
+    });
+    return response.data;
+}
+
+/**
+ * 16. 프로젝트 상세 리포트 정보 조회 함수
+ */
+export async function GetProjectDetailReport(prjId, packLevel) {
+    const response = await axios.get('/api/Projects/Getdetailreport', {
+        params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
+    });
+    return response.data;
+}

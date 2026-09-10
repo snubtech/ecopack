@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getMaterialProperty, getMattypes, getMatForms } from '../api/commonCode';
 import { SaveProjectDetail, GetProjectDetail } from "../api/projects";
 import { getCurrentCustomerId } from '../utils/memberProfile';
@@ -8,28 +8,34 @@ export default function Prjdefault({ onSelectItem }) {
 
     const [materialList, setMaterialList] = useState([]);
     const [matTypesList, setMatTypesList] = useState([]);
-    const [matFormsList, setMatFormsList] = useState([]); // 5번 항목 전용 목록 상태
+    const [matFormsList, setMatFormsList] = useState([]);
 
     // 폼 입력 상태 관리
     // 💡 프로젝트명은 신규 프로젝트 작성 시 입력한 이름과 같은 값이라, 세션에 담겨 온
     //    값으로 화면이 뜨는 즉시(공통코드·상세정보 조회를 기다리지 않고) 채워 둔다.
     //    아래 useEffect의 네트워크 요청 중 하나라도 실패해도 이름 칸은 항상 채워져 있다.
-    //    프로젝트를 먼저 선택하지 않고 [기본사항]으로 바로 들어온 경우엔 세션에 담긴
-    //    이름도 없으므로 빈칸으로 두고, 입력칸의 placeholder로 안내한다
-    //    (예전엔 'Foldable EPP Box'라는 샘플 문구가 기본값으로 채워져 있었음).
-    const [projectName, setProjectName] = useState(() => sessionStorage.getItem('currentPrjNm') || '');
+    const [projectName, setProjectName] = useState(() => {
+        const currentPrjId = sessionStorage.getItem('currentPrjId');
+        const savedNm = sessionStorage.getItem('currentPrjNm') || '';
+        return currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID' ? savedNm : (savedNm || 'Foldable EPP Box');
+    });
     const [material, setMaterial] = useState('');
     const [env, setEnv] = useState('');
     const [matType, setMatType] = useState('');
     const [matForm, setMatForm] = useState('');
 
+    // 초기 로딩 중인지 체크하는 플래그 (타이밍 충돌 방지용)
+    const isInitialLoading = useRef(true);
+
     const currentPackLevel = sessionStorage.getItem('currentPackLevel') || '1';
 
-    // 1. 초기 공통 코드 로드 (소재, 포장재 종류)
+    // 1. 초기 공통 코드 로드 및 상세 정보 조회
     useEffect(() => {
         const initializeData = async () => {
             try {
                 setLoading(true);
+                isInitialLoading.current = true;
+
                 const [matPropData, matTypesData] = await Promise.all([
                     getMaterialProperty(),
                     getMattypes()
@@ -41,17 +47,14 @@ export default function Prjdefault({ onSelectItem }) {
                 const currentPrjId = sessionStorage.getItem('currentPrjId');
 
                 if (currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID') {
-                    // 2. 프로젝트명은 이미 초기 상태값으로 채워져 있다(useState 초기화 함수 참고).
-                    //    project_detail 테이블엔 프로젝트명 컬럼이 없어 상세 조회로는 받아올 수 없고,
-                    //    기본사항을 한 번도 저장한 적 없는 프로젝트는 상세 조회가 404를 낸다.
-                    //    이 경우도 정상 상황이므로 아래 catch에서 조용히 넘어간다.
                     try {
                         const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
-
+                        console.log("📌 데이터를 불러왔습니다.", detailData);
                         if (detailData) {
                             setMaterial(detailData.appliedMaterial || '');
                             setEnv(detailData.matUse || '');
                             setMatType(detailData.matType || '');
+                            // 세션보다 서버 데이터를 먼저 확실하게 심어줌
                             setMatForm(detailData.matForm || '');
 
                             sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || '');
@@ -72,15 +75,17 @@ export default function Prjdefault({ onSelectItem }) {
                 console.error('초기 데이터 로딩 에러:', error);
             } finally {
                 setLoading(false);
+                // 초기 로딩 완료 후 잠시 뒤 플래그 해제
+                setTimeout(() => {
+                    isInitialLoading.current = false;
+                }, 500);
             }
         };
 
         initializeData();
-        // currentPackLevel은 세션에서 마운트 시점에 한 번만 읽어오면 되는 값이라 의도적으로 뺐다.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // 3. 적용 소재(material)나 포장재 종류(matType)가 바뀔 때마다 조건에 맞는 소재 형태(matForm) 목록을 가져옴
+    // 2. 적용 소재(material)나 포장재 종류(matType)가 바뀔 때마다 조건에 맞는 소재 형태(matForm) 목록을 가져옴
     useEffect(() => {
         const fetchMatForms = async () => {
             if (!material || !matType) {
@@ -90,11 +95,16 @@ export default function Prjdefault({ onSelectItem }) {
 
             try {
                 const formsData = await getMatForms(currentPackLevel, material, matType);
+                console.log("📦 받아온 소재 형태 목록:", formsData);
                 setMatFormsList(formsData || []);
 
-                // 만약 기존에 선택된 matForm이 새로 바뀐 목록에 없다면 초기화
-                if (!formsData.some(item => item.matForm === matForm)) {
-                    setMatForm('');
+                // 초기 로딩 중이 아닐 때만, 목록에 현재 선택된 matForm이 없으면 초기화 수행
+                if (!isInitialLoading.current && formsData) {
+                    const exists = formsData.some(item => item.matForm === matForm);
+                    if (!exists && matForm !== '') {
+                        console.log("⚠️ 기존 선택된 형식이 목록에 없어 초기화합니다.");
+                        setMatForm('');
+                    }
                 }
             } catch (error) {
                 console.error('소재 형태 목록 불러오기 실패:', error);
@@ -102,10 +112,8 @@ export default function Prjdefault({ onSelectItem }) {
         };
 
         fetchMatForms();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [material, matType, currentPackLevel]);
 
-    // 세션 스토리지 저장 로직 공통화 함수
     const saveToSessionStorage = () => {
         sessionStorage.setItem('currentPrjNm', projectName);
         sessionStorage.setItem('currentMaterial', material);
@@ -114,16 +122,10 @@ export default function Prjdefault({ onSelectItem }) {
         sessionStorage.setItem('currentMatForm', matForm);
     };
 
-    // [저장 버튼 클릭 핸들러]
     const handleSave = async () => {
         saveToSessionStorage();
-
         const currentPrjId = sessionStorage.getItem('currentPrjId') || 'DEFAULT_PRJ_ID';
 
-        // ⚠️ 'prjuserid' 는 로그인 정보가 통째로 JSON 문자열로 들어 있는 세션 키라
-        //    그대로 보내면 값이 깨질 뿐 아니라, 세션이 비어 있을 때 'system' 같은
-        //    고정 문자열로 채워지면 다른 사람과 소유자가 겹치는 사고로 이어진다.
-        //    반드시 파싱된 실제 고객 ID(repCustId)를 사용한다.
         const dto = {
             prjId: currentPrjId,
             packLevel: currentPackLevel,
@@ -144,15 +146,12 @@ export default function Prjdefault({ onSelectItem }) {
         }
     };
 
-    // 💡 삭제 버튼은 [프로젝트 현황] 표의 [관리] 열로 옮겼다 (Projects.jsx).
-    //    여기서는 수정 화면에서 바로 지우다 실수로 잘못 누르는 걸 막기 위해 뺐다.
-
     const handleNextStep = async () => {
         saveToSessionStorage();
         if (typeof onSelectItem === 'function') {
             onSelectItem('prjtemplate');
         } else {
-            console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
+            console.error("onSelectItem이 함수가 아닙니다!");
         }
     };
 
@@ -241,14 +240,17 @@ export default function Prjdefault({ onSelectItem }) {
                     </select>
                 </div>
 
-                {/* 5. 소재의 형태 선택 영역 (적용 소재 + 포장재 종류로 조건 필터링된 목록) */}
+                {/* 5. 소재의 형태 선택 영역 */}
                 <div className="form-group">
                     <label className="form-label">5. 소재의 형태를 선택해 주세요</label>
                     <select
                         id="selectMatForm"
                         className="form-select"
                         value={matForm}
-                        onChange={(e) => setMatForm(e.target.value)}
+                        onChange={(e) => {
+                            console.log("선택된 소재 형태:", e.target.value);
+                            setMatForm(e.target.value);
+                        }}
                         disabled={!material || !matType}
                     >
                         <option value="">
@@ -264,7 +266,6 @@ export default function Prjdefault({ onSelectItem }) {
                     </select>
                 </div>
 
-                {/* 하단 버튼 영역 */}
                 <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                     <button className="btn-secondary-line" onClick={() => {}}>취소</button>
                     <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>

@@ -762,6 +762,213 @@ namespace ecopack.Api.Controllers
 
             return Ok(item);
         }
+        /// <summary>
+        /// 프로젝트 상세 리포트 정보 신규/수정 저장용 (Upsert)
+        /// POST: api/projects/detailreport
+        /// </summary>
+        /// <summary>
+        /// 프로젝트 상세 리포트 정보 신규/수정 저장용 (다중 행 리스트 일괄 처리)
+        /// POST: api/projects/detailreport
+        /// </summary>
+        [HttpPost("detailreport")]
+        public async Task<IActionResult> SaveProjectDetailReport([FromBody] ProjectDetailReportSaveDto dto, [FromQuery] string? repCustId)
+        {
+            // 만약 dto 자체가 null로 들어오는 경우를 대비
+            if (dto == null)
+            {
+                return BadRequest(new { success = false, message = "전송된 데이터가 없습니다." });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            // 본인이 만든 프로젝트만 저장할 수 있다.
+            var owner = !string.IsNullOrWhiteSpace(repCustId) ? repCustId : dto.Prjuserid;
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, owner))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
+            // 트랜잭션 시작 (데이터 삭제 후 다중 인서트 중 오류 발생 시 롤백용)
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // 1. 기존에 해당 prjId와 packLevel로 저장되어 있던 모든 행을 조회하여 삭제
+                var existingReports = await _context.ProjectDetailReport
+                    .Where(x => x.PrjId == dto.PrjId && x.PackLevel == dto.PackLevel)
+                    .ToListAsync();
+
+                if (existingReports.Any())
+                {
+                    _context.ProjectDetailReport.RemoveRange(existingReports);
+                }
+
+                // 2. 프론트엔드에서 넘어온 물성(Materials) 및 규제(Environments) 리스트 개수 확인
+                //var materials = dto.Materials ?? new List<ProjectMaterialDto>();
+                //var environments = dto.Environments ?? new List<ProjectEnvironmentDto>();
+
+                var materials = dto.Materials ?? new List<ProjectMaterialItemDto>();
+                var environments = dto.Environments ?? new List<ProjectEnvironmentItemDto>();
+
+                // 최소 1번은 돌아서 공통 메타데이터(탄소배출량, 공정 등)라도 저장되도록 보장
+                int maxCount = Math.Max(Math.Max(materials.Count, environments.Count), 1);
+                var newReports = new List<ProjectDetailReport>();
+
+                for (int i = 0; i < maxCount; i++)
+                {
+                    var mat = i < materials.Count ? materials[i] : null;
+                    var env = i < environments.Count ? environments[i] : null;
+
+                    var report = new ProjectDetailReport
+                    {
+                        PrjId = dto.PrjId,
+                        PackLevel = dto.PackLevel,
+                        Prjuserid = dto.Prjuserid,
+                        PackLevelNm = dto.PackLevelNm,
+                        AppliedMaterial = dto.AppliedMaterial,
+                        AppliedMaterialNm = dto.AppliedMaterialNm,
+                        PrdExpCntry = dto.PrdExpCntry,
+                        PrdExpCntryNm = dto.PrdExpCntryNm,
+                        MatType = dto.MatType,
+                        MatTypeNm = dto.MatTypeNm,
+                        MatForm = dto.MatForm,
+                        MatFormNm = dto.MatFormNm,
+
+                        // 각 행별 물성 정보 매핑
+                        Item = mat?.Item ?? dto.Item,
+                        ItemNm = mat?.ItemName ?? dto.ItemNm,
+                        Unit = mat?.Unit ?? dto.Unit,
+                        UnitNm = mat?.UnitNm ?? dto.UnitNm,
+                        AcceptableRange = mat?.AcceptableRange ?? dto.AcceptableRange,
+
+                        // 각 행별 환경규제 정보 매핑
+                        RelatedReg = env?.RelatedReg ?? dto.RelatedReg,
+                        RegItem = env?.RegItem ?? dto.RegItem,
+                        DtlCont = env?.DtlCont ?? dto.DtlCont,
+
+                        MatComp = dto.MatComp,
+                        MatCompNm = dto.MatCompNm,
+                        MemoImg = dto.MemoImg,
+                        FileData = dto.FileData,
+
+                        // 탄소 배출량 공통 데이터
+                        MassCo2Mat = dto.MassCo2Mat,
+                        MassCo2Proc = dto.MassCo2Proc,
+                        MassCo2Scrap = dto.MassCo2Scrap,
+                        MassCo2Sum = dto.MassCo2Sum,
+                        UnitCo2Mat = dto.UnitCo2Mat,
+                        UnitCo2Proc = dto.UnitCo2Proc,
+                        UnitCo2Scrap = dto.UnitCo2Scrap,
+                        UnitCo2Sum = dto.UnitCo2Sum,
+                        Updatedate = DateTime.Now
+                    };
+
+                    newReports.Add(report);
+                }
+
+                // 3. 일괄 추가 (Bulk Insert)
+                await _context.ProjectDetailReport.AddRangeAsync(newReports);
+                await _context.SaveChangesAsync();
+
+                // 트랜잭션 커밋
+                await transaction.CommitAsync();
+
+                return Ok(new { success = true, message = "리포트가 성공적으로 저장되었습니다.", count = newReports.Count });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { success = false, message = "리포트 저장 중 오류가 발생했습니다.", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// GET: api/projects/detailreport?prjId=...&packLevel=...
+        /// </summary>
+        [HttpGet("Getdetailreport")]
+        public async Task<IActionResult> GetProjectDetailReport([FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId) || string.IsNullOrWhiteSpace(packLevel))
+            {
+                return BadRequest(new { success = false, message = "필수 파라미터(prjId, packLevel)가 누락되었습니다." });
+            }
+
+            // 1. 해당 프로젝트 및 차수의 모든 행 조회
+            var rows = await _context.ProjectDetailReport
+                .Where(x => x.PrjId == prjId && x.PackLevel == packLevel)
+                .ToListAsync();
+
+            if (!rows.Any())
+            {
+                return NotFound(new { success = false, message = "저장된 상세 리포트가 없습니다." });
+            }
+
+            // 2. 첫 번째 행에서 공통 메타데이터 및 탄소 배출량 추출
+            var firstRow = rows.First();
+
+            // 3. 중복 제거된 물성 리스트 복원
+            var materials = rows
+                .Where(r => !string.IsNullOrEmpty(r.Item) || !string.IsNullOrEmpty(r.ItemNm))
+                .Select(r => new ProjectMaterialItemDto
+                {
+                    Item = r.Item,
+                    ItemName = r.ItemNm,
+                    Unit = r.Unit,
+                    UnitNm = r.UnitNm,
+                    AcceptableRange = r.AcceptableRange
+                })
+                .GroupBy(m => new { m.Item, m.ItemName, m.Unit }) // 중복 행 제거
+                .Select(g => g.First())
+                .ToList();
+
+            // 4. 중복 제거된 환경규제 리스트 복원
+            var environments = rows
+                .Where(r => !string.IsNullOrEmpty(r.RelatedReg) || !string.IsNullOrEmpty(r.RegItem) || !string.IsNullOrEmpty(r.DtlCont))
+                .Select(r => new ProjectEnvironmentItemDto
+                {
+                    RelatedReg = r.RelatedReg,
+                    RegItem = r.RegItem,
+                    DtlCont = r.DtlCont
+                })
+                .GroupBy(e => new { e.RelatedReg, e.RegItem }) // 중복 행 제거
+                .Select(g => g.First())
+                .ToList();
+
+            // 5. 프론트엔드 호환 응답 객체 생성
+            var responseDto = new
+            {
+                prjId = firstRow.PrjId,
+                packLevel = firstRow.PackLevel,
+                prjuserid = firstRow.Prjuserid,
+                packLevelNm = firstRow.PackLevelNm,
+                appliedMaterial = firstRow.AppliedMaterial,
+                appliedMaterialNm = firstRow.AppliedMaterialNm,
+                prdExpCntry = firstRow.PrdExpCntry,
+                prdExpCntryNm = firstRow.PrdExpCntryNm,
+                matType = firstRow.MatType,
+                matTypeNm = firstRow.MatTypeNm,
+                matForm = firstRow.MatForm,
+                matFormNm = firstRow.MatFormNm,
+                matComp = firstRow.MatComp,
+                matCompNm = firstRow.MatCompNm,
+                memoImg = firstRow.MemoImg,
+                fileData = firstRow.FileData,
+                massCo2Mat = firstRow.MassCo2Mat,
+                massCo2Proc = firstRow.MassCo2Proc,
+                massCo2Scrap = firstRow.MassCo2Scrap,
+                massCo2Sum = firstRow.MassCo2Sum,
+                unitCo2Mat = firstRow.UnitCo2Mat,
+                unitCo2Proc = firstRow.UnitCo2Proc,
+                unitCo2Scrap = firstRow.UnitCo2Scrap,
+                unitCo2Sum = firstRow.UnitCo2Sum,
+                materials = materials,
+                environments = environments
+            };
+
+            return Ok(responseDto);
+        }
 
     }
 }

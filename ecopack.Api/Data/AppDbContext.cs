@@ -33,6 +33,7 @@ namespace ecopack.Api.Data
         public DbSet<TertiaryDoc> TertiaryDoc => Set<TertiaryDoc>();
         public DbSet<Project> Project => Set<Project>();
         public DbSet<ProjectDetail> ProjectDetail => Set<ProjectDetail>();
+        public DbSet<ProjectDetailReport> ProjectDetailReport => Set<ProjectDetailReport>();
 
         // 우측 LLM 채팅창(AI 어시스턴트). 세션/메시지와 2일 지난 대화의 백업본.
         public DbSet<LlmChatSession> LlmChatSession => Set<LlmChatSession>();

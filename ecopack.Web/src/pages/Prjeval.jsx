@@ -408,7 +408,7 @@ function PrjevalPage({ onSelectItem }) {
     // [다음 단계 버튼을 누를 때 실행되는 함수]
     const handleNext = () => {
         try {
-            alert('다음 단계로 이동합니다.');
+           // alert('다음 단계로 이동합니다.');
             if (typeof onSelectItem === 'function') {
                 onSelectItem('prjevalresult');
             }
@@ -437,26 +437,16 @@ function PrjevalPage({ onSelectItem }) {
                         포장 차수: {packLevel}차 / 적용 소재: {appliedMaterial || '전체'}
                     </p>
                 </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', flexShrink: 0 }}>
                     <button
                         onClick={handleCancel}
-                        style={{ padding: '4px 12px', border: '1px solid #d0d7de', borderRadius: '4px', background: '#fff', cursor: 'pointer', width: '75px', fontSize: '12px' }}
-                    >
-                        취소
-                    </button>
+                        style={{ padding: '8px 18px', border: '1px solid #d0d7de', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             취소         </button>
                     <button
                         onClick={handleSave}
-                        style={{ padding: '4px 12px', border: 'none', borderRadius: '4px', background: '#0969da', color: '#fff', cursor: 'pointer', width: '75px', fontSize: '12px' }}
-                    >
-                        저장
-                    </button>
+                        style={{ padding: '8px 18px', border: 'none', borderRadius: '6px', background: '#0969da', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             저장         </button>
                     <button
                         onClick={handleNext}
-                        style={{ padding: '4px 12px', border: 'none', borderRadius: '4px', background: '#1f883d', color: '#fff', cursor: 'pointer', width: '75px', fontSize: '12px' }}
-                    >
-                        다음
-                    </button>
+                        style={{ padding: '8px 18px', border: 'none', borderRadius: '6px', background: '#1f883d', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             다음         </button>
                 </div>
             </div>
 
