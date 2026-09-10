@@ -540,6 +540,39 @@ html, body {
     line-height: 1.6;
 }
 
+/* 저장된 값으로 직접 만든 답변임을 알리는 작은 표시 */
+.chat-source-badge {
+    align-self: flex-start;
+    font-size: 0.65rem;
+    color: var(--chat-badge-fg, #0369a1);
+    background: #e0f2fe;
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-bottom: 3px;
+}
+
+/* ── 답변이 흘러 들어오는 중 ── */
+.chat-streaming {
+    /* 아직 마크다운을 해석하지 않은 원문이라 줄바꿈을 그대로 살린다 */
+    white-space: pre-wrap;
+}
+
+/* 글자 끝에서 깜빡이는 커서 */
+.chat-caret {
+    display: inline-block;
+    width: 2px;
+    height: 0.95em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: currentColor;
+    opacity: .5;
+    animation: chat-caret-blink 1s steps(2, start) infinite;
+}
+
+@keyframes chat-caret-blink {
+    to { visibility: hidden; }
+}
+
 /* ── 답변 대기 표시 (점 세 개) ── */
 .chat-typing {
     display: flex;
@@ -569,6 +602,10 @@ html, body {
     .chat-typing span {
         animation: none;
         opacity: 0.6;
+    }
+
+    .chat-caret {
+        animation: none;
     }
 }
 

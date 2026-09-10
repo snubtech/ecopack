@@ -31,7 +31,7 @@ import { useAuth } from '../../context/AuthProvider';
 import { renderMarkdown } from '../../utils/simpleMarkdown';
 import {
     openChatSession,
-    sendChatMessage,
+    sendChatMessageStream,
     getChatSessions,
     getChatHistory,
 } from '../../api/llmChat';
@@ -47,11 +47,17 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
     const [messages, setMessages] = useState([]);
     const [prompt, setPrompt] = useState('');
     const [sending, setSending] = useState(false);
+
+    // 답변이 흘러 들어오는 동안 쌓이는 글자. 다 받으면 실제 기록으로 바뀐다.
+    const [streamingText, setStreamingText] = useState('');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     // 답변마다 "참조한 작업 단계"를 담아 둔다. 키는 메시지 순번(chatMsgSeq).
     const [contextSteps, setContextSteps] = useState({});
+
+    // 저장된 값으로 직접 만든 답변인지 표시하기 위해 순번별로 기억한다
+    const [localAnswers, setLocalAnswers] = useState({});
     const [openSteps, setOpenSteps] = useState(null);
 
     // 지난 대화 목록
@@ -66,7 +72,7 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
     useEffect(() => {
         const el = bodyRef.current;
         if (el) el.scrollTop = el.scrollHeight;
-    }, [messages, sending]);
+    }, [messages, sending, streamingText]);
 
     // ── 화면이 뜨면 세션을 연다(있으면 이어받는다) ──────────────────
     useEffect(() => {
@@ -113,8 +119,9 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
         setError('');
         setPrompt('');
         setSending(true);
+        setStreamingText('');
 
-        // 서버 응답을 기다리는 동안 내 질문을 먼저 화면에 띄운다(임시 항목)
+        // 답변을 기다리는 동안 내 질문을 먼저 화면에 띄운다(임시 항목)
         const pendingKey = `pending-${Date.now()}`;
         setMessages((prev) => [
             ...prev,
@@ -122,38 +129,50 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
         ]);
 
         try {
-            const result = await sendChatMessage({
+            const result = await sendChatMessageStream({
                 chatSesId,
                 question,
                 // 질문하는 그 순간 중앙 화면이 보고 있는 대상을 함께 보낸다
                 prjId: projectInfo?.id,
                 packLevel: projectInfo?.packLevel,
                 curMenuId: currentMenu,
+                // 조각이 올 때마다 화면에 바로 붙인다
+                onDelta: (text) => setStreamingText((prev) => prev + text),
             });
-
-            if (!result) throw new Error('AI 응답이 비어 있습니다.');
 
             if (result.chatSesId && result.chatSesId !== chatSesId) {
                 setChatSesId(result.chatSesId);
                 sessionStorage.setItem(SESSION_KEY, result.chatSesId);
             }
 
-            // 임시 항목을 서버가 돌려준 실제 기록으로 바꾼다
+            // 임시 항목과 흘러가던 글자를 서버가 돌려준 실제 기록으로 바꾼다
             setMessages((prev) => [
                 ...prev.filter((m) => m.chatMsgId !== pendingKey),
                 result.userMessage,
                 result.assistantMessage,
             ]);
+            setStreamingText('');
 
-            if (result.assistantMessage && result.contextSteps?.length) {
-                setContextSteps((prev) => ({
-                    ...prev,
-                    [result.assistantMessage.chatMsgSeq]: result.contextSteps,
-                }));
+            if (result.assistantMessage) {
+                const seq = result.assistantMessage.chatMsgSeq;
+                if (result.contextSteps?.length) {
+                    setContextSteps((prev) => ({ ...prev, [seq]: result.contextSteps }));
+                }
+                if (result.answeredLocally) {
+                    setLocalAnswers((prev) => ({ ...prev, [seq]: true }));
+                }
+            }
+
+            // 답변은 왔지만 서버가 부분 실패를 알려 온 경우
+            if (result.warning) {
+                setError(`참고: ${result.warning}`);
+            } else if (result.streamError) {
+                setError(result.streamError);
             }
         } catch (e) {
             // 실패하면 임시 항목을 되돌리고, 입력한 질문을 다시 넣어 준다
             setMessages((prev) => prev.filter((m) => m.chatMsgId !== pendingKey));
+            setStreamingText('');
             setPrompt(question);
             setError(e?.message || 'AI 응답을 받지 못했습니다.');
         } finally {
@@ -305,6 +324,11 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
                         key={m.chatMsgId ?? `${m.chatMsgSeq}-${m.chatRoleCd}`}
                         className={`chat-row chat-row-${m.chatRoleCd}`}
                     >
+                        {/* 저장된 값으로 직접 만든 답변이면 어디서 온 답인지 밝힌다 */}
+                        {m.chatRoleCd === 'assistant' && localAnswers[m.chatMsgSeq] && (
+                            <span className="chat-source-badge">저장된 프로젝트 값으로 정리한 답변</span>
+                        )}
+
                         <div className={`chat-bubble chat-bubble-${m.chatRoleCd} ${m.errCntn ? 'chat-bubble-error' : ''}`}>
                             {m.chatRoleCd === 'assistant' ? renderMarkdown(m.chatMsgCntn) : m.chatMsgCntn}
                         </div>
@@ -331,11 +355,22 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
                     </div>
                 ))}
 
+                {/* 답변이 흘러 들어오는 중.
+                    아직 한 글자도 못 받았으면 점 세 개, 받기 시작했으면 글자를 그대로 보여 준다.
+                    이 단계에서는 마크다운을 해석하지 않는다. 표나 굵게 표시가 반쯤 온 상태로
+                    잘못 그려지는 것보다 원문이 흐르는 편이 자연스럽다. */}
                 {sending && (
                     <div className="chat-row chat-row-assistant">
-                        <div className="chat-bubble chat-bubble-assistant chat-typing">
-                            <span /><span /><span />
-                        </div>
+                        {streamingText ? (
+                            <div className="chat-bubble chat-bubble-assistant chat-streaming">
+                                {streamingText}
+                                <span className="chat-caret" aria-hidden="true" />
+                            </div>
+                        ) : (
+                            <div className="chat-bubble chat-bubble-assistant chat-typing">
+                                <span /><span /><span />
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

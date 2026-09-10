@@ -93,10 +93,23 @@ namespace ecopack.Api.Dtos
         /// <summary>화면에 그려 넣을 AI 답변</summary>
         public LlmChatMsgDto? AssistantMessage { get; set; }
 
+        /// <summary>답변한 AI 서비스 이름</summary>
         public string? AiModelNm { get; set; }
-        public int? InTknCnt { get; set; }
-        public int? OutTknCnt { get; set; }
+
+        /// <summary>답변 생성 소요 시간(ms). AI 서버가 알려 준 값.</summary>
         public int ElpsMsVal { get; set; }
+
+        /// <summary>
+        /// AI 서버가 알려 준 부분 실패 안내(warning).
+        /// 답변이 정상이면 비어 있다. 채워져 있으면 일부 구성요소 조회에 실패했다는 뜻이다.
+        /// </summary>
+        public string? Warning { get; set; }
+
+        /// <summary>
+        /// AI 서버가 질문을 되돌려보내, 우리 DB 값으로 직접 만든 답변인지 여부.
+        /// true 면 화면에 "저장된 값으로 정리한 답변"임을 표시해 준다.
+        /// </summary>
+        public bool AnsweredLocally { get; set; }
 
         /// <summary>답변에 참고한 작업 단계 요약. 화면 하단에 근거로 보여 줄 수 있다.</summary>
         public List<string> ContextSteps { get; set; } = new();

@@ -21,13 +21,19 @@ builder.Services.AddOpenApi(); // 기존 템플릿의 OpenAPI 설정 유지
 
 // 3. 우측 AI 채팅창(LLM) 설정
 //    - appsettings.json 의 "LlmChat" 구역을 읽는다.
-//    - API 키는 여기에 적지 말고 환경변수 ANTHROPIC_API_KEY 로 넣는 것을 권한다.
+//    - 연동 대상은 사내 생성형 AI 서버다(Swagger: {BaseUrl}/docs).
+//    - 지금은 인증이 없지만, 나중에 서버가 API Key 나 Bearer 를 요구하면
+//      코드 수정 없이 AuthType / AuthValue 설정만 바꾸면 된다.
 builder.Services.Configure<ecopack.Api.Support.LlmChatOptions>(
     builder.Configuration.GetSection(ecopack.Api.Support.LlmChatOptions.SectionName));
 
-// Claude 호출은 상태가 없고 HTTP 연결을 재사용하는 편이 좋아 싱글턴으로 둔다.
-builder.Services.AddSingleton<ecopack.Api.Services.IClaudeChatService,
-                              ecopack.Api.Services.ClaudeChatService>();
+// AI 서버 호출용 HttpClient.
+// 매번 new HttpClient() 를 만들면 연결이 쌓여 포트가 마르므로 팩토리를 통해 받아 쓴다.
+builder.Services.AddHttpClient(ecopack.Api.Services.EcoAiChatService.HttpClientName);
+
+// 챗봇 호출은 상태가 없어 싱글턴으로 둔다.
+builder.Services.AddSingleton<ecopack.Api.Services.IEcoAiChatService,
+                              ecopack.Api.Services.EcoAiChatService>();
 
 // 대화 백업은 DbContext(스코프)를 쓰므로 스코프로 둔다.
 builder.Services.AddScoped<ecopack.Api.Services.ILlmChatArchiveService,
