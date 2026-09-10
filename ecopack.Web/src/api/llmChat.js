@@ -11,6 +11,12 @@
  *      AI 답변은 10초를 넘기는 일이 흔해 그대로 쓰면 멀쩡한 답이 끊깁니다.
  *      그래서 채팅 전용으로 제한 시간을 넉넉히(180초) 잡은 인스턴스를 따로 만듭니다.
  *
+ * 2-1. 질문 보내기는 왜 axios 가 아닌가
+ *    - 답변을 SSE(text/event-stream)로 조각조각 받기 때문입니다.
+ *      axios 는 응답을 다 받은 뒤에야 넘겨주므로 스트리밍에 맞지 않습니다.
+ *    - 서버가 POST 를 받으므로 브라우저 EventSource 도 쓸 수 없습니다(EventSource 는 GET 전용).
+ *      그래서 fetch + ReadableStream 으로 직접 읽습니다.
+ *
  * 3. 로그인 정보
  *    - 다른 화면과 같은 방식으로 세션에 저장된 고객 ID(repCustId)를 함께 보냅니다.
  *      서버는 이 값으로 "본인 대화만" 다루도록 걸러 냅니다.
@@ -73,16 +79,132 @@ export async function closeChatSession(chatSesId) {
 }
 
 /**
- * 3. 질문 보내기
- * - 지금 보고 있는 프로젝트와 화면(메뉴)을 함께 보낸다.
- *   서버는 이 정보로 프로젝트 생성부터 지금까지의 전 과정을 읽어 답변에 반영한다.
+ * 3. 질문 보내기 — 스트리밍 (기본 경로)
+ * - 답변 조각이 오는 대로 onDelta 로 넘겨줍니다. 화면은 받는 즉시 글자를 붙여 보여 주면 됩니다.
+ * - 서버가 POST 로 SSE 를 내려 주므로 EventSource 대신 fetch + ReadableStream 을 씁니다.
  *
- * @param {object} payload
- * @param {string} payload.chatSesId  현재 대화 세션 ID
- * @param {string} payload.question   질문
- * @param {string} payload.prjId      지금 보고 있는 프로젝트 ID
- * @param {string} payload.packLevel  지금 보고 있는 포장차수
- * @param {string} payload.curMenuId  지금 중앙 화면의 메뉴 ID
+ * 이벤트 종류
+ *   delta : {text}                                     답변 조각. 여러 번 온다.
+ *   done  : {chatSesId, userMessage, assistantMessage,  전송 종료. 마지막 1회.
+ *            elpsMsVal, warning, contextSteps}
+ *   error : {code, message}                            처리 중 오류.
+ *
+ * @param {object}   payload           질문과 화면 정보
+ * @param {Function} payload.onDelta   (text) => void   답변 조각이 올 때마다 호출
+ * @param {AbortSignal} payload.signal 중간에 끊고 싶을 때
+ * @returns {Promise<object>} done 이벤트의 내용
+ */
+export async function sendChatMessageStream(payload) {
+    const { onDelta, signal, ...body } = payload;
+
+    const res = await fetch('/api/LlmChat/SendStream', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+        },
+        body: JSON.stringify({
+            chatSesId: body.chatSesId || null,
+            repCustId: getCurrentCustomerId(),
+            question: body.question,
+            prjId: body.prjId || null,
+            packLevel: body.packLevel || null,
+            curMenuId: body.curMenuId || null,
+        }),
+        signal,
+    });
+
+    // 스트리밍이 시작되기 전에 걸린 오류(로그인·권한·입력값)는 평소처럼 상태코드로 온다
+    if (!res.ok) {
+        let message = `요청이 거절되었습니다. (HTTP ${res.status})`;
+        try {
+            const err = await res.json();
+            if (err?.message) message = err.message;
+        } catch {
+            // 본문이 JSON 이 아니면 위 기본 문구를 쓴다
+        }
+        throw new Error(message);
+    }
+    if (!res.body) {
+        throw new Error('이 브라우저에서는 스트리밍 응답을 읽을 수 없습니다.');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+
+    let buffer = '';   // 아직 이벤트 하나를 이루지 못한 나머지 조각
+    let result = null; // done 이벤트의 내용
+    let failure = null;
+
+    try {
+        for (;;) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            // stream:true 로 두어야 한글이 조각나도 글자가 깨지지 않는다
+            buffer += decoder.decode(value, { stream: true });
+
+            // 이벤트는 빈 줄(\n\n)로 구분된다
+            let sep;
+            while ((sep = buffer.indexOf('\n\n')) !== -1) {
+                const chunk = buffer.slice(0, sep);
+                buffer = buffer.slice(sep + 2);
+
+                const evt = parseSseChunk(chunk);
+                if (!evt) continue;
+
+                if (evt.event === 'delta') {
+                    if (evt.data?.text) onDelta?.(evt.data.text);
+                } else if (evt.event === 'done') {
+                    result = evt.data;
+                } else if (evt.event === 'error') {
+                    // 오류가 나도 그때까지 받은 조각은 화면에 남겨 두고, 사유만 붙인다
+                    failure = evt.data?.message || 'AI 응답 중 오류가 발생했습니다.';
+                }
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+
+    if (!result && failure) throw new Error(failure);
+    if (!result) throw new Error('답변을 끝까지 받지 못했습니다. 잠시 후 다시 시도해 주세요.');
+
+    // done 은 받았지만 도중에 error 도 있었던 경우, 저장된 기록은 살리고 사유만 함께 넘긴다
+    if (failure) result.streamError = failure;
+    return result;
+}
+
+/**
+ * SSE 이벤트 한 덩어리("event: xxx\ndata: {...}")를 객체로 바꾼다.
+ */
+function parseSseChunk(chunk) {
+    let event = null;
+    const dataLines = [];
+
+    for (const raw of chunk.split('\n')) {
+        const line = raw.replace(/\r$/, '');
+        if (line.startsWith('event:')) {
+            event = line.slice(6).trim();
+        } else if (line.startsWith('data:')) {
+            dataLines.push(line.slice(5).replace(/^ /, ''));
+        }
+        // ':' 로 시작하는 주석 줄 등은 무시한다
+    }
+
+    if (!event || dataLines.length === 0) return null;
+
+    try {
+        return { event, data: JSON.parse(dataLines.join('\n')) };
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * 3-1. 질문 보내기 — 단건 응답 (대체 경로)
+ * - 응답을 모아 두는 중간 서버 때문에 스트리밍이 막히는 환경에서 씁니다.
+ * - 완성된 답변이 올 때까지 기다렸다가 한 번에 받습니다.
  */
 export async function sendChatMessage(payload) {
     try {

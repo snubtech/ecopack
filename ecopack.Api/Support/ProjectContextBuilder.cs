@@ -127,7 +127,9 @@ namespace ecopack.Api.Support
                     steps.Add($"프로젝트 {recent.Count}건 보유 — 미선택 상태");
                 }
 
-                return Finish(sb, steps, new { menuId = curMenuId, prjId = (string?)null, projectCount = recent.Count });
+                return Finish(sb, steps,
+                    new { menuId = curMenuId, prjId = (string?)null, projectCount = recent.Count },
+                    new ProjectWorkContext { HasProject = false, ProjectCount = recent.Count });
             }
 
             // ── 2. 프로젝트 기본 정보 (① 프로젝트 생성) ────────────────
@@ -136,7 +138,8 @@ namespace ecopack.Api.Support
             {
                 sb.AppendLine($"## 프로젝트 {prjId}");
                 sb.AppendLine("- DB 에서 찾을 수 없다.");
-                return Finish(sb, steps, new { menuId = curMenuId, prjId, found = false });
+                return Finish(sb, steps, new { menuId = curMenuId, prjId, found = false },
+                    new ProjectWorkContext { HasProject = false });
             }
 
             sb.AppendLine("## ① 프로젝트 생성 (project)");
@@ -158,6 +161,19 @@ namespace ecopack.Api.Support
 
             // 전 과정을 훑을 차수 목록. 선언된 차수 + 실제 데이터가 있는 차수를 모두 본다.
             var levels = new List<string> { "1", "2", "3" };
+
+            // 차수별 값을 따로 모아 둔다.
+            // AI 서버가 답을 만들지 못했을 때 이 재료로 우리가 직접 답을 조립한다.
+            var facts = new Dictionary<string, ProjectLevelFacts>();
+            ProjectLevelFacts Fact(string lv)
+            {
+                if (!facts.TryGetValue(lv, out var f))
+                {
+                    f = new ProjectLevelFacts { PackLevel = lv };
+                    facts[lv] = f;
+                }
+                return f;
+            }
 
             // ── 3. 차수별 기본사항 / 템플릿 (② ③) ──────────────────────
             var details = await db.ProjectDetail.AsNoTracking()
@@ -187,6 +203,18 @@ namespace ecopack.Api.Support
                     AppendIf(sb, "진행단계(projstatus)", d.Projstatus);
                     AppendIf(sb, "최종 저장", d.Updatedate?.ToString("yyyy-MM-dd HH:mm"));
                     sb.AppendLine();
+
+                    var f = Fact(lv);
+                    f.DetailSaved = true;
+                    f.PackLevelNm = d.PackLevelNm;
+                    f.AppliedMaterial = Pair(d.AppliedMaterial, d.AppliedMaterialNm);
+                    f.MatUse = Pair(d.MatUse, d.MatUseNm);
+                    f.MatType = Pair(d.MatType, d.MatTypeNm);
+                    f.MatForm = Pair(d.MatForm, d.MatFormNm);
+                    f.PackDsgnTplId = d.PackDsgnTplId;
+                    f.PrdExpCntry = Pair(d.PrdExpCntry, d.PrdExpCntryNm);
+                    f.Projstatus = d.Projstatus;
+                    f.Updatedate = d.Updatedate;
 
                     steps.Add($"② 기본사항 {lv}차 — 저장됨 (소재 {d.AppliedMaterialNm ?? d.AppliedMaterial}, 단계 {d.Projstatus})");
                     if (!string.IsNullOrWhiteSpace(d.PackDsgnTplId))
@@ -254,6 +282,11 @@ namespace ecopack.Api.Support
                         sb.AppendLine($"  · ...(외 {rows.Count - MaxEvalItemsPerLevel}문항 생략)");
                     sb.AppendLine();
 
+                    var fe = Fact(lv);
+                    fe.EvalScore = total;
+                    fe.EvalItemCnt = rows.Count;
+                    fe.EvalLastDtm = lastDtm;
+
                     steps.Add($"④ 모의평가 {lv}차 — 완료 (총점 {total}점, {rows.Count}문항, {lastDtm:yyyy-MM-dd})");
                 }
             }
@@ -270,6 +303,11 @@ namespace ecopack.Api.Support
                 sb.AppendLine($"### {lv}차 기술문서");
                 sb.Append(td.Body);
                 sb.AppendLine();
+                var ft = Fact(lv);
+                ft.TdWritten = true;
+                ft.TdDocNo = td.DocNo;
+                ft.TdLastWrt = td.LastWrt;
+
                 steps.Add($"⑤ TD {lv}차 — 작성됨 ({td.DocNo}, {td.LastWrt})");
             }
             if (!tdAny)
@@ -290,6 +328,11 @@ namespace ecopack.Api.Support
                 sb.AppendLine($"### {lv}차 적합성 선언서");
                 sb.Append(doc.Body);
                 sb.AppendLine();
+                var fd = Fact(lv);
+                fd.DocWritten = true;
+                fd.DocNo = doc.DocNo;
+                fd.DocLastWrt = doc.LastWrt;
+
                 steps.Add($"⑥ DOC {lv}차 — 작성됨 ({doc.DocNo}, {doc.LastWrt})");
             }
             if (!docAny)
@@ -314,6 +357,17 @@ namespace ecopack.Api.Support
                 detailLevels = details.Select(d => d.PackLevel).ToList(),
                 evalLevels = evals.Select(e => e.PackLevel).Distinct().ToList(),
                 steps
+            },
+            new ProjectWorkContext
+            {
+                HasProject = true,
+                PrjId = prj.PrjId,
+                PrjNm = prj.PrjNm,
+                PrjFcrtDt = prj.PrjFcrtDt,
+                CurPackLevel = string.IsNullOrWhiteSpace(packLevel) ? prj.PackLevel : packLevel,
+                ExportCountries = exportCountries,
+                // 차수 순서대로 정렬해 담는다
+                Levels = facts.Values.OrderBy(f => f.PackLevel).ToList()
             });
         }
 
@@ -551,14 +605,20 @@ namespace ecopack.Api.Support
         // 작은 도구들
         // ═══════════════════════════════════════════════════════════════
 
-        private static ProjectWorkContext Finish(StringBuilder sb, List<string> steps, object snapshot)
+        private static ProjectWorkContext Finish(
+            StringBuilder sb, List<string> steps, object snapshot, ProjectWorkContext? seed = null)
         {
             var text = sb.ToString();
             if (text.Length > MaxTextLength)
             {
                 text = text[..MaxTextLength] + "\n\n...(작업 상태가 길어 이후 내용은 생략함)";
             }
-            return new ProjectWorkContext { Text = text, Steps = steps, Snapshot = snapshot };
+
+            var ctx = seed ?? new ProjectWorkContext();
+            ctx.Text = text;
+            ctx.Steps = steps;
+            ctx.Snapshot = snapshot;
+            return ctx;
         }
 
         private static void AppendIf(StringBuilder sb, string label, string? value)
