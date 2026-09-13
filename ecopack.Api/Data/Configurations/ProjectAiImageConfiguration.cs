@@ -26,7 +26,9 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.Prompt).HasColumnType("TEXT").HasColumnName("prompt");
             builder.Property(e => e.EcoFix).HasColumnType("TEXT").HasColumnName("eco_fix");
             builder.Property(e => e.Material).HasMaxLength(50).HasColumnName("material");
-            builder.Property(e => e.InputImage).HasColumnType("LONGTEXT").HasColumnName("input_image");
+            builder.Property(e => e.InputImage).HasColumnType("LONGTEXT").HasColumnName("input_image");          
+            builder.Property(e => e.req2ddate).HasColumnType("datetime").HasColumnName("req2ddate");
+            
 
             // 2. 2D 작업 상태 및 진행 관리
             builder.Property(e => e.Status).HasMaxLength(30).HasDefaultValue("QUEUED").HasColumnName("status");
@@ -40,7 +42,9 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.ResultDataModerate).HasColumnType("LONGTEXT").HasColumnName("result_data_moderate");
             builder.Property(e => e.ResultDataRedesign).HasColumnType("LONGTEXT").HasColumnName("result_data_redesign");
 
+
             // 4. 3D GLB 작업 요청 및 폴링 상태 관리
+            builder.Property(e => e.req3ddate).HasColumnType("datetime").HasColumnName("req3ddate");
             builder.Property(e => e.GlbJobId).HasMaxLength(100).HasColumnName("glb_job_id");
             builder.Property(e => e.RequestIdGlb).HasMaxLength(100).HasColumnName("request_id_glb");
             builder.Property(e => e.SourceImageId).HasMaxLength(100).HasColumnName("source_image_id");

@@ -54,6 +54,11 @@ namespace ecopack.Api.Data
         public string? InputImage { get; set; }
 
         /// <summary>
+        /// 2d 요청시간
+        /// </summary>
+        public DateTime? req2ddate { get; set; }
+
+        /// <summary>
         /// 2D 작업 상태 (QUEUED, PROCESSING, COMPLETE, FAILED)
         /// </summary>
         public string Status { get; set; } = "QUEUED";
@@ -93,6 +98,10 @@ namespace ecopack.Api.Data
         /// </summary>
         public string? ResultDataRedesign { get; set; }
 
+        /// <summary>
+        /// 2d 요청시간
+        /// </summary>
+        public DateTime? req3ddate { get; set; }
         /// <summary>
         /// 3D GLB 변환 작업 고유 ID (예: glb-job-069)
         /// </summary>

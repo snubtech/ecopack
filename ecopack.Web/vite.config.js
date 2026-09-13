@@ -7,7 +7,7 @@ export default defineConfig({
         port: 5173,
         proxy: {
             '/api': {
-                target: 'http://localhost:5258',
+                target: 'http://localhost:5258',               
                 changeOrigin: true,
             },
             // 기술문서 첨부파일(wwwroot/uploads) 다운로드용

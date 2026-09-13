@@ -198,13 +198,14 @@ export async function GetProjectDetailReport(prjId, packLevel) {
  * 17. 디자인 템플릿 데이터 조회 함수 (파라미터 전달 방식)
  *   return { prjId, packLevel, appliedMaterial, prjUserId };
  */
-// 수정 후: axios.post를 사용하고 데이터를 객체(Body)로 전달
-// 1. 디자인 템플릿 조회 (POST 방식으로 Body 전달)
+// 수정 후 (GET 방식 + 쿼리 파라미터 전달)
 export const getDesignTemplate = async (prjId, packLevel) => {
     try {
-        const response = await axios.post('/api/ProjectAiimage/GetDesignTemplate', {
-            prjId: prjId,
-            packLevel: packLevel
+        const response = await axios.get('/api/ProjectAiimage/GetDesignTemplate', {
+            params: {
+                prjId: prjId,
+                packLevel: packLevel
+            }
         });
         return response.data;
     } catch (error) {
@@ -213,7 +214,7 @@ export const getDesignTemplate = async (prjId, packLevel) => {
     }
 };
 
-// 2. 2D AI 이미지 생성 요청 및 저장 함수
+// 18. 2D AI 이미지 생성 요청 및 저장 함수
 export async function generate2DImage(payload) {
     try {
         const response = await axios.post('/api/ProjectAiimage/Generate2DImage', payload);
@@ -223,3 +224,13 @@ export async function generate2DImage(payload) {
         throw error;
     }
 }
+// 19. 2D AI 이미지 생성 작업상태 조회 함수 (경로 변수 방식으로 원복)
+export const getAiJobStatus = async (prjId, packLevel) => {
+    try {
+        const response = await axios.get(`/api/ProjectAiimage/GetAiJobStatus/${prjId}/${packLevel}`);
+        return response.data;
+    } catch (error) {
+        console.error('AI 작업 상태 조회 실패:', error);
+        throw error;
+    }
+};
