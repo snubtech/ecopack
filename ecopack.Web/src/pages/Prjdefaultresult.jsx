@@ -201,10 +201,63 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
 
     return (
         <div style={{ padding: '1rem', boxSizing: 'border-box', backgroundColor: '#f9fafb', minHeight: '100%' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1.5rem', color: '#111827' }}>
-                📌 기본평가 결과 조회 (프로젝트 번호: {prjId} / 포장차수: {packLevel}차)
-            </h2>
+            {/* 💡 카드 형태의 상단 영역 */}
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                padding: '1.25rem 1.5rem',
+                marginBottom: '1.5rem',
+                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
+            }}>
+                {/* 왼쪽: 제목 및 부가 정보 */}
+                <div>
+                    <h2 style={{ fontSize: '1.15rem', fontWeight: 'bold', color: '#111827', margin: '0 0 0.25rem 0' }}>
+                        📌 기본평가 결과 조회
+                    </h2>
+                    <p style={{ fontSize: '0.85rem', color: '#6b7280', margin: 0 }}>
+                        프로젝트 번호: {prjId} / 포장 차수: {packLevel}차
+                    </p>
+                </div>
 
+                {/* 오른쪽: 버튼 그룹 (취소, 저장, 다음) */}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>                  
+                    <button
+                        onClick={handleSave}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#2563eb', // 파란색 저장 버튼 스타일
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: '600',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        저장
+                    </button>
+                    <button
+                        className="btn-primary"
+                        onClick={handleNextStep}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            backgroundColor: '#10b981', // 초록색 다음 버튼 스타일
+                            color: '#ffffff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontWeight: '600',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        다음 &gt;
+                    </button>
+                </div>
+            </div>
             {/* 1. 물성 정보 */}
             <div style={sectionStyle}>
                 <h3 style={titleStyle}>1. 물성</h3>
@@ -392,39 +445,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 )}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '2rem', paddingBottom: '1rem' }}>
-                <button
-                    onClick={handleSave}
-                    style={{
-                        padding: '0.6rem 1.2rem',
-                        backgroundColor: '#10b981',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer'
-                    }}
-                >
-                    저장
-                </button>
-                <button
-                    className="btn-primary"
-                    onClick={handleNextStep}
-                    style={{
-                        padding: '0.6rem 1.2rem',
-                        backgroundColor: '#374151',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        fontWeight: '600',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer'
-                    }}
-                >
-                    다음 &gt;
-                </button>
-            </div>
+          
         </div>
     );
 };

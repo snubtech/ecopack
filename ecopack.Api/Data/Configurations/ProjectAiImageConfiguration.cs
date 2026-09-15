@@ -54,7 +54,18 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.StatusMessage3d).HasColumnType("TEXT").HasColumnName("status_message_3d");
             builder.Property(e => e.ErrorMessage3d).HasColumnType("TEXT").HasColumnName("error_message_3d");
 
-            // 5. 3D GLB 결과 바이너리 파일 데이터 영구 보관 (BASE64)
+
+            builder.Property(e => e.req3ddateoriginal).HasColumnType("datetime").HasColumnName("req3ddate_original");
+            builder.Property(e => e.req3ddatemoderate).HasColumnType("datetime").HasColumnName("req3ddate_moderate");
+            builder.Property(e => e.req3ddateredesign).HasColumnType("datetime").HasColumnName("req3ddate_redesign");
+            builder.Property(e => e.progressoriginal).HasDefaultValue(0).HasColumnName("progress_original");
+            builder.Property(e => e.progressmoderate).HasDefaultValue(0).HasColumnName("progress_moderate");
+            builder.Property(e => e.progressredesign).HasDefaultValue(0).HasColumnName("progress_redesign");
+            builder.Property(e => e.GlbJobIdOriginal).HasMaxLength(100).HasColumnName("glb_job_id_original");
+            builder.Property(e => e.GlbJobIdModerate).HasMaxLength(100).HasColumnName("glb_job_id_moderate");
+            builder.Property(e => e.GlbJobIdRedesign).HasMaxLength(100).HasColumnName("glb_job_id_redesign");
+ 
+           // 5. 3D GLB 결과 바이너리 파일 데이터 영구 보관 (BASE64)
             builder.Property(e => e.ResultDataGlbOriginal).HasColumnType("LONGTEXT").HasColumnName("result_data_glb_original");
             builder.Property(e => e.ResultDataGlbModerate).HasColumnType("LONGTEXT").HasColumnName("result_data_glb_moderate");
             builder.Property(e => e.ResultDataGlbRedesign).HasColumnType("LONGTEXT").HasColumnName("result_data_glb_redesign");

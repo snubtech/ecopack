@@ -56,10 +56,21 @@ namespace ecopack.Api.Dtos
 	public class CreateGlbJobRequestDto
 	{
 		public string RequestId { get; set; }
-		public string SourceImageId { get; set; }
+        public string Image { get; set; }   //  2D 이미지생서 수신후 결과 이미지
+        //public string SourceImageId { get; set; }
 	}
 
-	public class GlbJobResponseWrapper
+    // 프론트에서 백앤드로 CreateGlbJob 요청시 전달되는 DTO
+    public class frontGlbRequestDto
+    {
+        public string PrjId { get; set; }
+        public string PackLevel { get; set; }
+        public string imagelabal { get; set; } // 백앤드에서 수신시 수신된 이미지가  3개의 이미지중  어떤것인지(H PRI,MONO,LIGHT)대한 구분
+        public string Image { get; set; }   //  2D 이미지생서 수신후 결과 이미지
+                                            //public string SourceImageId { get; set; }
+    }
+
+    public class GlbJobResponseWrapper
 	{
 		public string RequestId { get; set; }
 		public bool Success { get; set; }

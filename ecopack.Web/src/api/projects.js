@@ -234,3 +234,24 @@ export const getAiJobStatus = async (prjId, packLevel) => {
         throw error;
     }
 };
+// 20. 3D AI 이미지(GLB) 변환 요청 함수
+export async function createGlbJob(payload) {
+    try {
+        const response = await axios.post('/api/ProjectAiimage/CreateGlbJob', payload);
+        return response.data;
+    } catch (error) {
+        console.error('3D 이미지(GLB) 변환 요청 실패:', error);
+        throw error;
+    }
+}
+
+// 21. 3D AI 이미지(GLB) 작업 상태 조회 함수
+export const getGlbJobStatus = async (prjId, packLevel, itemlabel ) => {
+    try {
+        const response = await axios.get(`/api/ProjectAiimage/GetGlbJobStatus/${prjId}/${packLevel}/${itemlabel}`);
+        return response.data;
+    } catch (error) {
+        console.error('3D 작업 상태 조회 실패:', error);
+        throw error;
+    }
+};

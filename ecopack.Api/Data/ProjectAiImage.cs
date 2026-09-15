@@ -66,7 +66,7 @@ namespace ecopack.Api.Data
         /// <summary>
         /// 2D 작업 진행률 (0 ~ 100)
         /// </summary>
-        public int Progress { get; set; } = 0;
+        public int? Progress { get; set; } = 0;
 
         /// <summary>
         /// 2D 성공 여부
@@ -125,7 +125,7 @@ namespace ecopack.Api.Data
         /// <summary>
         /// 3D 변환 진행률 (0 ~ 100)
         /// </summary>
-        public int Progress3d { get; set; } = 0;
+        public int? Progress3d { get; set; } = 0;
 
         /// <summary>
         /// 3D 성공 여부
@@ -141,6 +141,47 @@ namespace ecopack.Api.Data
         /// 3D 변환 실패 시 에러 메시지
         /// </summary>
         public string? ErrorMessage3d { get; set; }
+
+        /// <summary>
+        /// 2d 요청시간
+        /// </summary>
+        public DateTime? req3ddateoriginal { get; set; }
+        /// <summary>
+        /// 2d 요청시간
+        /// </summary>
+        public DateTime? req3ddatemoderate { get; set; }
+        /// <summary>
+        /// 2d 요청시간
+        /// </summary>
+        public DateTime? req3ddateredesign { get; set; }
+
+        /// <summary>
+        /// 3D 변환 진행률 (0 ~ 100)
+        /// </summary>
+        public int? progressoriginal { get; set; } = 0;
+        /// <summary>
+        /// 3D 변환 진행률 (0 ~ 100)
+        /// </summary>
+        public int? progressmoderate { get; set; } = 0;
+        /// <summary>
+        /// 3D 변환 진행률 (0 ~ 100)
+        /// </summary>
+        public int? progressredesign { get; set; } = 0;
+
+
+        /// <summary>
+        /// 3D GLB 변환 작업 고유 ID (예: glb-job-069)
+        /// </summary>
+        public string? GlbJobIdOriginal { get; set; }
+        /// <summary>
+        /// 3D GLB 변환 작업 고유 ID (예: glb-job-069)
+        /// </summary>
+        public string? GlbJobIdModerate { get; set; }
+        /// <summary>
+        /// 3D GLB 변환 작업 고유 ID (예: glb-job-069)
+        /// </summary>
+        public string? GlbJobIdRedesign { get; set; }
+
 
         /// <summary>
         /// 원본 중심 3D GLB 파일 데이터(BASE64)
