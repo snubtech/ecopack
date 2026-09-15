@@ -368,7 +368,7 @@ export default function PrjaiImage() {
         const initPage = async () => {
             const sessionData = getSessionData();
             if (sessionData.prjId) {
-                setLoadingMessage('기본디자인,AI추천이미지,3D변환이미지를 불러오는 중입니다...');
+                setLoadingMessage('저장된 기본본디자인,AI추천이미지,3D변환이미지를 불러오는 중입니다...');
                 setIsLoading(true);
                 try {
                     const response = await getDesignTemplate(sessionData.prjId, sessionData.packLevel);
