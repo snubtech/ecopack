@@ -21,6 +21,8 @@ namespace ecopack.Api.Dtos
         //public byte[]? FileData { get; set; }
         public string? FileData { get; set; }
         //public DateTime? CreatedAt { get; set; }
+        //이미 project_detail 테이블에 PackDsgnTplId가 존재하면 true, 존재하지 않으면 false
+        public bool IsSelected { get; set; } 
     }
 
     // 💡 요청을 받을 DTO 클래스

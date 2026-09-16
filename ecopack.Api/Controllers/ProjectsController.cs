@@ -479,6 +479,7 @@ namespace ecopack.Api.Controllers
 
         [HttpGet("template")]
         public async Task<IActionResult> GetProjecttemplate(
+            [FromQuery] string? prjId,
             [FromQuery] string? packLevel,
             [FromQuery] string? appliedMaterial,
             [FromQuery] string? matType,
@@ -487,6 +488,17 @@ namespace ecopack.Api.Controllers
         {
             try
             {
+                // 1. 현재 프로젝트/포장차수에 해당하는 project_detail 정보에서 선택된 템플릿 ID(PackDsgnTplId) 조회
+                string? selectedTplId = null;
+                if (!string.IsNullOrEmpty(prjId) && !string.IsNullOrEmpty(packLevel))
+                {
+                    var projectDetail = await _context.ProjectDetail // 엔티티명은 실제 DbContext에 등록된 이름으로 확인해주세요
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(x => x.PrjId == prjId && x.PackLevel == packLevel);
+
+                    selectedTplId = projectDetail?.PackDsgnTplId;
+                }
+                // 2. If002a에서 템플릿 정보를 가져온다
                 var query = _context.If002a.AsNoTracking().AsQueryable();
 
                 if (!string.IsNullOrEmpty(packLevel))
@@ -501,6 +513,7 @@ namespace ecopack.Api.Controllers
                 {
                     query = query.Where(x => x.MatType == matType);
                 }
+               
 
                 // 1. 전체 데이터 개수 계산 (페이지네이션 UI 계산용)
                 var totalCount = await query.CountAsync();
@@ -529,7 +542,9 @@ namespace ecopack.Api.Controllers
                         MatType = x.MatType,
                         AppliedMaterial = x.AppliedMaterial,
                         FileNm = x.FileNm,
-                        FileData = x.FileData // 이미지를 포함하되 25개로 제한되어 속도가 빠름
+                        FileData = x.FileData, // 이미지를 포함하되 25개로 제한되어 속도가 빠름
+                        // 💡 현재 템플릿 아이디가 project_detail에 저장된 PackDsgnTplId와 일치하는지 여부 추가
+                        IsSelected = x.PackDsgnTplId == selectedTplId
                     })
                     .ToListAsync();
 
@@ -537,6 +552,7 @@ namespace ecopack.Api.Controllers
                 return Ok(new
                 {
                     totalCount = totalCount,
+                    selectedTplId = selectedTplId, // 현재 프로젝트가 선택한 템플릿 ID 값 자체를 상단에서 참고할 수 있게 포함
                     items = list
                 });
             }

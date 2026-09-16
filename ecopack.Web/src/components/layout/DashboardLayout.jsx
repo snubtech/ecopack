@@ -62,7 +62,7 @@ const DashboardLayout = ({ onLogout }) => {
         switch (currentMenu) {
             case 'project-history':
                 return <Projects onSelectItem={setCurrentMenu} />;
-            case 'start-project':
+            case 'default':
                 return <Prjdefault onSelectItem={setCurrentMenu} />;
             case 'prjdefault': // 'prjdefault'로 와도 Prjdefault 컴포넌트를 띄운다!
                 return <Prjdefault onSelectItem={setCurrentMenu} />;

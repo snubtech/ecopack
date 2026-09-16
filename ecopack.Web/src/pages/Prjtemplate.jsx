@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { templateUpdate } from '../api/projects'; //api /projects.js에서 templateUpdate 함수를 가져옵니다.
+import { templateUpdate } from '../api/projects'; // api/projects.js에서 templateUpdate 함수를 가져옵니다.
 
 // 1. 세션 스토리지에 데이터 저장
 // sessionStorage.setItem('currentPrjNm');
@@ -16,9 +16,9 @@ function PackTemplatePage({ onSelectItem }) {
     const [selectedItem, setSelectedItem] = useState(null); // 상단에 보여줄 선택된 상세 정보
 
     // 💡 페이지네이션 관련 상태
-    const [currentPage, setCurrentPage] = useState(1);       // 현재 페이지 번호
-    const [totalCount, setTotalCount] = useState(0);         // 전체 데이터 개수
-    const pageSize = 20;                                     // 페이지당 표시 개수 (20개)
+    const [currentPage, setCurrentPage] = useState(1);        // 현재 페이지 번호
+    const [totalCount, setTotalCount] = useState(0);          // 전체 데이터 개수
+    const pageSize = 20;                                      // 페이지당 표시 개수 (20개)
 
     const isFirstRun = useRef(true); // 초기 마운트 시 중복 호출 방지용
 
@@ -27,6 +27,7 @@ function PackTemplatePage({ onSelectItem }) {
         const fetchTemplates = async () => {
             try {
                 const params = {
+                    prjId: sessionStorage.getItem('currentPrjId'),
                     packLevel: sessionStorage.getItem('currentPackLevel') || '1',
                     appliedMaterial: sessionStorage.getItem('currentMaterial') || '',
                     matType: sessionStorage.getItem('currentMatType') || '',
@@ -39,12 +40,26 @@ function PackTemplatePage({ onSelectItem }) {
 
                 const items = resData.items || [];
                 const total = resData.totalCount || 0;
+                const serverSelectedTplId = resData.selectedTplId; // 💡 서버에서 보내준 저장된 템플릿 ID
 
                 setTemplateList(items);
                 setTotalCount(total);
 
+                // 최초 로딩 시에만 상단 선택값 세팅
                 if (isFirstRun.current && items.length > 0) {
-                    setSelectedItem(items[0]);
+                    if (serverSelectedTplId) {
+                        // 1. 서버에 저장된 템플릿 ID와 일치하는 아이템이 현재 리스트에 있는지 찾기
+                        const matchedItem = items.find(x => x.packDsgnTplId === serverSelectedTplId);
+                        if (matchedItem) {
+                            setSelectedItem(matchedItem);
+                        } else {
+                            // 리스트에 없다면 (예: 다른 페이지에 있거나 한 경우) 서버에서 보낸 ID만 대략 맞추거나 첫번째 지정
+                            setSelectedItem(items[0]);
+                        }
+                    } else {
+                        // 저장된 게 없다면 첫 번째 항목을 기본 선택
+                        setSelectedItem(items[0]);
+                    }
                     isFirstRun.current = false;
                 }
             } catch (error) {
@@ -65,11 +80,9 @@ function PackTemplatePage({ onSelectItem }) {
         const prjId = sessionStorage.getItem('currentPrjId') || '';
         const packLevel = selectedItem.packLevel || sessionStorage.getItem('currentPackLevel') || '1';
         // userid는   prjuserid라는 이름으로  json으로 저장되어 있으므로 파싱 후 repCustId를 가져옵니다.
-        // sessionStorage에서 prjuserid를 가져와 JSON으로 파싱
-        // userid만  로그인처리때문에...상이함.
         const sessionUser = JSON.parse(sessionStorage.getItem('prjuserid') || '{}');
         const prjuserid = sessionUser.repCustId || '';
-       
+
         if (!prjId) {
             alert('프로젝트 ID(prjId)를 찾을 수 없습니다. 이전 단계를 확인해 주세요.');
             return;
@@ -90,6 +103,7 @@ function PackTemplatePage({ onSelectItem }) {
             alert('저장 중 오류가 발생했습니다.');
         }
     };
+
     const handleNextStep = async () => {
         if (!selectedItem) {
             alert('먼저 템플릿을 선택해 주세요.');
@@ -100,14 +114,12 @@ function PackTemplatePage({ onSelectItem }) {
         sessionStorage.setItem('currentPackDsgnTplId', selectedItem.packDsgnTplId);
 
         if (typeof onSelectItem === 'function') {
-            //onSelectItem('prjeval'); // 'prjeval'(평가지) 메뉴로 상태 변경 요청
             onSelectItem('prjdefaultresult'); // 'Prjdefaultresult'(프로젝트 기본결과) 메뉴로 상태 변경 요청
         } else {
             console.error("onSelectItem이 함수가 아닙니다! 부모에서 전달받았는지 확인하세요.");
         }
-
-
     };
+
     // 전체 페이지 수 계산
     const totalPages = Math.ceil(totalCount / pageSize);
 
@@ -186,7 +198,8 @@ function PackTemplatePage({ onSelectItem }) {
                     {templateList.length > 0 ? (
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px', width: '100%', boxSizing: 'border-box' }}>
                             {templateList.map((item, index) => {
-                                const isSelected = selectedItem?.packDsgnTplId === item.packDsgnTplId;
+                                // 💡 서버에서 내려준 item.isSelected 또는 현재 상단 선택된 항목과의 일치 여부로 판단
+                                const isSelected = item.isSelected || (selectedItem?.packDsgnTplId === item.packDsgnTplId);
 
                                 return (
                                     <div
