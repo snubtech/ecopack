@@ -134,6 +134,7 @@ export default function Prjdefault({ onSelectItem }) {
             matUse: env,
             matType: matType,
             matForm: matForm,
+            Projstatus: 'default', // 
             prjuserid: getCurrentCustomerId()
         };
 

@@ -202,6 +202,7 @@ namespace ecopack.Api.Controllers
                         Projstatus = dto.Projstatus,
                         PrdExpCntry = dto.PrdExpCntry,
                         PrdExpCntryNm = dto.PrdExpCntryNm,
+
                         Prjuserid = dto.Prjuserid, // 💡 신규 저장 시 반영
                         Updatedate = DateTime.Now
                     };
