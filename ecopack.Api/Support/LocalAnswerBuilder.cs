@@ -105,7 +105,8 @@ namespace ecopack.Api.Support
                 sb.AppendLine(next);
             }
 
-            return sb.ToString().TrimEnd();
+            // AppendLine 은 OS 줄바꿈을 쓴다(Windows 는 \r\n). 화면 마크다운이 \n 기준이라 맞춰 둔다.
+            return sb.ToString().Replace("\r\n", "\n").TrimEnd();
         }
 
         /// <summary>표의 한 줄. 모든 차수에서 값이 비어 있으면 줄 자체를 넣지 않는다.</summary>
