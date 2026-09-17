@@ -234,7 +234,7 @@ function PrjevalPage({ onSelectItem }) {
      */
     useEffect(() => {
         const fetchEvalDataAndSavedAnswers = async () => {
-            // 만약 데이터를 이미 가져오는 중이라면 중복으로 실행되지 않도록 문고리를 꽉 잠급니다!
+            // 만약 데이터를 이미 가져오는 중이라면 중복으로 실행되지 않도록 !
             if (isFetchingRef.current) return;
             isFetchingRef.current = true;
 
