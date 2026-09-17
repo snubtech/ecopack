@@ -91,7 +91,10 @@ function renderTable(rows, key) {
 export function renderMarkdown(text) {
     if (!text) return null;
 
-    const lines = String(text).split('\n');
+    // 줄바꿈 종류를 가리지 않고 나눈다. AI 서버가 \r\n 이나 \u2028 을 섞어 보내면
+    // 정규식의 . 이 \r 을 못 넘어 제목 판정이 어긋나고, 아래 문단 루프가 한 줄도 못 넘겨
+    // 무한 반복 → 브라우저 Out of Memory 가 난 적이 있다.
+    const lines = String(text).split(/\r\n|[\r\n\u2028\u2029]/);
     const out = [];
     let i = 0;
     let key = 0;
@@ -118,7 +121,8 @@ export function renderMarkdown(text) {
         }
 
         // 제목: #, ##, ###
-        const heading = line.match(/^(#{1,3})\s+(.*)$/);
+        // 아래 문단 루프의 제목 판정(/^#{1,3}\s+/)과 반드시 같은 기준이어야 한다
+        const heading = line.match(/^(#{1,3})\s+([\s\S]*)$/);
         if (heading) {
             const level = heading[1].length;
             out.push(
@@ -175,6 +179,11 @@ export function renderMarkdown(text) {
             !/^\s*\d+\.\s+/.test(lines[i])
         ) {
             para.push(lines[i]);
+            i += 1;
+        }
+        // 안전장치: 위 어느 규칙에도 안 걸린 줄은 그대로 문단으로 넘긴다(한 줄도 못 넘기는 무한 반복 방지)
+        if (para.length === 0) {
+            para.push(line);
             i += 1;
         }
         out.push(
