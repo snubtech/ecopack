@@ -243,7 +243,7 @@ export default function Prjdefault({ onSelectItem }) {
 
                 {/* 5. 소재의 형태 선택 영역 */}
                 <div className="form-group">
-                    <label className="form-label">5. 소재의 형태를 선택해 주세요</label>
+                    <label className="form-label">5. 소재의 구성을 선택해 주세요</label>
                     <select
                         id="selectMatForm"
                         className="form-select"
