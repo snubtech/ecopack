@@ -30,7 +30,7 @@
  * 5. 화면 렌더링 (JSX)
  *    - 이력 표는 날짜·프로젝트명·프로젝트 번호·수출국가·포장 차수·담당자·진행상태와
  *      프로젝트 관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
- *    - 수출국가는 백엔드에서 제공하는 CntryNm 값을 바로 출력합니다.
+ *    - 수출국가는 prdExpCntryNm1~8 중 'Y' 인 항목의 이름을 출력합니다(CntryNm 은 회원 국가라 쓰지 않습니다).
  * ==============================================================================
  */
 import { useEffect, useState } from 'react';
@@ -55,6 +55,11 @@ const COUNTRIES = [
     { key: 'australia', label: '호주', field: 'prdExpCntryNm7' },
     { key: 'korea', label: '대한민국', field: 'prdExpCntryNm8' }
 ];
+
+// 프로젝트 행에서 신규 작성 때 고른 수출국 이름을 꺼낸다.
+// cntryNm 은 로그인한 회원의 국가라 수출국으로 쓰면 안 된다.
+const getExportCountry = (item) =>
+    COUNTRIES.find((country) => item[country.field] === 'Y')?.label || '';
 
 const PACKAGING_LEVELS = [
     { key: 'sales', label: '판매(1차)' },
@@ -213,7 +218,7 @@ export default function Projects({ onSelectItem }) {
         const prjId = item.prjId || '';
         const prjNm = item.prjNm || '';
         const currentPackLevel = item.packLevel || item.PackLevel || '';
-        const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
+        const exportCountry = getExportCountry(item);
 
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
@@ -326,8 +331,8 @@ export default function Projects({ onSelectItem }) {
                             </tr>
                         ) : (
                             projectList.map((item, index) => {
-                                // 백엔드에서 제공하는 CntryNm 값을 바로 사용
-                                const displayCountry = item.cntryNm || item.CntryNm || '-';
+                                // 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y')
+                                const displayCountry = getExportCountry(item) || '-';
 
                                 // packLevel 속성명 대소문자 호환 처리
                                 const packLevelVal = item.packLevel || item.PackLevel || '';
