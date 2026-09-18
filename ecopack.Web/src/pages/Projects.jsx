@@ -193,7 +193,7 @@ export default function Projects({ onSelectItem }) {
             }
             //  [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
             sessionStorage.setItem('currentExportCountry', formData.exportCountry);
-
+            console.log('1.세션에 저장된 currentExportCountry:', sessionStorage.getItem('currentExportCountry'));
             alert('선택한 포장 차수별로 신규 프로젝트가 성공적으로 생성되었습니다.');
             setIsModalOpen(false); // 모달 닫기
 
@@ -213,13 +213,14 @@ export default function Projects({ onSelectItem }) {
         const prjId = item.prjId || '';
         const prjNm = item.prjNm || '';
         const currentPackLevel = item.packLevel || item.PackLevel || '';
-        const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
-
+        //const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
+        //console.log('2.세션에 저장될 exportCountry:', exportCountry);
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
         sessionStorage.setItem('currentPrjId', prjId);
         sessionStorage.setItem('currentPackLevel', currentPackLevel);
-        sessionStorage.setItem('currentExportCountry', exportCountry);
+        //sessionStorage.setItem('currentExportCountry', exportCountry);
+        
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
@@ -327,7 +328,10 @@ export default function Projects({ onSelectItem }) {
                         ) : (
                             projectList.map((item, index) => {
                                 // 백엔드에서 제공하는 CntryNm 값을 바로 사용
-                                const displayCountry = item.cntryNm || item.CntryNm || '-';
+                                //const displayCountry = item.cntryNm || item.CntryNm || '-';
+                                // 💡 수정된 부분: prdExpCntryNm1 ~ 8 중 'Y'인 항목의 label을 매칭합니다.
+                                const matchedCountry = COUNTRIES.find(country => item[country.field] === 'Y');
+                                const displayCountry = matchedCountry ? matchedCountry.label : (item.cntryNm || item.CntryNm || '-');
 
                                 // packLevel 속성명 대소문자 호환 처리
                                 const packLevelVal = item.packLevel || item.PackLevel || '';

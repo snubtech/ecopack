@@ -119,7 +119,7 @@ namespace ecopack.Api.Controllers
                 RepNm = Pick(dto.RepNm, member?.RepNm) ?? "담당자미정",
                 RoleNm = Pick(dto.RoleNm, member?.RoleNm),
                 IndstNm = Pick(dto.IndstNm, member?.IndstNm),
-                CntryNm = Pick(dto.CntryNm, member?.CntryNm),
+                CntryNm = Pick(dto.CntryNm, member?.CntryNm),               
                 AddrCd = Pick(dto.AddrCd, member?.AddrCd),
                 DtlAddr1 = Pick(dto.DtlAddr1, member?.DtlAddr1),
                 DtlAddr2 = Pick(dto.DtlAddr2, member?.DtlAddr2),
