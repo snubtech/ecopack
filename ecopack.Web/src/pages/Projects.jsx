@@ -213,13 +213,17 @@ export default function Projects({ onSelectItem }) {
         const prjId = item.prjId || '';
         const prjNm = item.prjNm || '';
         const currentPackLevel = item.packLevel || item.PackLevel || '';
+        //20260918 start
+        // 세션정보에  수출국가(currentExportCountry)를  제조국가로 저장하던 부분 수정
         //const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
         //console.log('2.세션에 저장될 exportCountry:', exportCountry);
+        //sessionStorage.setItem('currentExportCountry', exportCountry);
+        //20260918 end
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
         sessionStorage.setItem('currentPrjId', prjId);
         sessionStorage.setItem('currentPackLevel', currentPackLevel);
-        //sessionStorage.setItem('currentExportCountry', exportCountry);
+       
         
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
