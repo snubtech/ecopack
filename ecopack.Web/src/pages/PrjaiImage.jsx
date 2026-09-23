@@ -291,7 +291,7 @@ export default function PrjaiImage() {
     };
 
     const handle3dstatusReload = async (item) => {
-        setLoadingMessage(`[${item.label}] 3D 상태를 조회하는 중입니다...`);
+        //setLoadingMessage(`[${item.label}] 3D 상태를 조회하는 중입니다...`);
         setIsLoading(true);
         try {
             const { prjId, packLevel } = getSessionData();
@@ -351,7 +351,7 @@ export default function PrjaiImage() {
                     return img;
                 }));
 
-                alert(`[${item.label}] 3D 상태 조회 완료 (상태: ${data.status})`);
+               // alert(`[${item.label}] 3D 상태 조회 완료 (상태: ${data.status})`);
             } else {
                 alert(data?.message || "3D 작업 상태를 불러오지 못했습니다.");
             }
