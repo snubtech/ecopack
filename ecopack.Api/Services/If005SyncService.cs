@@ -9,7 +9,8 @@
  *
  * 2. 호출 방식
  *    - POST {BaseUrl}{If005Path} 에 startCredat / endCredat / apiKey 를 JSON 으로 보냅니다.
- *    - 응답의 restList 배열을 행 단위로 읽어 if005 컬럼에 이름 그대로 옮깁니다. (ToEntity)
+ *    - 응답의 목록 배열을 행 단위로 읽어 if005 컬럼에 이름 그대로 옮깁니다. (ToEntity)
+ *      명세서에는 restList 로 되어 있지만 실제 응답은 resultList 라 둘 다 받습니다.
  *
  * 3. 저장 방식
  *    - 한 트랜잭션 안에서 기존 행을 모두 지우고 받은 행을 넣습니다.
@@ -121,9 +122,11 @@ namespace ecopack.Api.Services
                     return result;
                 }
 
-                if (!TryGetProperty(root, "restList", out var list) || list.ValueKind != JsonValueKind.Array)
+                // 명세서는 restList 이지만 실제 서버는 resultList 로 준다(2026-09-28 확인)
+                if (!(TryGetProperty(root, "resultList", out var list) || TryGetProperty(root, "restList", out list))
+                    || list.ValueKind != JsonValueKind.Array)
                 {
-                    result.ErrCntn = $"응답에 restList 가 없습니다: {Cut(body)}";
+                    result.ErrCntn = $"응답에 resultList(restList) 가 없습니다: {Cut(body)}";
                     return result;
                 }
 
@@ -163,7 +166,7 @@ namespace ecopack.Api.Services
             return result;
         }
 
-        /// <summary>restList 한 건을 if005 행으로 옮긴다. 명세서 필드명과 컬럼명이 같다.</summary>
+        /// <summary>목록 한 건을 if005 행으로 옮긴다. 명세서 필드명과 컬럼명이 같다.</summary>
         private static If005 ToEntity(JsonElement item, DateTime now) => new()
         {
             EnvImpAssId = Str(item, "envImpAssId") ?? "",
