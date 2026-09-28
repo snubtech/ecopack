@@ -145,7 +145,12 @@ export default function PrjaiImage() {
     const getSessionData = () => {
         const prjId = sessionStorage.getItem('currentPrjId') || '';
         const packLevel = sessionStorage.getItem('currentPackLevel') || '1';
-        const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
+        
+        //20260928 어니컴 협의사항:appliedMaterial 대신  포장재구분 mattype으로 데이타를 전달 요청함. start
+        //const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
+        const appliedMaterial = sessionStorage.getItem('currentMatTypeNm') || '';
+        console.log('getSessionData mattypenm:', appliedMaterial);          
+        //20260928 어니컴 협의 appliedMaterial 대신  포장재구분 mattype으로 데이타를 전달 요청 end
         return { prjId, packLevel, appliedMaterial };
     };
 
@@ -245,12 +250,13 @@ export default function PrjaiImage() {
         setLoadingMessage('AI 2D 이미지를 생성하는 중입니다...');
         setIsLoading(true);
         try {
-            const { prjId, packLevel, appliedMaterial } = getSessionData();
+            const { prjId, packLevel, appliedMaterial } = getSessionData();  //20260928 어니컴 협의사항:appliedMaterial->mattype 전달 요청하여 appliedMaterial에 .mattypenm정보를 담아서전달.
             if (!prjId || !appliedMaterial) {
                 alert('프로젝트 번호 또는 적용 소재 정보가 부족합니다.');
                 return;
             }
-            const payload = { prjId, packLevel, appliedMaterial };
+            const payload = { prjId, packLevel, appliedMaterial }; //20260928 어니컴 협의사항:appliedMaterial->mattype 전달 요청하여 appliedMaterial에 .mattypenm정보를 담아서전달.
+            console.log('2D 이미지 생성 요청 payload:', payload);
             await generate2DImage(payload);
             alert('AI 이미지 생성 작업 요청 및 저장이 완료되었습니다.');
         } catch (error) {

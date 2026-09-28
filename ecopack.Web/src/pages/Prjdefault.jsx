@@ -11,9 +11,6 @@ export default function Prjdefault({ onSelectItem }) {
     const [matFormsList, setMatFormsList] = useState([]);
 
     // 폼 입력 상태 관리
-    // 💡 프로젝트명은 신규 프로젝트 작성 시 입력한 이름과 같은 값이라, 세션에 담겨 온
-    //    값으로 화면이 뜨는 즉시(공통코드·상세정보 조회를 기다리지 않고) 채워 둔다.
-    //    아래 useEffect의 네트워크 요청 중 하나라도 실패해도 이름 칸은 항상 채워져 있다.
     const [projectName, setProjectName] = useState(() => {
         const currentPrjId = sessionStorage.getItem('currentPrjId');
         const savedNm = sessionStorage.getItem('currentPrjNm') || '';
@@ -23,6 +20,11 @@ export default function Prjdefault({ onSelectItem }) {
     const [env, setEnv] = useState('');
     const [matType, setMatType] = useState('');
     const [matForm, setMatForm] = useState('');
+
+    // 💡 수출국가 정보 상태 추가 (세션 스토리지 연동)
+    const [exportCountry, setExportCountry] = useState(() => {
+        return sessionStorage.getItem('currentExportCountry') || '';
+    });
 
     // 초기 로딩 중인지 체크하는 플래그 (타이밍 충돌 방지용)
     const isInitialLoading = useRef(true);
@@ -37,8 +39,8 @@ export default function Prjdefault({ onSelectItem }) {
                 isInitialLoading.current = true;
 
                 const [matPropData, matTypesData] = await Promise.all([
-                    getMaterialProperty(),
-                    getMattypes()
+                    getMaterialProperty(currentPackLevel),
+                    getMattypes(currentPackLevel)
                 ]);
 
                 if (matPropData) setMaterialList(matPropData);
@@ -54,13 +56,18 @@ export default function Prjdefault({ onSelectItem }) {
                             setMaterial(detailData.appliedMaterial || '');
                             setEnv(detailData.matUse || '');
                             setMatType(detailData.matType || '');
-                            // 세션보다 서버 데이터를 먼저 확실하게 심어줌
                             setMatForm(detailData.matForm || '');
+
+                            // 서버에서 받아온 수출국가 코드가 있다면 우선 반영, 없으면 기존 세션 값 유지
+                            const expCntry = detailData.prdExpCntry || sessionStorage.getItem('currentExportCountry') || '';
+                            setExportCountry(expCntry);
 
                             sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || '');
                             sessionStorage.setItem('currentEnv', detailData.matUse || '');
                             sessionStorage.setItem('currentMatType', detailData.matType || '');
+                            sessionStorage.setItem('currentMatTypeNm', detailData.matTypeNm || '');
                             sessionStorage.setItem('currentMatForm', detailData.matForm || '');
+                            sessionStorage.setItem('currentExportCountry', expCntry);
                         }
                     } catch (detailError) {
                         console.warn('저장된 기본사항이 아직 없어 넘어갑니다.', detailError);
@@ -70,6 +77,7 @@ export default function Prjdefault({ onSelectItem }) {
                     setEnv(sessionStorage.getItem('currentEnv') || '');
                     setMatType(sessionStorage.getItem('currentMatType') || '');
                     setMatForm(sessionStorage.getItem('currentMatForm') || '');
+                    setExportCountry(sessionStorage.getItem('currentExportCountry') || '');
                 }
             } catch (error) {
                 console.error('초기 데이터 로딩 에러:', error);
@@ -83,7 +91,7 @@ export default function Prjdefault({ onSelectItem }) {
         };
 
         initializeData();
-    }, []);
+    }, [currentPackLevel]);
 
     // 2. 적용 소재(material)나 포장재 종류(matType)가 바뀔 때마다 조건에 맞는 소재 형태(matForm) 목록을 가져옴
     useEffect(() => {
@@ -112,7 +120,7 @@ export default function Prjdefault({ onSelectItem }) {
         };
 
         fetchMatForms();
-    }, [material, matType, currentPackLevel]);
+    }, [material, matType, currentPackLevel, matForm]);
 
     const saveToSessionStorage = () => {
         sessionStorage.setItem('currentPrjNm', projectName);
@@ -120,11 +128,16 @@ export default function Prjdefault({ onSelectItem }) {
         sessionStorage.setItem('currentEnv', env);
         sessionStorage.setItem('currentMatType', matType);
         sessionStorage.setItem('currentMatForm', matForm);
+        sessionStorage.setItem('currentExportCountry', exportCountry); // 💡 세션에 수출국가 정보 동기화
     };
 
     const handleSave = async () => {
         saveToSessionStorage();
         const currentPrjId = sessionStorage.getItem('currentPrjId') || 'DEFAULT_PRJ_ID';
+
+        //  선택된 matType 코드에 해당하는 명칭(matTypeNm) 찾기
+        const selectedMatTypeObj = matTypesList.find(item => item.matType === matType);
+        const matTypeNm = selectedMatTypeObj ? selectedMatTypeObj.matTypeNm : '';
 
         const dto = {
             prjId: currentPrjId,
@@ -133,8 +146,10 @@ export default function Prjdefault({ onSelectItem }) {
             appliedMaterial: material,
             matUse: env,
             matType: matType,
+            matTypeNm: matTypeNm, // 선택된 포장재 종류 명칭 포함
             matForm: matForm,
-            Projstatus: 'default', // 
+            PrdExpCntry: exportCountry, // 백엔드 DTO 필드에 맞게 수출국가 정보 포함
+            Projstatus: 'default',
             prjuserid: getCurrentCustomerId()
         };
 
@@ -268,7 +283,7 @@ export default function Prjdefault({ onSelectItem }) {
                 </div>
 
                 <div className="form-footer-buttons" style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button className="btn-secondary-line" onClick={() => {}}>취소</button>
+                    <button className="btn-secondary-line" onClick={() => { }}>취소</button>
                     <button className="btn-secondary-line" onClick={handleSave} style={{ backgroundColor: '#f3f4f6' }}>저장</button>
                     <button className="btn-primary" onClick={handleNextStep}>다음단계</button>
                 </div>

@@ -18,9 +18,16 @@ namespace ecopack.Api.Controllers
 
         // 주소가 /api/common/Appliedmaterial 로 아주 짧고 깔끔해집니다. 적용소재
         [HttpGet("material")]
-        public async Task<IActionResult> GetMaterialProperty()
+        public async Task<IActionResult> GetMaterialProperty([FromQuery] string packLevel)
         {
-            var list = await _context.If001
+            // packLevel 필터링 Where 조건 추가
+            var query = _context.If001.AsQueryable();
+
+            if (!string.IsNullOrEmpty(packLevel))
+            {
+                query = query.Where(x => x.PackLevel == packLevel);
+            }
+            var list = await query
                 .GroupBy(x => new { x.AppliedMaterial, x.AppliedMaterialNm })
                 .Select(g => new MaterialPropertyDto
                 {
@@ -55,11 +62,18 @@ namespace ecopack.Api.Controllers
 
             return Ok(list);
         }
-        //주소가 /api/common/mattype ]  포장재구분
+        // 주소가 /api/common/mattype 포장재구분
         [HttpGet("mattype")]
-        public async Task<IActionResult> GetMattypeProperty()
+        public async Task<IActionResult> GetMattypeProperty([FromQuery] string packLevel)
         {
-            var list = await _context.If001
+            var query = _context.If001.AsQueryable();
+
+            if (!string.IsNullOrEmpty(packLevel))
+            {
+                query = query.Where(x => x.PackLevel == packLevel);
+            }
+
+            var list = await query
                 .GroupBy(x => new { x.MatType, x.MatTypeNm })
                 .Select(g => new MattypePropertyDto
                 {

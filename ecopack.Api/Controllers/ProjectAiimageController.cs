@@ -115,8 +115,8 @@ namespace ecopack.Api.Controllers
             {
                 return BadRequest(new { message = "요청 파라미터 정보가 누락되었습니다." });
             }
-
-            //ecofix 데이타 생성 시작
+            //20260928 AppliedMaterial의 데이타는 mattypenm 정보를 가져온상태.
+            //ecofix 데이타 생성 시작  :ecofix는 어니컴으로 전송하기위해  모의평가결과 AiPkgEvalInfoBscs테이블에서  개선사항정보(ecoFix)를 가져온다.
             var evalList = await _dbContext.AiPkgEvalInfoBscs
                 .Where(x => x.Prjid == request.PrjId
                             && x.PackLevel == request.PackLevel
@@ -127,7 +127,7 @@ namespace ecopack.Api.Controllers
                 .OrderByDescending(x => x.EcoPackLarType)
                 .ToList();
 
-            // EcoPackLarType == DsgnRecmImp,DsgnRecmImp,DsgnRecmImp, 이런식으로 묶어서 ecoFix 문자열 생성
+            // EcoPackLarType == DsgnRecmImp,DsgnRecmImp,DsgnRecmImp, 이런식으로 묶어서 ecoFix 문자열 생성 .인터페이스항목이 1개이므로 1줄로 생성.
             string ecoFix = string.Join("; ", evalList
                 .GroupBy(x => x.EcoPackLarType)
                 .Select(g => $"{g.Key}=={string.Join(" / ", g.Select(x => x.DsgnRecmImp?.Replace("\r", "").Replace("\n", " ") ?? string.Empty))}"));

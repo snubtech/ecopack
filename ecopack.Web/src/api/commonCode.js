@@ -3,10 +3,12 @@ import axiosInstance from './axiosInstance';
 /**
  * 소재 속성 목록을 조회하는 공용 함수
  */
-export const getMaterialProperty = async () => {
+export const getMaterialProperty = async (packLevel) => {
     try {
-        //  백엔드의 [HttpGet("material")] 경로와 글자 하나 안 틀리고 일치해야 합니다!
-        const response = await axiosInstance.get('/common/material');
+        // 백엔드의 [HttpGet("material")] 경로와 일치하며, packLevel을 쿼리 파라미터로 전달합니다.
+        const response = await axiosInstance.get('/common/material', {
+            params: { packLevel } // 👈 packLevel 인자 추가
+        });
         return response.data;
     } catch (error) {
         console.error('소재 정보 조회 실패:', error);
@@ -17,9 +19,12 @@ export const getPackLevels = async () => {
     const response = await axiosInstance.get('/common/packlevels');
     return response.data;
 };
-export const getMattypes = async () => {
+// packLevel 인자 추가)
+export const getMattypes = async (packLevel) => {
     try {
-        const response = await axiosInstance.get('/common/mattype');
+        const response = await axiosInstance.get('/common/mattype', {
+            params: { packLevel } // 이제 정의된 packLevel 변수를 정상적으로 참조합니다.
+        });
         return response.data;
     } catch (error) {
         console.error('포장재 종류 조회 실패:', error);

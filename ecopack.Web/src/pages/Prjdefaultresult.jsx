@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCurrentCustomerId } from '../utils/memberProfile';
-import { getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport } from '../api/projects';
+import { getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport, GetProjectDetailReport } from '../api/projects';
 
 const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     const [materials, setMaterials] = useState([]);
@@ -9,7 +9,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
     const [carconInfo, setCarconInfo] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const [reportMeta] = useState({
+    const [reportMeta, setReportMeta] = useState({
         item: '',
         itemNm: '',
         unit: '',
@@ -40,13 +40,60 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
             try {
                 setLoading(true);
 
+                const currentPrjId = prjId || sessionStorage.getItem('currentPrjId') || '';
                 const currentPackLevel = packLevel || sessionStorage.getItem('currentPackLevel') || '';
+
+                // 1. 🔍 이미 저장된 상세 리포트 데이터가 있는지 먼저 조회합니다.
+                try {
+                    const savedReport = await GetProjectDetailReport(currentPrjId, currentPackLevel);
+                    if (!isMounted) return;
+
+                    if (savedReport && (savedReport.materials?.length > 0 || savedReport.environments?.length > 0 || savedReport.massCo2Sum)) {
+                        // 저장된 데이터가 존재할 경우, 각 상태값에 바로 세팅
+                        setMaterials(savedReport.materials || []);
+                        setEnvironments(savedReport.environments || []);
+
+                        // 공정도 데이터 매핑 (기존 구조에 맞게 배열 형태로 변환)
+                        setProcessFlows([{
+                            matComp: savedReport.matComp,
+                            matCompNm: savedReport.matCompNm,
+                            memoImg: savedReport.memoImg
+                        }]);
+
+                        // 탄소배출량 정보 매핑
+                        setCarconInfo({
+                            massCo2Mat: savedReport.massCo2Mat,
+                            massCo2Proc: savedReport.massCo2Proc,
+                            massCo2Scrap: savedReport.massCo2Scrap,
+                            massCo2Sum: savedReport.massCo2Sum,
+                            unitCo2Mat: savedReport.unitCo2Mat,
+                            unitCo2Proc: savedReport.unitCo2Proc,
+                            unitCo2Scrap: savedReport.unitCo2Scrap,
+                            unitCo2Sum: savedReport.unitCo2Sum,
+                        });
+
+                        // 메타 정보 세팅
+                        setReportMeta(prev => ({
+                            ...prev,
+                            packLevelNm: savedReport.packLevelNm || '',
+                            fileData: savedReport.fileData || '',
+                        }));
+
+                        setLoading(false);
+                        return; // 저장된 데이터가 있으면 기본 API 호출은 생략
+                    }
+                } catch (err) {
+                    console.log("저장된 리포트 조회 실패 또는 데이터 없음, 신규 기본값으로 조회합니다.", err);
+                }
+
+                // 2. 🔄 저장된 데이터가 없을 경우, 기존 방식대로 세션 정보와 API를 통해 기본 평가 데이터를 조회합니다.
                 const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
                 const matType = sessionStorage.getItem('currentMatType') || '';
+                const matTypenm = sessionStorage.getItem('currentMatTypeNm') || '';
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                console.log("📌 전송 파라미터 확인:", { prjId, packLevel: currentPackLevel, appliedMaterial, matType, matform, currentExportCountry });
+                console.log("📌 전송 파라미터 확인:", { prjId: currentPrjId, packLevel: currentPackLevel, appliedMaterial, matType, matTypenm, matform, currentExportCountry });
 
                 const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
                 if (!isMounted) return;
@@ -213,7 +260,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 marginBottom: '1.5rem',
                 boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.05)'
             }}>
-                {/* 왼쪽: 제목 및 부가 정보 */}
                 <div>
                     <h2 style={{ fontSize: '1.15rem', fontWeight: 'bold', color: '#111827', margin: '0 0 0.25rem 0' }}>
                         📌 기본평가 결과 조회
@@ -223,13 +269,12 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                     </p>
                 </div>
 
-                {/* 오른쪽: 버튼 그룹 (취소, 저장, 다음) */}
-                <div style={{ display: 'flex', gap: '0.5rem' }}>                  
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                         onClick={handleSave}
                         style={{
                             padding: '0.5rem 1rem',
-                            backgroundColor: '#2563eb', // 파란색 저장 버튼 스타일
+                            backgroundColor: '#2563eb',
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '6px',
@@ -245,7 +290,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                         onClick={handleNextStep}
                         style={{
                             padding: '0.5rem 1rem',
-                            backgroundColor: '#10b981', // 초록색 다음 버튼 스타일
+                            backgroundColor: '#10b981',
                             color: '#ffffff',
                             border: 'none',
                             borderRadius: '6px',
@@ -258,6 +303,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                     </button>
                 </div>
             </div>
+
             {/* 1. 물성 정보 */}
             <div style={sectionStyle}>
                 <h3 style={titleStyle}>1. 물성</h3>
@@ -444,8 +490,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                     <p style={{ color: '#6b7280', fontSize: '0.85rem' }}>조회된 탄소배출량 정보가 없습니다.</p>
                 )}
             </div>
-
-          
         </div>
     );
 };

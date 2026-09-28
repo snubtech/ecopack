@@ -42,7 +42,12 @@ import { getCurrentCustomerId, getMemberProfile } from '../utils/memberProfile';
 // sessionStorage.setItem('currentPrjId');
 // sessionStorage.setItem('currentPackLevel');  포장차수
 // sessionStorage.setItem('currentExportCountry'); 수출국가.
-
+// sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || ''); 적용소재
+// sessionStorage.setItem('currentEnv', detailData.matUse || '');  환경구성
+// sessionStorage.setItem('currentMatType', detailData.matType || '');  포장재구성
+// sessionStorage.setItem('currentMatTypeNm', detailData.matTypeNm || ''); 포장재구성명
+// sessionStorage.setItem('currentMatForm', detailData.matForm || '');  소재구성
+// sessionStorage.setItem('currentExportCountry', expCntry);   
 
 // 1. 8개 전체 수출국 목록 및 DB 필드 매핑 정의
 const COUNTRIES = [
@@ -219,6 +224,11 @@ export default function Projects({ onSelectItem }) {
         //console.log('2.세션에 저장될 exportCountry:', exportCountry);
         //sessionStorage.setItem('currentExportCountry', exportCountry);
         //20260918 end
+        // 💡 해당 행에 매칭되는 정확한 수출국가 추출
+        const matchedCountry = COUNTRIES.find(country => item[country.field] === 'Y');
+        const displayCountry = matchedCountry ? matchedCountry.label : (item.cntryNm || item.CntryNm || '');
+        sessionStorage.setItem('currentExportCountry', displayCountry); // 👈 행별 수출국가 저장
+        console.log('세션에 저장된 currentExportCountry:', displayCountry);
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
         sessionStorage.setItem('currentPrjId', prjId);
