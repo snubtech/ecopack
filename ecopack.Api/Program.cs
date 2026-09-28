@@ -44,6 +44,30 @@ builder.Services.AddScoped<ecopack.Api.Services.ILlmChatArchiveService,
 // LlmChat:ArchiveIntervalHours 를 0 으로 두면 돌지 않는다(수동 API 는 그대로 사용 가능).
 builder.Services.AddHostedService<ecopack.Api.Services.LlmChatArchiveHostedService>();
 
+// 3-1. 기준정보 연계 API(IF005 환경영향평가정보) 수집 배치
+//      - appsettings.json 의 "EdbApi" 구역을 읽는다. API 키는 환경변수 ECOPACK_EDB_API_KEY 를 권한다.
+//      - EdbApi:If005SyncIntervalHours 를 0 으로 두면 자동 수집을 하지 않는다(수동 API 는 그대로 사용 가능).
+builder.Services.Configure<ecopack.Api.Support.EdbApiOptions>(
+    builder.Configuration.GetSection(ecopack.Api.Support.EdbApiOptions.SectionName));
+builder.Services.AddHttpClient(ecopack.Api.Services.If005SyncService.HttpClientName)
+    .ConfigurePrimaryHttpMessageHandler(sp =>
+    {
+        // 기준정보 서버는 자체 서명 인증서라 기본 검증에서 거절된다.
+        // 검증을 끄지 않고, 설정한 지문(EdbApi:CertThumbprint)과 같은 인증서만 예외로 받아 준다.
+        var thumb = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ecopack.Api.Support.EdbApiOptions>>()
+                      .Value.CertThumbprint?.Replace(":", "").Trim();
+        return new HttpClientHandler
+        {
+            ServerCertificateCustomValidationCallback = (_, cert, _, errors) =>
+                errors == System.Net.Security.SslPolicyErrors.None
+                || (!string.IsNullOrEmpty(thumb) && cert != null
+                    && string.Equals(cert.GetCertHashString(), thumb, StringComparison.OrdinalIgnoreCase))
+        };
+    });
+builder.Services.AddScoped<ecopack.Api.Services.IIf005SyncService,
+                           ecopack.Api.Services.If005SyncService>();
+builder.Services.AddHostedService<ecopack.Api.Services.If005SyncHostedService>();
+
 // 4. 외부 AI 이미지/3D 서버 연동 서비스 설정 추가 (appsettings.json의 이미지서버 주소 자동 주입)
 builder.Services.AddHttpClient<ecopack.Api.Dtos.IExternalAiService, ecopack.Api.Dtos.ExternalAiService>(client =>
 {

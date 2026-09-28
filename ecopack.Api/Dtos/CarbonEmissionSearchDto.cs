@@ -33,6 +33,7 @@ namespace ecopack.Api.Dtos
 
         public string? PackLevelNm { get; set; }        // 포장차수
         public string? AppliedMaterialNm { get; set; }  // 적용소재
+        public string? MatTypeNm { get; set; }          // 포장재 구분
         public string? MatFormNm { get; set; }          // 소재의 구성
 
         // 중량 당 탄소배출량 (kgCO2.eq/kg)
@@ -40,6 +41,7 @@ namespace ecopack.Api.Dtos
         public string? MassCo2Proc { get; set; }        // 제조
         public string? MassCo2Scrap { get; set; }       // 폐기
         public string? MassCo2Sum { get; set; }         // 합계
+        public string? MassCo2MgtVal { get; set; }      // UNIT
 
         // 단위당 탄소배출량 (kgCO2.eq/관리단위)
         public string? UnitCo2Mat { get; set; }         // 원료
@@ -47,10 +49,11 @@ namespace ecopack.Api.Dtos
         public string? UnitCo2Scrap { get; set; }       // 폐기
         public string? UnitCo2Sum { get; set; }         // 합계
         public string? UnitCo2MgtVal { get; set; }      // 관리단위
+        public string? UnitCo2Desc { get; set; }        // 비고
 
         // 물리적 인자
         public string? AreaDensity { get; set; }        // 면적당 중량 (kg/m2)
-        public string? Density { get; set; }            // 밀도 (kg/m3)
+        public string? PhyQntyUnit { get; set; }        // 단위
 
         public string? MatCompCon { get; set; }         // 원료물질 구성
         public DateTime? CreatedAt { get; set; }        // 수집일시
