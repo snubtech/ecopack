@@ -166,6 +166,9 @@ namespace ecopack.Api.Controllers
 
             //_logger.LogInformation("[AI 요청 데이터 전송] {Payload}", System.Text.Json.JsonSerializer.Serialize(requestDto, jsonOptions));
             // AI이미지 생성 요청
+           
+            Console.WriteLine($"[AI 요청 데이터 전송] {System.Text.Json.JsonSerializer.Serialize(requestDto, jsonOptions)}");
+
             AiJobResponseWrapper apiResponse = await _aiExternalService.CreateAiJobAsync(requestDto);
 
             if (apiResponse == null || !apiResponse.Success)
