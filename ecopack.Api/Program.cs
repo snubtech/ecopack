@@ -13,7 +13,13 @@ using Microsoft.IdentityModel.Tokens;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. MySQL 데이터베이스 연결 설정 추가
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//    접속 문자열은 환경변수 ECOPACK_DB_CONNECTION 을 먼저 읽고, 없으면 appsettings.json 의 값을 쓴다.
+//    지금은 모두 설정 파일 값을 쓰고 있다. 접속 정보(비밀번호 포함)를 설정 파일에서 빼려면
+//    각 PC·서버에 환경변수를 넣은 뒤 appsettings.json 의 DefaultConnection 을 지우면 된다(코드 수정 불필요).
+var dbFromEnvironment = Environment.GetEnvironmentVariable("ECOPACK_DB_CONNECTION");
+var connectionString = !string.IsNullOrWhiteSpace(dbFromEnvironment)
+    ? dbFromEnvironment
+    : builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
@@ -238,6 +244,11 @@ if (jwtSettings.UsingTemporaryKey)
 {
     app.Logger.LogWarning(
         "로그인 토큰 서명 키(ECOPACK_JWT_KEY)가 설정되지 않아 이번 실행 동안만 쓰는 임시 키를 만들었다. 서버를 다시 켜면 모두 다시 로그인해야 한다.");
+}
+if (string.IsNullOrWhiteSpace(dbFromEnvironment))
+{
+    app.Logger.LogWarning(
+        "DB 접속 정보를 설정 파일(appsettings.json)에서 읽었다. 운영 전에 환경변수 ECOPACK_DB_CONNECTION 으로 옮길 것.");
 }
 if (adminIds.Count == 0)
 {

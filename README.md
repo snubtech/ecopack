@@ -92,6 +92,17 @@ $env:ECOPACK_JWT_KEY = '만든 값'
 
 `Admin:RepCustIds`에 적힌 아이디만 관리용 API(대화 수동 백업 `POST /api/LlmChat/Archive`, IF005 수동 수집 `POST /api/If005Sync/Run`)를 부를 수 있습니다. 목록을 바꾼 뒤에는 서버를 다시 켜야 반영됩니다. 자동 백업과 자동 수집은 이 설정과 무관하게 돕니다.
 
+### DB 접속 정보 (`ECOPACK_DB_CONNECTION`)
+
+서버는 환경변수 `ECOPACK_DB_CONNECTION`의 접속 문자열을 먼저 쓰고, 없으면 `appsettings.json`의 `ConnectionStrings:DefaultConnection`을 씁니다. 지금은 설정 파일 값을 쓰고 있으며, 서버가 켜질 때 이를 알리는 경고가 로그에 한 줄 남습니다.
+
+접속 정보를 설정 파일에서 빼는 순서는 다음과 같습니다.
+
+1. 모든 개발 PC와 서버에 `ECOPACK_DB_CONNECTION`을 설정합니다. 형식은 `Server=...;Port=3306;Database=ecopackdb;Uid=...;Pwd=...;`입니다.
+2. 각자 서버를 켜서 경고가 사라졌는지 확인합니다.
+3. `appsettings.json`에서 `DefaultConnection` 값을 지웁니다.
+4. 저장소 이력에 남은 비밀번호는 DB 비밀번호를 바꿔 무효로 만듭니다.
+
 ### 대화 백업 보관 기간
 
 AI 채팅 대화는 2일이 지나면 백업 테이블과 JSON 파일(`App_Data/llmbackup`)로 옮겨집니다. 백업한 지 `LlmChat:ArchiveRetentionDays`(기본 30일)가 지난 것은 백업 테이블의 행과 파일을 함께 지웁니다. 지운 것은 되살릴 수 없습니다. `0`으로 두면 지우지 않습니다.
