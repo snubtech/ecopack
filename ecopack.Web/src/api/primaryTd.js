@@ -22,7 +22,7 @@
  *    - 문서 ID 채번(TD-1-{타임스탬프})과 작성일시 갱신은 서버가 처리합니다.
  * ==============================================================================
  */
-import axios from 'axios';
+import http, { downloadFile } from './http';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
@@ -40,7 +40,7 @@ import { getCurrentCustomerId } from '../utils/memberProfile';
  */
 export async function GetPrimaryTd(prjId) {
     // 로그인한 고객 ID를 함께 보내 본인 프로젝트의 문서인지 서버가 확인하게 한다
-    const response = await axios.get('/api/PrimaryTd/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
+    const response = await http.get('/api/PrimaryTd/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
@@ -52,7 +52,7 @@ export async function GetPrimaryTd(prjId) {
  */
 export async function SavePrimaryTd(dto) {
     // 저장도 본인 프로젝트인지 확인받는다
-    const response = await axios.post('/api/PrimaryTd/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
+    const response = await http.post('/api/PrimaryTd/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
     return response.data;
 }
 
@@ -70,7 +70,7 @@ export async function UploadAtchDoc(prjId, slot, file) {
     formData.append('slot', String(slot));
     formData.append('file', file);
 
-    const response = await axios.post('/api/PrimaryTd/UploadAtchDoc', formData, {
+    const response = await http.post('/api/PrimaryTd/UploadAtchDoc', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         // 파일 업로드도 본인 프로젝트인지 확인받는다
         params: { repCustId: getCurrentCustomerId() },
@@ -83,7 +83,7 @@ export async function UploadAtchDoc(prjId, slot, file) {
  * - 해당 슬롯의 URL/문서명을 비우고 서버의 실제 파일도 지웁니다.
  */
 export async function DeleteAtchDoc(prjId, slot) {
-    const response = await axios.delete('/api/PrimaryTd/DeleteAtchDoc', {
+    const response = await http.delete('/api/PrimaryTd/DeleteAtchDoc', {
         // 파일 삭제도 본인 프로젝트인지 확인받는다
         params: { prjId, slot, repCustId: getCurrentCustomerId() },
     });
@@ -91,17 +91,16 @@ export async function DeleteAtchDoc(prjId, slot) {
 }
 
 /**
- * 5. 첨부문서 다운로드 링크 만들기
- * - 예전엔 서버가 돌려준 경로를 그대로 <a href>에 써서 로그인 없이도 내려받혔다.
- *   지금은 첨부파일이 wwwroot 밖에 있어 URL만으로는 못 받고, 이 API(소유자 확인 통과)를
- *   거쳐야만 내려받을 수 있다. 로그인한 고객 ID를 함께 실어 보낸다.
+ * 5. 첨부문서 내려받기
+ * - 예전엔 링크(<a href>)로 내려받았다. 링크는 로그인 토큰을 실을 수 없어,
+ *   토큰을 실은 요청으로 파일 내용을 받은 뒤 브라우저에 저장시킨다.
+ * - 서버는 토큰으로 본인 프로젝트인지 확인한 뒤에만 파일을 내려준다.
  * @param {string} prjId 프로젝트 ID
- * @param {number} slot 첨부 슬롯 번호 (1~8)
- * @returns {string} <a href>에 그대로 쓸 수 있는 다운로드 URL
+ * @param {number} slot 슬롯 번호 (1~8)
+ * @param {string} [fileName] 저장할 파일 이름(서버가 알려 주지 않았을 때 쓴다)
  */
-export function getAtchDocDownloadUrl(prjId, slot) {
-    const params = new URLSearchParams({ prjId, slot, repCustId: getCurrentCustomerId() });
-    return `/api/PrimaryTd/DownloadAtchDoc?${params.toString()}`;
+export function downloadAtchDoc(prjId, slot, fileName) {
+    return downloadFile('/api/PrimaryTd/DownloadAtchDoc', { prjId, slot }, fileName || '첨부문서');
 }
 
 /**
@@ -117,7 +116,7 @@ export async function UploadMfrDrw(prjId, file) {
     formData.append('prjId', prjId);
     formData.append('file', file);
 
-    const response = await axios.post('/api/PrimaryTd/UploadMfrDrw', formData, {
+    const response = await http.post('/api/PrimaryTd/UploadMfrDrw', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         params: { repCustId: getCurrentCustomerId() },
     });
@@ -128,7 +127,7 @@ export async function UploadMfrDrw(prjId, file) {
  * 7. 제조 도면 삭제
  */
 export async function DeleteMfrDrw(prjId) {
-    const response = await axios.delete('/api/PrimaryTd/DeleteMfrDrw', {
+    const response = await http.delete('/api/PrimaryTd/DeleteMfrDrw', {
         params: { prjId, repCustId: getCurrentCustomerId() },
     });
     return response.data;

@@ -35,7 +35,8 @@
  *                평소에는 LlmChatArchiveHostedService 가 주기적으로 알아서 돕니다.
  *
  * 5. 접근 제한
- *    - 모든 조회·저장은 repCustId(로그인한 고객 ID)를 기준으로 자기 것만 다룹니다.
+ *    - 모든 조회·저장은 로그인 토큰의 고객 ID 를 기준으로 자기 것만 다룹니다.
+ *      화면이 보낸 repCustId 는 쓰지 않습니다.
  *      프로젝트를 함께 넘길 때는 ProjectAccess 로 그 프로젝트가 본인 것인지도 확인합니다.
  *      (이 프로젝트의 다른 컨트롤러들과 같은 방식입니다)
  * ==============================================================================
@@ -101,6 +102,10 @@ namespace ecopack.Api.Controllers
         [HttpPost("OpenSession")]
         public async Task<IActionResult> OpenSession([FromBody] LlmChatOpenSessionDto dto)
         {
+            // 누구의 대화인지는 로그인 토큰의 고객 ID 로 정한다. 화면이 보낸 repCustId 는 덮어써서 쓰지 않는다.
+            dto ??= new LlmChatOpenSessionDto();
+            dto.RepCustId = User.CustId();
+
             if (string.IsNullOrWhiteSpace(dto?.RepCustId))
             {
                 return BadRequest(new { success = false, message = "로그인 정보(repCustId)가 필요합니다." });
@@ -116,7 +121,7 @@ namespace ecopack.Api.Controllers
             {
                 session = new LlmChatSession
                 {
-                    ChatSesId = "S" + DateTime.Now.ToString("yyyyMMddHHmmssfff"),
+                    ChatSesId = "S" + IdGenerator.NewTimeOrderedId(),
                     RepCustId = dto.RepCustId,
                     PrjId = Blank(dto.PrjId),
                     PackLevel = Blank(dto.PackLevel),
@@ -149,12 +154,13 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // POST: api/LlmChat/CloseSession?chatSesId=xxx&repCustId=xxx
+        // POST: api/LlmChat/CloseSession?chatSesId=xxx
         // 로그아웃할 때 세션을 닫는다. 기록은 남는다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("CloseSession")]
-        public async Task<IActionResult> CloseSession([FromQuery] string chatSesId, [FromQuery] string? repCustId)
+        public async Task<IActionResult> CloseSession([FromQuery] string chatSesId)
         {
+            var repCustId = User.CustId();
             if (string.IsNullOrWhiteSpace(repCustId))
             {
                 return BadRequest(new { success = false, message = "로그인 정보(repCustId)가 필요합니다." });
@@ -194,6 +200,7 @@ namespace ecopack.Api.Controllers
         //   event: error  data: {"code":"...","message":"..."}        오류
         // ─────────────────────────────────────────────────────────────
         [HttpPost("SendStream")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.AiChat)]
         public async Task SendStream([FromBody] LlmChatSendDto dto, CancellationToken ct)
         {
             // ── 흘려보내기 전에 끝내야 하는 검사들 ──
@@ -280,9 +287,10 @@ namespace ecopack.Api.Controllers
                             break;
 
                         case EcoAiEventKind.Error:
+                            // 상세(코드·문구)는 DB(errCntn)와 서버 로그에만 남기고, 화면에는 오류가 났다는 사실만 알린다
                             errCntn = $"{ev.Code}: {ev.Message}";
                             await WriteEventAsync("error",
-                                new { code = ev.Code, message = ev.Message }, ct);
+                                new { code = "AI_ERROR", message = "AI 응답 중 오류가 발생했습니다." }, ct);
                             break;
                     }
                 }
@@ -355,7 +363,7 @@ namespace ecopack.Api.Controllers
                 userMessage = ToMsgDto(saved.UserMsg),
                 assistantMessage = ToMsgDto(saved.AiMsg),
                 elpsMsVal = elapsedMs,
-                warning,
+                warning = WarningText(warning),
                 answeredLocally,
                 contextSteps = prep.WorkContext!.Steps
             }, CancellationToken.None);
@@ -367,6 +375,7 @@ namespace ecopack.Api.Controllers
         // 스트리밍이 막히는 환경(응답을 모아 두는 중간 서버 등)을 위한 대체 경로.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Send")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.AiChat)]
         public async Task<IActionResult> Send([FromBody] LlmChatSendDto dto, CancellationToken ct)
         {
             var prep = await PrepareAsync(dto, ct);
@@ -402,7 +411,7 @@ namespace ecopack.Api.Controllers
                     AssistantMessage = ToMsgDto(saved.AiMsg),
                     AiModelNm = localUsed ? "ecopack-local" : answer.AiModelNm,
                     ElpsMsVal = answer.ElpsMsVal,
-                    Warning = answer.Warning,
+                    Warning = WarningText(answer.Warning),
                     AnsweredLocally = localUsed,
                     ContextSteps = prep.WorkContext!.Steps
                 },
@@ -448,6 +457,12 @@ namespace ecopack.Api.Controllers
         {
             var r = new PrepResult();
 
+            // 누구의 질문인지는 로그인 토큰의 고객 ID 로 정한다. 화면이 보낸 repCustId 는 덮어써서 쓰지 않는다.
+            if (dto != null)
+            {
+                dto.RepCustId = User.CustId();
+            }
+
             if (string.IsNullOrWhiteSpace(dto?.RepCustId))
             {
                 r.Error = new PrepError(400, "로그인 정보(repCustId)가 필요합니다.");
@@ -492,7 +507,7 @@ namespace ecopack.Api.Controllers
             {
                 session = new LlmChatSession
                 {
-                    ChatSesId = "S" + DateTime.Now.ToString("yyyyMMddHHmmssfff"),
+                    ChatSesId = "S" + IdGenerator.NewTimeOrderedId(),
                     RepCustId = dto.RepCustId,
                     PrjId = prjId,
                     PackLevel = Blank(dto.PackLevel),
@@ -622,15 +637,15 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // GET: api/LlmChat/GetSessions?repCustId=xxx&includeArchived=true
+        // GET: api/LlmChat/GetSessions?includeArchived=true
         // 지난 대화 목록. 백업으로 넘어간 세션도 함께 볼 수 있다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("GetSessions")]
         public async Task<IActionResult> GetSessions(
-            [FromQuery] string? repCustId,
             [FromQuery] bool includeArchived = true,
             [FromQuery] int take = 50)
         {
+            var repCustId = User.CustId();
             if (string.IsNullOrWhiteSpace(repCustId))
             {
                 return BadRequest(new { success = false, message = "로그인 정보(repCustId)가 필요합니다." });
@@ -678,12 +693,13 @@ namespace ecopack.Api.Controllers
         }
 
         // ─────────────────────────────────────────────────────────────
-        // GET: api/LlmChat/GetHistory?chatSesId=xxx&repCustId=xxx
+        // GET: api/LlmChat/GetHistory?chatSesId=xxx
         // 세션 하나의 전체 대화. 백업된 세션이면 백업 테이블에서 읽어 온다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("GetHistory")]
-        public async Task<IActionResult> GetHistory([FromQuery] string chatSesId, [FromQuery] string? repCustId)
+        public async Task<IActionResult> GetHistory([FromQuery] string chatSesId)
         {
+            var repCustId = User.CustId();
             if (string.IsNullOrWhiteSpace(repCustId))
             {
                 return BadRequest(new { success = false, message = "로그인 정보(repCustId)가 필요합니다." });
@@ -737,7 +753,7 @@ namespace ecopack.Api.Controllers
                     PrjId = m.PrjId,
                     PackLevel = m.PackLevel,
                     CurMenuId = m.CurMenuId,
-                    ErrCntn = m.ErrCntn,
+                    HasError = m.ErrCntn != null && m.ErrCntn != "",
                     FrstCrtDtm = m.FrstCrtDtm ?? DateTime.MinValue
                 })
                 .ToListAsync();
@@ -770,6 +786,7 @@ namespace ecopack.Api.Controllers
         // 평소에는 LlmChatArchiveHostedService 가 주기적으로 알아서 돈다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Archive")]
+        [Microsoft.AspNetCore.Authorization.Authorize(Policy = AuthPolicies.Admin)] // 관리자만 수동 백업을 돌릴 수 있다
         public async Task<IActionResult> Archive(CancellationToken ct)
         {
             var result = await _archive.RunAsync(ct);
@@ -811,9 +828,18 @@ namespace ecopack.Api.Controllers
             PrjId = m.PrjId,
             PackLevel = m.PackLevel,
             CurMenuId = m.CurMenuId,
-            ErrCntn = m.ErrCntn,
+            // 오류 내용(예외 문구 등)은 DB 에만 두고, 화면에는 오류가 있었는지만 알린다
+            HasError = !string.IsNullOrEmpty(m.ErrCntn),
             FrstCrtDtm = m.FrstCrtDtm
         };
+
+        /// <summary>
+        /// AI 서버가 알려 준 부분 실패 안내(warning)를 화면용 문구로 바꾼다.
+        /// 서버가 보낸 원문에는 내부 구성요소 이름이나 오류 내용이 들어 있을 수 있어 그대로 내려주지 않는다.
+        /// (원문은 DB 의 errCntn 에 남는다)
+        /// </summary>
+        private static string? WarningText(string? warning) =>
+            string.IsNullOrWhiteSpace(warning) ? null : "일부 참고 자료를 불러오지 못해 답변이 완전하지 않을 수 있습니다.";
 
         private static LlmChatSessionDto ToSessionDto(LlmChatSession s, bool archived) => new()
         {

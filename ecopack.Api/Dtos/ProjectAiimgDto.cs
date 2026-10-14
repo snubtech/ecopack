@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ecopack.Api.Data; // 💡 AiPkgEvalInfoBsc 엔티티가 있는 네임스페이스 추가
 namespace ecopack.Api.Dtos
 {
@@ -63,11 +64,14 @@ namespace ecopack.Api.Dtos
     // 프론트에서 백앤드로 CreateGlbJob 요청시 전달되는 DTO
     public class frontGlbRequestDto
     {
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string PrjId { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string PackLevel { get; set; }
         public string imagelabal { get; set; } // 백앤드에서 수신시 수신된 이미지가  3개의 이미지중  어떤것인지(H PRI,MONO,LIGHT)대한 구분
-        public string Image { get; set; }   //  2D 이미지생서 수신후 결과 이미지
-                                            //public string SourceImageId { get; set; }
+        // 더 이상 쓰지 않는다. 3D 변환에는 서버에 저장해 둔 2D 결과 이미지를 쓴다(화면이 보낸 이미지는 받지 않음).
+        // 예전 화면이 값을 실어 보내도 오류가 나지 않도록 항목만 남겨 둔다.
+        public string? Image { get; set; }
     }
 
     public class GlbJobResponseWrapper

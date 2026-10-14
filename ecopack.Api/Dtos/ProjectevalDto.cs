@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using ecopack.Api.Data; // 💡 AiPkgEvalInfoBsc 엔티티가 있는 네임스페이스 추가
 namespace ecopack.Api.Dtos
 {
@@ -9,7 +10,8 @@ namespace ecopack.Api.Dtos
         public string? PackLevel { get; set; }
         public string? PackLevelNm { get; set; }
         public string? AppliedMaterial { get; set; }
-        public string EcoPackLarType { get; set; } = null!;
+        public string? EcoPackLarType { get; set; }
+        public string? EcoPackLarTypeNm { get; set; }
         public string? EcoPackArea { get; set; }
         public string? EcoPackAreaNm { get; set; }
         public string? AsmtQstNm { get; set; }
@@ -30,8 +32,10 @@ namespace ecopack.Api.Dtos
     /// </summary>
     public class AiPkgEvalSaveDto
     {
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string prjid { get; set; } = null!;
         public string prjuserid { get; set; } = null!;
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string? packLevel { get; set; }
         public string? packLevelnm { get; set; }
         public string? appliedMaterial { get; set; }
@@ -44,6 +48,7 @@ namespace ecopack.Api.Dtos
         public string? prtAsmtQstItemId { get; set; }
         public string? asmtQstNm { get; set; }
         public string? asmtQstItemNm { get; set; }
+        // 아래 두 값은 받기만 하고 쓰지 않는다. 점수는 서버가 기준표(if200)에서 다시 정한다.
         public string? scoringCriteria { get; set; }
         public string? asmtpoint { get; set; }
         public string? natRglAls { get; set; }
@@ -56,6 +61,49 @@ namespace ecopack.Api.Dtos
     {
         public int TotalScore { get; set; } // 획득 점수 합계 (예: 89)
         public int MaxScore { get; set; }   // 만점 기준 (예: 100)
-        public List<AiPkgEvalInfoBsc> SavedItems { get; set; } = new(); // 우측 상세 규제 카드용 데이터 리스트
+        public List<AiPkgEvalItemDto> SavedItems { get; set; } = new(); // 우측 상세 규제 카드용 데이터 리스트
+    }
+
+    /// <summary>
+    /// 저장된 평가 답변 한 건의 응답용 DTO.
+    /// DB 엔티티를 그대로 내려주지 않고 화면에 필요한 항목만 담는다.
+    /// (내부 일련번호·작성자 아이디·저장일시는 싣지 않는다)
+    /// </summary>
+    public class AiPkgEvalItemDto
+    {
+        public string? PackLevel { get; set; }
+        public string? PackLevelNm { get; set; }
+        public string? AppliedMaterial { get; set; }
+        public string? EcoPackLarType { get; set; }
+        public string? EcoPackAreaNm { get; set; }
+        public string? AsmtQstId { get; set; }
+        public string? AsmtQstItemId { get; set; }
+        public string? NextAsmtQstId { get; set; }
+        public string? PrtAsmtQstItemId { get; set; }
+        public string? AsmtQstNm { get; set; }
+        public string? AsmtQstItemNm { get; set; }
+        public string? ScoringCriteria { get; set; }
+        public string? Asmtpoint { get; set; }
+        public string? NatRglAls { get; set; }
+        public string? DsgnRecmImp { get; set; }
+
+        public static AiPkgEvalItemDto From(AiPkgEvalInfoBsc e) => new()
+        {
+            PackLevel = e.PackLevel,
+            PackLevelNm = e.PackLevelNm,
+            AppliedMaterial = e.AppliedMaterial,
+            EcoPackLarType = e.EcoPackLarType,
+            EcoPackAreaNm = e.EcoPackAreaNm,
+            AsmtQstId = e.AsmtQstId,
+            AsmtQstItemId = e.AsmtQstItemId,
+            NextAsmtQstId = e.NextAsmtQstId,
+            PrtAsmtQstItemId = e.PrtAsmtQstItemId,
+            AsmtQstNm = e.AsmtQstNm,
+            AsmtQstItemNm = e.AsmtQstItemNm,
+            ScoringCriteria = e.ScoringCriteria,
+            Asmtpoint = e.Asmtpoint,
+            NatRglAls = e.NatRglAls,
+            DsgnRecmImp = e.DsgnRecmImp
+        };
     }
 }

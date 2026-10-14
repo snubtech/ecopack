@@ -13,6 +13,12 @@ namespace ecopack.Api.Controllers
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _env;
 
+        /// <summary>디자인 템플릿 목록의 페이지당 최대 건수</summary>
+        private const int MaxTemplatePageSize = 100;
+
+        /// <summary>공정도 조회로 한 번에 내려줄 최대 건수(행마다 이미지가 들어 있다)</summary>
+        private const int MaxProcessFlowRows = 50;
+
         public ProjectsController(AppDbContext context, IWebHostEnvironment env)
         {
             _context = context;
@@ -21,22 +27,15 @@ namespace ecopack.Api.Controllers
 
         // GET: api/projects (최근 프로젝트 목록 조회)
         // 프로젝트는 만든 사람만 볼 수 있다.
-        // 화면이 로그인한 고객 ID(repCustId)를 함께 보내면 그 회원의 것만 돌려준다.
+        // 로그인 토큰의 고객 ID 로 그 회원의 것만 돌려준다(화면이 보낸 값은 쓰지 않는다).
         // 예전 데이터는 repCustId 가 비어 있고 prjuserid 만 있는 경우가 있어 두 컬럼을 모두 본다.
         [HttpGet("GetProjects")]
-        public async Task<IActionResult> GetProjects([FromQuery] string? repCustId)
+        public async Task<IActionResult> GetProjects()
         {
-            var query = _context.Project.AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(repCustId))
-            {
-                query = query.Where(x => x.RepCustId == repCustId || x.Prjuserid == repCustId);
-            }
-            else
-            {
-                // 로그인 정보를 받지 못하면 남의 프로젝트가 보이지 않도록 빈 목록을 돌려준다
-                query = query.Where(x => false);
-            }
+            var repCustId = User.CustId();
+            var query = _context.Project
+                .AsNoTracking()
+                .Where(x => x.RepCustId == repCustId || x.Prjuserid == repCustId);
 
             var list = await query
                 .OrderByDescending(x => x.PrjId) // 최신순 정렬
@@ -88,15 +87,46 @@ namespace ecopack.Api.Controllers
                 return BadRequest("전달된 데이터가 없습니다.");
             }
 
-            // 💡 프론트에서 prjId를 보내주었으면 그 걸 쓰고, 없으면 새로 채번!
-            string targetPrjId = !string.IsNullOrEmpty(dto.PrjId)
-                ? dto.PrjId
-                : $"{DateTime.Now:yyyyMMddHHmmssfff}";
+            if (dto.PackLevel != "1" && dto.PackLevel != "2" && dto.PackLevel != "3")
+            {
+                return BadRequest(new { success = false, message = "포장차수(packLevel)는 1, 2, 3 중 하나여야 합니다." });
+            }
 
             // 프로젝트에는 그 프로젝트를 만든 회원의 정보를 함께 남긴다.
             // 화면에서 넘어오지 않는 회사·담당자 항목은 customer(고객기본)에서 직접 읽어 채운다.
-            // 고객 ID는 화면이 보내준 repCustId 를 쓰고, 없으면 로그인 아이디(prjuserid)로 찾는다.
-            var custId = !string.IsNullOrWhiteSpace(dto.RepCustId) ? dto.RepCustId : dto.Prjuserid;
+            // 만든 사람은 로그인 토큰의 고객 ID 다. 화면이 보낸 repCustId / prjuserid 는 쓰지 않는다
+            // (남의 아이디를 적어 보내 그 사람 이름으로 프로젝트를 만드는 것을 막는다).
+            var custId = User.CustId();
+
+            // 프로젝트 번호는 서버만 채번한다.
+            // 화면이 번호를 보내는 경우는 "이미 만든 내 프로젝트에 다른 포장차수를 추가"할 때뿐이다.
+            // 그래서 보내온 번호는 새 번호로 쓰지 않고, 그 번호가 이미 있고 전부 본인 것일 때만 받아 준다.
+            // (번호가 폴더 이름에도 쓰이므로, 임의의 값을 받으면 업로드 폴더 밖을 건드릴 수 있다.)
+            string targetPrjId;
+            if (string.IsNullOrWhiteSpace(dto.PrjId))
+            {
+                // 번호는 기존과 같은 시각 17자리다. 같은 순간에 들어온 요청끼리 겹치지 않게 내주고,
+                // 다른 서버(같은 DB 를 쓰는 다른 PC)가 이미 쓴 번호면 다음 번호로 넘어간다.
+                do
+                {
+                    targetPrjId = IdGenerator.NewTimestampId();
+                }
+                while (await _context.Project.AnyAsync(p => p.PrjId == targetPrjId));
+            }
+            else
+            {
+                if (!await ProjectAccess.OwnsEveryLevelAsync(_context, dto.PrjId, custId))
+                {
+                    return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+                }
+
+                if (await _context.Project.AnyAsync(p => p.PrjId == dto.PrjId && p.PackLevel == dto.PackLevel))
+                {
+                    return Conflict(new { success = false, message = "이미 같은 포장차수의 프로젝트가 있습니다." });
+                }
+
+                targetPrjId = dto.PrjId;
+            }
             Customer? member = null;
             if (!string.IsNullOrWhiteSpace(custId))
             {
@@ -111,9 +141,9 @@ namespace ecopack.Api.Controllers
 
             var newProject = new Project
             {
-                PrjId = targetPrjId, // 👈 채번된(또는 전달받은) ID 사용
+                PrjId = targetPrjId, // 👈 서버가 채번했거나, 본인 것으로 확인된 기존 번호
                 PrjNm = dto.PrjNm,
-                RepCustId = Pick(dto.RepCustId, member?.RepCustId ?? custId),
+                RepCustId = custId,
                 BizNo = Pick(dto.BizNo, member?.BizNo),
                 BizNm = Pick(dto.BizNm, member?.BizNm),
                 RepNm = Pick(dto.RepNm, member?.RepNm) ?? "담당자미정",
@@ -138,7 +168,7 @@ namespace ecopack.Api.Controllers
                 PrdPkgSeq2 = dto.PrdPkgSeq2,
                 PrdPkgSeq3 = dto.PrdPkgSeq3,
                 PrjRevNo = "Rev.01",
-                Prjuserid = dto.Prjuserid,
+                Prjuserid = custId,
                 Prjmemo = dto.Prjmemo,
                 PackLevel = dto.PackLevel,
                 PrjFcrtDt = DateOnly.FromDateTime(DateTime.Now)
@@ -160,16 +190,15 @@ namespace ecopack.Api.Controllers
         /// POST: api/projects/detail
         /// </summary>
         [HttpPost("detail")]
-        public async Task<IActionResult> SaveProjectDetail([FromBody] ProjectDetailSaveDto dto, [FromQuery] string? repCustId)
+        public async Task<IActionResult> SaveProjectDetail([FromBody] ProjectDetailSaveDto dto)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            // 본인이 만든 프로젝트만 저장할 수 있다.
-            // 고객 ID는 쿼리로 받은 값을 먼저 쓰고, 없으면 화면이 담아 보낸 작성자 아이디를 쓴다.
-            var owner = !string.IsNullOrWhiteSpace(repCustId) ? repCustId : dto.Prjuserid;
+            // 본인이 만든 프로젝트만 저장할 수 있다. 본인 여부는 로그인 토큰의 고객 ID 로만 판단한다.
+            var owner = User.CustId();
             if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, owner))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
@@ -203,7 +232,7 @@ namespace ecopack.Api.Controllers
                         PrdExpCntry = dto.PrdExpCntry,
                         PrdExpCntryNm = dto.PrdExpCntryNm,
 
-                        Prjuserid = dto.Prjuserid, // 💡 신규 저장 시 반영
+                        Prjuserid = owner, // 작성자는 토큰의 고객 ID 로 기록한다
                         Updatedate = DateTime.Now
                     };
 
@@ -226,7 +255,7 @@ namespace ecopack.Api.Controllers
                     detail.Projstatus = dto.Projstatus;
                     detail.PrdExpCntry = dto.PrdExpCntry;
                     detail.PrdExpCntryNm = dto.PrdExpCntryNm;
-                    detail.Prjuserid = dto.Prjuserid; // 💡 수정 저장 시 반영
+                    detail.Prjuserid = owner; // 작성자는 토큰의 고객 ID 로 기록한다
                     detail.Updatedate = DateTime.Now;
 
                     _context.ProjectDetail.Update(detail);
@@ -234,15 +263,15 @@ namespace ecopack.Api.Controllers
 
                 await _context.SaveChangesAsync();
 
-                return Ok(new { success = true, message = "성공적으로 저장되었습니다.", data = detail });
+                return Ok(new { success = true, message = "성공적으로 저장되었습니다.", data = ProjectDetailDto.From(detail) });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "저장 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "저장 중 오류가 발생했습니다.");
             }
         }
         [HttpGet("Getdetail")]
-        public async Task<IActionResult> GetProjectDetail([FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string? repCustId)
+        public async Task<IActionResult> GetProjectDetail([FromQuery] string prjId, [FromQuery] string packLevel)
         {
             if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
             {
@@ -250,7 +279,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트만 열 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -263,11 +292,12 @@ namespace ecopack.Api.Controllers
                 {
                     return NotFound(new { success = false, message = "해당하는 프로젝트 상세 정보를 찾을 수 없습니다." });
                 }
-                return Ok(detail);
+                // DB 엔티티를 그대로 내려주지 않고 화면에 필요한 항목만 담아 보낸다
+                return Ok(ProjectDetailDto.From(detail));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "조회 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "조회 중 오류가 발생했습니다.");
             }
         }
 
@@ -280,8 +310,7 @@ namespace ecopack.Api.Controllers
         [HttpDelete("DeleteProject")]
         public async Task<IActionResult> DeleteProject(
             [FromQuery] string prjId,
-            [FromQuery] string packLevel,
-            [FromQuery] string? repCustId)
+            [FromQuery] string packLevel)
         {
             if (string.IsNullOrWhiteSpace(prjId) || string.IsNullOrWhiteSpace(packLevel))
             {
@@ -289,7 +318,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트만 지울 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -359,7 +388,7 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "삭제 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "삭제 중 오류가 발생했습니다.");
             }
         }
 
@@ -380,7 +409,7 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 // 파일 정리에 실패해도 삭제 자체는 이미 끝났으므로 요청을 실패시키지 않는다
-                Console.WriteLine($"[DeleteProject] 첨부파일 정리 실패 prjId={prjId} packLevel={packLevel}: {ex.Message}");
+                this.LogFailure(ex, $"첨부파일 정리 실패 prjId={prjId} packLevel={packLevel}");
             }
         }
 
@@ -486,11 +515,18 @@ namespace ecopack.Api.Controllers
             [FromQuery] int page = 1,       // 프론트에서 넘어오는 페이지 번호 (기본값 1)
             [FromQuery] int pageSize = 20)  // 프론트에서 넘어오는 페이지당 개수 (기본값 20)
         {
+            // 한 번에 가져갈 수 있는 양을 제한한다. 템플릿은 행마다 이미지가 들어 있어 특히 무겁다.
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > MaxTemplatePageSize) pageSize = MaxTemplatePageSize;
+
             try
             {
                 // 1. 현재 프로젝트/포장차수에 해당하는 project_detail 정보에서 선택된 템플릿 ID(PackDsgnTplId) 조회
                 string? selectedTplId = null;
-                if (!string.IsNullOrEmpty(prjId) && !string.IsNullOrEmpty(packLevel))
+                // 본인 프로젝트일 때만 "지금 고른 템플릿"을 알려 준다. 템플릿 목록 자체는 공용 기준 데이터다.
+                if (!string.IsNullOrEmpty(prjId) && !string.IsNullOrEmpty(packLevel)
+                    && await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
                 {
                     var projectDetail = await _context.ProjectDetail // 엔티티명은 실제 DbContext에 등록된 이름으로 확인해주세요
                         .AsNoTracking()
@@ -558,12 +594,18 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return this.Failure(ex, ApiFailure.DefaultMessage);
             }
         }
         [HttpPost("templateUpdate")]
         public async Task<IActionResult> templateUpdate([FromBody] ProjecttemplateUpdateDto dto)
         {
+            // 본인이 만든 프로젝트만 바꿀 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
+            }
+
             try
             {
                 // 1. prjId와 packLevel을 기준으로 프로젝트 디테일(또는 대상 테이블) 조회
@@ -576,7 +618,7 @@ namespace ecopack.Api.Controllers
                 }
                 // 2. packDsgnTplId 갱신
                 projectDetail.PackDsgnTplId = dto.PackDsgnTplId;
-                projectDetail.Prjuserid = dto.Prjuserid;
+                projectDetail.Prjuserid = User.CustId(); // 작성자는 토큰의 고객 ID 로 기록한다
                 projectDetail.Updatedate = DateTime.Now; // 필요시 수정일자 추가
                 projectDetail.Projstatus = "template"; // 필요시 상태 변경
 
@@ -586,7 +628,7 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return this.Failure(ex, ApiFailure.DefaultMessage);
             }
         }
 
@@ -610,7 +652,14 @@ namespace ecopack.Api.Controllers
          [FromQuery] string appliedMaterial,
          [FromQuery] string matType)
         {
-            var query = _context.If001.AsQueryable();
+            // 적용소재 없이 부르면 기준 테이블 전체를 메모리로 읽게 된다.
+            // 화면은 항상 적용소재를 정한 뒤에 부르므로, 없으면 빈 목록을 돌려준다.
+            if (string.IsNullOrWhiteSpace(appliedMaterial))
+            {
+                return Ok(new List<GetMaterialListDto>());
+            }
+
+            var query = _context.If001.AsNoTracking().AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(packLevel))
                 query = query.Where(x => x.PackLevel == packLevel);
@@ -721,22 +770,35 @@ namespace ecopack.Api.Controllers
             [FromQuery] string appliedMaterial,
             [FromQuery] string matType)
         {
-            var query = _context.If003a.AsQueryable();
+            // 적용소재와 포장재 종류가 모두 있어야 한다.
+            // 조건 없이 부르면 이미지가 든 행을 전부 내려주게 되므로 빈 목록을 돌려준다.
+            if (string.IsNullOrWhiteSpace(appliedMaterial) || string.IsNullOrWhiteSpace(matType))
+            {
+                return Ok(new List<GetProcessFlowListDto>());
+            }
 
-            if (!string.IsNullOrWhiteSpace(appliedMaterial))
-                query = query.Where(x => x.AppliedMaterial == appliedMaterial);
-            if (!string.IsNullOrWhiteSpace(matType))
-                query = query.Where(x => x.MatType == matType);
+            var rows = await _context.If003a
+                .AsNoTracking()
+                .Where(x => x.AppliedMaterial == appliedMaterial && x.MatType == matType)
+                .OrderBy(x => x.Idx)
+                .Take(MaxProcessFlowRows)
+                .Select(x => new { x.MatComp, x.MatCompNm, x.MemoImg, x.FileData })
+                .ToListAsync();
 
-            var list = await query
-                .Select(x => new GetProcessFlowListDto
+            // memoImg 는 참조 시스템에서 받아온 HTML 이다. 화면에 그대로 넣으면 HTML 주입이 되므로
+            // 이미지 주소만 골라 내려주고, memoImg 자체도 그 이미지들만 담은 <img> 태그로 다시 만든다.
+            var list = rows.Select(x =>
+            {
+                var uris = ImageDataUri.ExtractAll(x.MemoImg);
+                return new GetProcessFlowListDto
                 {
                     MatComp = x.MatComp,
                     MatCompNm = x.MatCompNm,
-                    MemoImg = x.MemoImg,
+                    MemoImg = ImageDataUri.ToImgHtml(uris),
+                    MemoImageUris = uris,
                     FileData = x.FileData
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
             return Ok(list);
         }
@@ -788,7 +850,7 @@ namespace ecopack.Api.Controllers
         /// POST: api/projects/detailreport
         /// </summary>
         [HttpPost("detailreport")]
-        public async Task<IActionResult> SaveProjectDetailReport([FromBody] ProjectDetailReportSaveDto dto, [FromQuery] string? repCustId)
+        public async Task<IActionResult> SaveProjectDetailReport([FromBody] ProjectDetailReportSaveDto dto)
         {
             // 만약 dto 자체가 null로 들어오는 경우를 대비
             if (dto == null)
@@ -801,8 +863,8 @@ namespace ecopack.Api.Controllers
                 return BadRequest(ModelState);
             }
 
-            // 본인이 만든 프로젝트만 저장할 수 있다.
-            var owner = !string.IsNullOrWhiteSpace(repCustId) ? repCustId : dto.Prjuserid;
+            // 본인이 만든 프로젝트만 저장할 수 있다. 본인 여부는 로그인 토큰의 고객 ID 로만 판단한다.
+            var owner = User.CustId();
             if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, owner))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
@@ -842,7 +904,7 @@ namespace ecopack.Api.Controllers
                     {
                         PrjId = dto.PrjId,
                         PackLevel = dto.PackLevel,
-                        Prjuserid = dto.Prjuserid,
+                        Prjuserid = owner, // 작성자는 토큰의 고객 ID 로 기록한다
                         PackLevelNm = dto.PackLevelNm,
                         AppliedMaterial = dto.AppliedMaterial,
                         AppliedMaterialNm = dto.AppliedMaterialNm,
@@ -897,7 +959,7 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                return StatusCode(500, new { success = false, message = "리포트 저장 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "리포트 저장 중 오류가 발생했습니다.");
             }
         }
 
@@ -905,11 +967,17 @@ namespace ecopack.Api.Controllers
         /// GET: api/projects/detailreport?prjId=...&packLevel=...
         /// </summary>
         [HttpGet("Getdetailreport")]
-        public async Task<IActionResult> GetProjectDetailReport([FromQuery] string prjId, [FromQuery] string packLevel, [FromQuery] string? repCustId)
+        public async Task<IActionResult> GetProjectDetailReport([FromQuery] string prjId, [FromQuery] string packLevel)
         {
             if (string.IsNullOrWhiteSpace(prjId) || string.IsNullOrWhiteSpace(packLevel))
             {
                 return BadRequest(new { success = false, message = "필수 파라미터(prjId, packLevel)가 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트의 리포트만 볼 수 있다
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
 
             // 1. 해당 프로젝트 및 차수의 모든 행 조회

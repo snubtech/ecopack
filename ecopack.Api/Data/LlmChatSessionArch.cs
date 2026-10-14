@@ -43,6 +43,6 @@ public partial class LlmChatSessionArch
     /// <summary>백업처리일시</summary>
     public DateTime ArchDtm { get; set; }
 
-    /// <summary>백업 JSON 파일 경로</summary>
+    /// <summary>백업 JSON 파일 경로. 백업 폴더(LlmChat:ArchiveDirectory) 기준 상대 경로다.</summary>
     public string? ArchFileUrl { get; set; }
 }

@@ -49,7 +49,6 @@ export default function Prjdefault({ onSelectItem }) {
                 if (currentPrjId && currentPrjId !== 'DEFAULT_PRJ_ID') {
                     try {
                         const detailData = await GetProjectDetail(currentPrjId, currentPackLevel);
-                        console.log("📌 데이터를 불러왔습니다.", detailData);
                         if (detailData) {
                             setMaterial(detailData.appliedMaterial || '');
                             setEnv(detailData.matUse || '');
@@ -95,14 +94,13 @@ export default function Prjdefault({ onSelectItem }) {
 
             try {
                 const formsData = await getMatForms(currentPackLevel, material, matType);
-                console.log("📦 받아온 소재 형태 목록:", formsData);
                 setMatFormsList(formsData || []);
 
                 // 초기 로딩 중이 아닐 때만, 목록에 현재 선택된 matForm이 없으면 초기화 수행
                 if (!isInitialLoading.current && formsData) {
                     const exists = formsData.some(item => item.matForm === matForm);
                     if (!exists && matForm !== '') {
-                        console.log("⚠️ 기존 선택된 형식이 목록에 없어 초기화합니다.");
+                        // 기존에 선택된 형식이 목록에 없으면 초기화한다
                         setMatForm('');
                     }
                 }
@@ -249,7 +247,6 @@ export default function Prjdefault({ onSelectItem }) {
                         className="form-select"
                         value={matForm}
                         onChange={(e) => {
-                            console.log("선택된 소재 형태:", e.target.value);
                             setMatForm(e.target.value);
                         }}
                         disabled={!material || !matType}

@@ -91,14 +91,13 @@ namespace ecopack.Api.Support
                 .FirstOrDefaultAsync(c => c.RepCustId == repCustId, ct);
             if (member != null)
             {
+                // 이 글은 외부 AI 서버로 그대로 전송된다.
+                // 답변에 필요한 회사 단위 정보만 싣고, 개인을 알아볼 수 있는 항목
+                // (고객 ID, 대표자명, 담당자명, 이메일)은 싣지 않는다.
                 sb.AppendLine("## 로그인한 회원(제조사) 정보");
-                sb.AppendLine($"- 고객 ID: {member.RepCustId}");
                 AppendIf(sb, "회사(법인/개인사업)명", member.BizNm);
-                AppendIf(sb, "대표자명", member.RoleNm);
-                AppendIf(sb, "담당자/직책", member.RepNm);
                 AppendIf(sb, "업종", member.IndstNm);
                 AppendIf(sb, "국가", member.CntryNm);
-                AppendIf(sb, "이메일", member.EmlAddr);
                 sb.AppendLine();
             }
 

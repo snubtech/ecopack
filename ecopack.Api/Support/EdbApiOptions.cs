@@ -48,5 +48,12 @@ namespace ecopack.Api.Support
 
         /// <summary>IF005 자동 수집 주기(시간). 0 이하면 자동 실행하지 않는다.</summary>
         public int If005SyncIntervalHours { get; set; } = 24;
+
+        /// <summary>
+        /// 받은 건수가 "기존 건수 × 이 비율"보다 적으면 교체하지 않고 기존 데이터를 유지한다.
+        /// 상대 서버가 일부만 내려준 경우에 대비한 안전장치다. 0 이하면 검사하지 않는다.
+        /// (기준정보가 실제로 크게 줄어든 경우에는 이 값을 낮추고 수동으로 한 번 실행한다)
+        /// </summary>
+        public double If005MinRowRatio { get; set; } = 0.5;
     }
 }

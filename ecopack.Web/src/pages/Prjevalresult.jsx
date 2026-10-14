@@ -62,7 +62,6 @@ function Prjevalresult({ onSelectItem }) {
 
     // 버튼 클릭 핸들러 추가
     const handleGoProjectStatus = () => {
-        //console.log('프로젝트 현황 보기 이동');
         if (typeof onSelectItem === 'function') {
             onSelectItem('project-history');
         } else {
@@ -72,7 +71,6 @@ function Prjevalresult({ onSelectItem }) {
     };
 
     const handleGoAiImage = () => {
-        console.log('AI 추천 이미지 생성 이동');
         if (typeof onSelectItem === 'function') {
             onSelectItem('PrjaiImage');
         } else {

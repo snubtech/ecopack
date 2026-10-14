@@ -26,6 +26,7 @@
  * ==============================================================================
  */
 import { useState } from 'react';
+import { checkPassword, checkNewId, checkContact, PASSWORD_MAX_LENGTH, PASSWORD_RULE_TEXT } from '../utils/passwordPolicy';
 import { authApi } from '../api/auth';
 
 /**
@@ -42,9 +43,9 @@ const SECTIONS = [
     {
         title: '계정 정보',
         fields: [
-            { key: 'repCustId',  label: '아이디',     required: true, maxLength: 50, autoComplete: 'username' },
-            { key: 'repCustPwd', label: '비밀번호',   required: true, type: 'password', autoComplete: 'new-password' },
-            { key: 'pwdConfirm', label: '비밀번호 확인', required: true, type: 'password', autoComplete: 'new-password' },
+            { key: 'repCustId',  label: '아이디',     required: true, maxLength: 20, autoComplete: 'username', hint: '영문·숫자와 . _ - @ 로 4~20자' },
+            { key: 'repCustPwd', label: '비밀번호',   required: true, type: 'password', autoComplete: 'new-password', maxLength: PASSWORD_MAX_LENGTH, hint: PASSWORD_RULE_TEXT },
+            { key: 'pwdConfirm', label: '비밀번호 확인', required: true, type: 'password', autoComplete: 'new-password', maxLength: PASSWORD_MAX_LENGTH },
         ],
     },
     {
@@ -131,6 +132,14 @@ export default function JoinPage({ onDone, onCancel }) {
         }
         if (form.repCustPwd !== form.pwdConfirm) {
             setError('비밀번호가 서로 일치하지 않습니다.');
+            return;
+        }
+        // 서버도 같은 규칙으로 다시 검사한다. 여기서는 보내기 전에 바로 고칠 수 있게 알려 준다.
+        const ruleError = checkNewId(form.repCustId.trim())
+            || checkPassword(form.repCustPwd, form.repCustId)
+            || checkContact(form);
+        if (ruleError) {
+            setError(ruleError);
             return;
         }
         if (idChecked !== true) {

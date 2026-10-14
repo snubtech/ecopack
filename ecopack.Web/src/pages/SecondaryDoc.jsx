@@ -41,7 +41,7 @@ import {
     SaveSecondaryDoc,
     UploadEvdDoc,
     DeleteEvdDoc,
-    getEvdDocDownloadUrl,
+    downloadEvdDoc,
 } from '../api/secondaryDoc';
 import { fillFromMember } from '../utils/memberProfile';
 import { applyDocxColumnWidths } from '../utils/docxTable';
@@ -800,7 +800,7 @@ export default function SecondaryDoc() {
                                             placeholder="파일을 올리면 자동으로 채워집니다" />
                                     </td>
                                     <td className="td-noprint">
-                                        <input type="file" style={{ display: 'none' }}
+                                        <input type="file" accept=".doc,.docx,.ppt,.pptx,.xls,.xlsx,.hwp,.hwpx,.pdf" style={{ display: 'none' }}
                                             ref={(el) => { fileInputRefs.current[slot] = el; }}
                                             onChange={(e) => handleUpload(slot, e.target.files?.[0])} />
                                         <div className="td-atch-actions">
@@ -808,7 +808,10 @@ export default function SecondaryDoc() {
                                                 onClick={() => handlePickFile(slot)}>업로드</button>
                                             {url && (
                                                 <>
-                                                    <a className="td-link" href={getEvdDocDownloadUrl(prjId, slot)} target="_blank" rel="noreferrer" title={nm || undefined}>다운로드</a>
+                                                    <button type="button" className="td-link" title={nm || undefined}
+                                                        onClick={() => downloadEvdDoc(prjId, slot, nm).catch((e) => alert(e.message))}>
+                                                        다운로드
+                                                    </button>
                                                     <button type="button" className="td-btn td-btn-sm"
                                                         onClick={() => handleDeleteFile(slot)}>파일 삭제</button>
                                                 </>
@@ -968,7 +971,7 @@ const TD_STYLES = `
 .td-textarea { resize: none; overflow: hidden; line-height: 1.7; display: block; margin: 6px 0; }
 
 .td-atch-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.td-link { font-size: 12px; color: #2563eb; text-decoration: underline; }
+.td-link { font-size: 12px; color: #2563eb; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
 .td-closing { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
 
 /* 화면 전용 / 추출(PDF·DOCX) 전용 요소 전환 */

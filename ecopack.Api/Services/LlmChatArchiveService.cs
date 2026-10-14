@@ -115,13 +115,14 @@ namespace ecopack.Api.Services
                     try
                     {
                         filePath = await WriteJsonAsync(baseDir, session, messages, ct);
-                        result.Files.Add(filePath);
+                        result.ArchivedFiles++;
                     }
                     catch (Exception ex)
                     {
                         // 파일을 못 써도 DB 백업은 계속한다. 대신 어디서 막혔는지 남긴다.
+                        // 파일 쓰기 예외 문구에는 서버의 절대 경로가 들어 있으므로 응답에는 싣지 않고 로그에만 남긴다.
                         _logger.LogError(ex, "대화 백업 파일 쓰기 실패. 세션 {ChatSesId}", session.ChatSesId);
-                        result.ErrCntn = $"일부 세션의 백업 파일을 쓰지 못했다: {ex.Message}";
+                        result.ErrCntn = "일부 세션의 백업 파일을 쓰지 못했다. 서버 로그를 확인할 것.";
                     }
 
                     // ② 백업 테이블 이관 + 원본 삭제 (한 묶음)
@@ -186,7 +187,7 @@ namespace ecopack.Api.Services
                         _db.ChangeTracker.Clear();
 
                         _logger.LogError(ex, "대화 백업 DB 이관 실패. 세션 {ChatSesId}", session.ChatSesId);
-                        result.ErrCntn = $"일부 세션을 백업 테이블로 옮기지 못했다: {ex.Message}";
+                        result.ErrCntn = "일부 세션을 백업 테이블로 옮기지 못했다. 서버 로그를 확인할 것.";
                     }
                 }
 
@@ -202,7 +203,9 @@ namespace ecopack.Api.Services
             }
         }
 
-        /// <summary>세션 하나를 JSON 파일로 떨어뜨리고 그 경로를 돌려준다.</summary>
+        /// <summary>세션 하나를 JSON 파일로 떨어뜨리고 그 경로를 돌려준다.
+        /// 돌려주는 값은 백업 폴더(LlmChat:ArchiveDirectory) 기준 상대 경로다(예: 20261001/세션ID.json).
+        /// 서버의 절대 경로가 DB 나 응답으로 새어 나가지 않게 하기 위해서다.</summary>
         private static async Task<string> WriteJsonAsync(
             string baseDir, LlmChatSession session, List<LlmChatMsg> messages, CancellationToken ct)
         {
@@ -252,7 +255,7 @@ namespace ecopack.Api.Services
             };
 
             await File.WriteAllTextAsync(path, JsonSerializer.Serialize(payload, JsonOpt), ct);
-            return path;
+            return $"{dayFolder}/{safeName}.json";
         }
     }
 }

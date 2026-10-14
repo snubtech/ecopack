@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getMemoImageUris } from '../utils/memoImage';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 import { getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport } from '../api/projects';
 
@@ -45,8 +46,6 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 const matType = sessionStorage.getItem('currentMatType') || '';
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
-
-                console.log("📌 전송 파라미터 확인:", { prjId, packLevel: currentPackLevel, appliedMaterial, matType, matform, currentExportCountry });
 
                 const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
                 if (!isMounted) return;
@@ -343,11 +342,13 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                                 <div style={{ fontWeight: '600', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}>
                                     재질 구성: {proc.matCompNm || proc.matComp || '-'}
                                 </div>
-                                {proc.memoImg ? (
-                                    <div
-                                        style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}
-                                        dangerouslySetInnerHTML={{ __html: proc.memoImg }}
-                                    />
+                                {/* memoImg(HTML)는 그대로 넣지 않고 이미지 주소만 골라 <img> 로 그린다 */}
+                                {getMemoImageUris(proc).length > 0 ? (
+                                    <div style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}>
+                                        {getMemoImageUris(proc).map((src, i) => (
+                                            <img key={i} src={src} alt="공정도" style={{ maxWidth: '100%', height: 'auto' }} />
+                                        ))}
+                                    </div>
                                 ) : (
                                     <div style={{ color: '#9ca3af', fontSize: '0.75rem', textAlign: 'center' }}>등록된 공정도 이미지가 없습니다.</div>
                                 )}

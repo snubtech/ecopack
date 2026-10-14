@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useAuth } from "../context/AuthProvider";
 
 export default function LoginPage({ onJoin, joinedId }) {
-  const { login } = useAuth()
+  // notice: 세션 만료처럼 로그인 화면에 함께 보여 줄 안내
+  const { login, notice } = useAuth()
   // 회원가입을 막 마치고 돌아온 경우 아이디를 미리 채워 준다
   const [userNo, setUserNo] = useState(joinedId || '')
   const [password, setPassword] = useState('')
@@ -57,6 +58,7 @@ export default function LoginPage({ onJoin, joinedId }) {
             />
           </label>
 
+          {!error && notice && <p className="error">{notice}</p>}
           {error && <p className="error">{error}</p>}
 
           <button type="submit" className="primary-button" disabled={submitting}>

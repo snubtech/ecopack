@@ -7,6 +7,7 @@
  *    - IF005(환경영향평가정보) 수집을 지금 바로 한 번 돌리는 수동 실행 API 입니다. (Run)
  *    - 평소에는 If005SyncHostedService 가 주기적으로 알아서 돕니다.
  *    - 테이블을 새로 만든 직후처럼 바로 데이터를 채워야 할 때 씁니다.
+ *    - 관리자(Admin:RepCustIds 설정에 적힌 고객 ID)만 부를 수 있습니다.
  * ==============================================================================
  */
 using Microsoft.AspNetCore.Mvc;
@@ -16,6 +17,7 @@ namespace ecopack.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy = ecopack.Api.Support.AuthPolicies.Admin)] // 관리자만 수동 수집을 돌릴 수 있다
     public class If005SyncController : ControllerBase
     {
         private readonly IIf005SyncService _sync;

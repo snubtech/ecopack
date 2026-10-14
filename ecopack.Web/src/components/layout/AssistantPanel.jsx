@@ -329,7 +329,7 @@ export default function AssistantPanel({ currentMenu, projectInfo }) {
                             <span className="chat-source-badge">저장된 프로젝트 값으로 정리한 답변</span>
                         )}
 
-                        <div className={`chat-bubble chat-bubble-${m.chatRoleCd} ${m.errCntn ? 'chat-bubble-error' : ''}`}>
+                        <div className={`chat-bubble chat-bubble-${m.chatRoleCd} ${m.hasError ? 'chat-bubble-error' : ''}`}>
                             {m.chatRoleCd === 'assistant' ? renderMarkdown(m.chatMsgCntn) : m.chatMsgCntn}
                         </div>
 

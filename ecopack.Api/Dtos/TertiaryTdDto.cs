@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 /**
  * ==============================================================================
  * [프로그램 전체 흐름 및 구조 요약] - TertiaryTdDto (기술문서 주고받기용 자료 묶음)
@@ -36,6 +37,7 @@ namespace ecopack.Api.Dtos
         public DateTime? LastWrtDtm { get; set; }
 
         // ── 1. 제품 식별 정보 ─────────────────────────────────
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
         public string? PrjfNm { get; set; }
         public string? BizNm { get; set; }

@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './context/AuthProvider'
 import DashboardLayout from './components/layout/DashboardLayout'
 import LoginPage from './pages/LoginPage.jsx'
 import JoinPage from './pages/JoinPage.jsx'
-import SimpleApiTest from './pages/SimpleApiTest.jsx'
 import './styles/global.css'
 import './styles/dashboard.css'
 
@@ -62,16 +61,6 @@ function AppContent() {
             })
         }
     }, [isAuthenticated, logout]) // 💡 이제 린트 경고가 발생하지 않습니다.
-
-    //  testpage 임시기동 시장  삭제요망  20260909 mys
-    // 📌 3. 모든 훅이 실행된 이후에 안전하게 조건문(라우트 체크 등)을 작성합니다.
-    const isTestRoute = window.location.pathname.includes('/dev-api-test')
-    if (isTestRoute) {
-        return <SimpleApiTest />
-    }
-    //  testpage 임시기동 종료
-
-
 
     if (loading) {
         return <p className="loading-text">세션 확인 중...</p>

@@ -189,7 +189,11 @@ export default function MaterialProperty() {
                 rows: items,
                 cellText,
             });
-            setMessage(`${items.length.toLocaleString()}건을 내려받았습니다.`);
+            // 서버는 한 번에 내려주는 건수에 상한을 둔다. 전체 건수보다 적게 왔으면 알려 준다.
+            const total = res?.data?.totalCount ?? items.length;
+            setMessage(total > items.length
+                ? `전체 ${total.toLocaleString()}건 중 ${items.length.toLocaleString()}건까지만 내려받았습니다. 조회조건을 좁혀 다시 시도해 주세요.`
+                : `${items.length.toLocaleString()}건을 내려받았습니다.`);
         } catch (err) {
             console.error('엑셀 내려받기 실패:', err);
             alert('내려받기 중 오류가 발생했습니다.');

@@ -1,4 +1,4 @@
-import axios from 'axios';
+import http from './http';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
@@ -7,7 +7,7 @@ import { getCurrentCustomerId } from '../utils/memberProfile';
  */
 export async function getProjects() {
     // 본인이 만든 프로젝트만 받아온다
-    const response = await axios.get('/api/Projects/GetProjects', {
+    const response = await http.get('/api/Projects/GetProjects', {
         params: { repCustId: getCurrentCustomerId() },
     });
     return response.data;
@@ -18,7 +18,7 @@ export async function getProjects() {
  * - 백엔드의 [HttpPost("CreateProject")]에 맞춰 /api/Projects/CreateProject로 호출합니다.
  */
 export async function createProject(dto) {
-    const response = await axios.post('/api/Projects/CreateProject', dto);
+    const response = await http.post('/api/Projects/CreateProject', dto);
     return response.data;
 }
 
@@ -28,7 +28,7 @@ export async function createProject(dto) {
  * - 포장차수(packLevel) 단위로 지웁니다. 2차만 넘기면 2차 프로젝트와 2차 기술문서/적합성선언서만 삭제됩니다.
  */
 export async function deleteProject(prjId, packLevel) {
-    const response = await axios.delete('/api/Projects/DeleteProject', {
+    const response = await http.delete('/api/Projects/DeleteProject', {
         params: { prjId, packLevel, repCustId: getCurrentCustomerId() },
     });
     return response.data;
@@ -38,7 +38,7 @@ export async function deleteProject(prjId, packLevel) {
  * 3. 프로젝트 템플릿 정보 조회 함수
  */
 export async function GetProjecttemplate(params) {
-    const response = await axios.get('/api/Projects/template', { params });
+    const response = await http.get('/api/Projects/template', { params });
     return response.data;
 }
 
@@ -47,7 +47,7 @@ export async function GetProjecttemplate(params) {
  */
 export async function SaveProjectDetail(dto) {
     // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
-    const response = await axios.post('/api/Projects/detail', dto, {
+    const response = await http.post('/api/Projects/detail', dto, {
         params: { repCustId: getCurrentCustomerId() },
     });
     return response.data;
@@ -57,7 +57,7 @@ export async function SaveProjectDetail(dto) {
  * 5. 프로젝트 상세 정보 조회 함수
  */
 export async function GetProjectDetail(prjId, packLevel) {
-    const response = await axios.get('/api/Projects/Getdetail', {
+    const response = await http.get('/api/Projects/Getdetail', {
         // 본인이 만든 프로젝트만 조회할 수 있으므로 로그인한 고객 ID를 함께 보낸다
         params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
     });
@@ -68,7 +68,7 @@ export async function GetProjectDetail(prjId, packLevel) {
  * 6. 프로젝트 상세 정보 저장 함수 (템플릿 수정)
  */
 export async function templateUpdate(dto) {
-    const response = await axios.post('/api/Projects/templateUpdate', dto);
+    const response = await http.post('/api/Projects/templateUpdate', dto);
     return response.data;
 }
 
@@ -77,7 +77,7 @@ export async function templateUpdate(dto) {
  * - 백엔드의 [HttpGet("GetLatestEvalQuestions")]에 맞춰 호출합니다.
  */
 export async function getLatestEvalQuestions(packLevel, appliedMaterial) {
-    const response = await axios.get('/api/Projecteval/GetLatestEvalQuestions', {
+    const response = await http.get('/api/Projecteval/GetLatestEvalQuestions', {
         params: { packLevel, appliedMaterial }
     });
     return response.data;
@@ -88,7 +88,7 @@ export async function getLatestEvalQuestions(packLevel, appliedMaterial) {
  * - 백엔드의 [HttpPost("SaveEvalResults")]에 맞춰 호출합니다.
  */
 export async function saveEvalResults(saveDtos) {
-    const response = await axios.post('/api/Projecteval/SaveEvalResults', saveDtos);
+    const response = await http.post('/api/Projecteval/SaveEvalResults', saveDtos);
     return response.data;
 }
 
@@ -98,7 +98,7 @@ export async function saveEvalResults(saveDtos) {
  */
 export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
     try {
-        const response = await axios.get('/api/projecteval/GetSavedEvalResults', {
+        const response = await http.get('/api/projecteval/GetSavedEvalResults', {
             params: { prjId, prjUserId, packLevel }
         });
         return response.data;
@@ -114,7 +114,7 @@ export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
  */
 export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
     try {
-        const { data } = await axios.get('/api/projecteval/GetEvalSummary', {
+        const { data } = await http.get('/api/projecteval/GetEvalSummary', {
             params: { prjId, prjUserId, packLevel }
         });
         return data;
@@ -133,7 +133,7 @@ export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
  * - 백엔드의 [HttpGet("Getmaterial")]에 맞춰 호출합니다.
  */
 export async function getMaterial(packLevel, appliedMaterial, matType) {
-    const response = await axios.get('/api/Projects/Getmaterial', {
+    const response = await http.get('/api/Projects/Getmaterial', {
         params: { packLevel, appliedMaterial, matType }
     });
     return response.data;
@@ -144,7 +144,7 @@ export async function getMaterial(packLevel, appliedMaterial, matType) {
  * - 백엔드의 [HttpGet("Getenvironment")]에 맞춰 호출합니다.
  */
 export async function getEnvironment(packLevel, appliedMaterial, exportCountry) {
-    const response = await axios.get('/api/Projects/Getenvironment', {
+    const response = await http.get('/api/Projects/Getenvironment', {
         params: { packLevel, appliedMaterial, exportCountry }
     });
     return response.data;
@@ -155,7 +155,7 @@ export async function getEnvironment(packLevel, appliedMaterial, exportCountry) 
  * - 백엔드의 [HttpGet("Getprocessflow")]에 맞춰 호출합니다.
  */
 export async function getProcessFlow(appliedMaterial, matType) {
-    const response = await axios.get('/api/Projects/Getprocessflow', {
+    const response = await http.get('/api/Projects/Getprocessflow', {
         params: { appliedMaterial, matType }
     });
     return response.data;
@@ -166,7 +166,7 @@ export async function getProcessFlow(appliedMaterial, matType) {
  * - 백엔드의 [HttpGet("Getcarconinfo")]에 맞춰 호출합니다.
  */
 export async function getCarconInfo(packLevel, appliedMaterial, matform) {
-    const response = await axios.get('/api/Projects/Getcarconinfo', {
+    const response = await http.get('/api/Projects/Getcarconinfo', {
         params: { packLevel, appliedMaterial, matform }
     });
     return response.data;
@@ -178,7 +178,7 @@ export async function getCarconInfo(packLevel, appliedMaterial, matform) {
  */
 export async function SaveProjectDetailReport(dto) {
     // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
-    const response = await axios.post('/api/Projects/detailreport', dto, {
+    const response = await http.post('/api/Projects/detailreport', dto, {
         params: { repCustId: getCurrentCustomerId() },
     });
     return response.data;
@@ -188,7 +188,7 @@ export async function SaveProjectDetailReport(dto) {
  * 16. 프로젝트 상세 리포트 정보 조회 함수
  */
 export async function GetProjectDetailReport(prjId, packLevel) {
-    const response = await axios.get('/api/Projects/Getdetailreport', {
+    const response = await http.get('/api/Projects/Getdetailreport', {
         params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
     });
     return response.data;
@@ -201,7 +201,7 @@ export async function GetProjectDetailReport(prjId, packLevel) {
 // 수정 후 (GET 방식 + 쿼리 파라미터 전달)
 export const getDesignTemplate = async (prjId, packLevel) => {
     try {
-        const response = await axios.get('/api/ProjectAiimage/GetDesignTemplate', {
+        const response = await http.get('/api/ProjectAiimage/GetDesignTemplate', {
             params: {
                 prjId: prjId,
                 packLevel: packLevel
@@ -217,7 +217,7 @@ export const getDesignTemplate = async (prjId, packLevel) => {
 // 18. 2D AI 이미지 생성 요청 및 저장 함수
 export async function generate2DImage(payload) {
     try {
-        const response = await axios.post('/api/ProjectAiimage/Generate2DImage', payload);
+        const response = await http.post('/api/ProjectAiimage/Generate2DImage', payload);
         return response.data;
     } catch (error) {
         console.error('2D AI 이미지 생성 요청 실패:', error);
@@ -227,7 +227,8 @@ export async function generate2DImage(payload) {
 // 19. 2D AI 이미지 생성 작업상태 조회 함수 (경로 변수 방식으로 원복)
 export const getAiJobStatus = async (prjId, packLevel) => {
     try {
-        const response = await axios.get(`/api/ProjectAiimage/GetAiJobStatus/${prjId}/${packLevel}`);
+        // 경로에 끼워 넣는 값은 인코딩한다. 값에 / ? # 같은 문자가 있어도 다른 주소로 바뀌지 않는다.
+        const response = await http.get(`/api/ProjectAiimage/GetAiJobStatus/${encodeURIComponent(prjId)}/${encodeURIComponent(packLevel)}`);
         return response.data;
     } catch (error) {
         console.error('AI 작업 상태 조회 실패:', error);
@@ -237,7 +238,7 @@ export const getAiJobStatus = async (prjId, packLevel) => {
 // 20. 3D AI 이미지(GLB) 변환 요청 함수
 export async function createGlbJob(payload) {
     try {
-        const response = await axios.post('/api/ProjectAiimage/CreateGlbJob', payload);
+        const response = await http.post('/api/ProjectAiimage/CreateGlbJob', payload);
         return response.data;
     } catch (error) {
         console.error('3D 이미지(GLB) 변환 요청 실패:', error);
@@ -248,7 +249,7 @@ export async function createGlbJob(payload) {
 // 21. 3D AI 이미지(GLB) 작업 상태 조회 함수
 export const getGlbJobStatus = async (prjId, packLevel, itemlabel ) => {
     try {
-        const response = await axios.get(`/api/ProjectAiimage/GetGlbJobStatus/${prjId}/${packLevel}/${itemlabel}`);
+        const response = await http.get(`/api/ProjectAiimage/GetGlbJobStatus/${encodeURIComponent(prjId)}/${encodeURIComponent(packLevel)}/${encodeURIComponent(itemlabel)}`);
         return response.data;
     } catch (error) {
         console.error('3D 작업 상태 조회 실패:', error);

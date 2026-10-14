@@ -207,7 +207,7 @@ export default function Projects({ onSelectItem }) {
             setProjectList(data);
 
         } catch (err) {
-            alert('프로젝트 등록 중 오류가 발생했습니다.');
+            alert(err?.response?.data?.message || '프로젝트 등록 중 오류가 발생했습니다.');
             console.error(err);
         }
     };

@@ -16,9 +16,12 @@
  *    - 한 트랜잭션 안에서 기존 행을 모두 지우고 받은 행을 넣습니다.
  *      중간에 실패하면 되돌려서 기존 데이터가 그대로 남습니다.
  *    - 응답이 오류이거나 0건이면 지우지 않습니다. (일시 장애로 화면이 비는 일을 막기 위해)
+ *    - 받은 건수가 기존보다 크게 줄었을 때도 지우지 않습니다. (EdbApi:If005MinRowRatio, 기본 0.5)
+ *    - 자동 수집과 수동 실행이 겹치지 않도록 한 번에 하나만 돕니다.
  *
  * 4. 결과
- *    - 받은 건수·저장 건수·오류 내용을 If005SyncResult 로 돌려줍니다.
+ *    - 받은 건수·저장 건수·오류 요약을 If005SyncResult 로 돌려줍니다.
+ *    - 상대 서버의 응답 원문과 예외 문구는 응답에 싣지 않고 서버 로그에만 남깁니다.
  * ==============================================================================
  */
 using System.Net.Http.Json;
@@ -50,13 +53,22 @@ namespace ecopack.Api.Services
         /// <summary>if005 에 저장한 건수</summary>
         public int SavedCount { get; set; }
 
-        /// <summary>오류 내용. 비어 있으면 성공</summary>
+        /// <summary>
+        /// 오류 요약. 비어 있으면 성공.
+        /// 상대 서버의 응답 원문이나 예외 문구는 여기에 싣지 않고 서버 로그에만 남긴다.
+        /// </summary>
         public string? ErrCntn { get; set; }
     }
 
     public class If005SyncService : IIf005SyncService
     {
         public const string HttpClientName = "EdbApi";
+
+        /// <summary>
+        /// 동시에 두 번 돌지 않게 막는 문.
+        /// 자동 수집과 수동 실행(API)이 겹치면 "전부 지우고 다시 넣기"가 서로 엇갈릴 수 있다.
+        /// </summary>
+        private static readonly SemaphoreSlim Gate = new(1, 1);
 
         private readonly AppDbContext _context;
         private readonly IHttpClientFactory _httpFactory;
@@ -89,6 +101,13 @@ namespace ecopack.Api.Services
                 return result;
             }
 
+            // 이미 돌고 있으면 기다리지 않고 바로 돌려보낸다
+            if (!await Gate.WaitAsync(0, ct))
+            {
+                result.ErrCntn = "IF005 수집이 이미 실행 중입니다.";
+                return result;
+            }
+
             try
             {
                 // 1) API 호출
@@ -106,7 +125,8 @@ namespace ecopack.Api.Services
                 var body = await res.Content.ReadAsStringAsync(ct);
                 if (!res.IsSuccessStatusCode)
                 {
-                    result.ErrCntn = $"HTTP {(int)res.StatusCode}: {Cut(body)}";
+                    _logger.LogWarning("IF005 API 오류 응답 — HTTP {Status}: {Body}", (int)res.StatusCode, Cut(body));
+                    result.ErrCntn = $"기준정보 서버가 오류를 응답했습니다. (HTTP {(int)res.StatusCode})";
                     return result;
                 }
 
@@ -118,7 +138,9 @@ namespace ecopack.Api.Services
                 result.ResultCode = FindString(root, "resultCode", "rsltCode", "code");
                 if (result.ResultCode != null && result.ResultCode != "0000")
                 {
-                    result.ErrCntn = $"결과코드 {result.ResultCode}: {FindString(root, "resultMsg", "rsltMsg", "message") ?? Cut(body)}";
+                    _logger.LogWarning("IF005 API 결과코드 {Code}: {Msg}",
+                        result.ResultCode, FindString(root, "resultMsg", "rsltMsg", "message") ?? Cut(body));
+                    result.ErrCntn = "기준정보 서버가 실패 결과코드를 응답했습니다.";
                     return result;
                 }
 
@@ -126,7 +148,8 @@ namespace ecopack.Api.Services
                 if (!(TryGetProperty(root, "resultList", out var list) || TryGetProperty(root, "restList", out list))
                     || list.ValueKind != JsonValueKind.Array)
                 {
-                    result.ErrCntn = $"응답에 resultList(restList) 가 없습니다: {Cut(body)}";
+                    _logger.LogWarning("IF005 응답에 resultList(restList) 가 없다: {Body}", Cut(body));
+                    result.ErrCntn = "기준정보 서버의 응답 형식이 예상과 다릅니다.";
                     return result;
                 }
 
@@ -141,6 +164,17 @@ namespace ecopack.Api.Services
                 {
                     // 0건이면 일시 장애일 수 있어 기존 데이터를 지우지 않는다
                     result.ErrCntn = "받은 데이터가 0건이라 기존 데이터를 유지했습니다.";
+                    return result;
+                }
+
+                // 받은 건수가 지금 저장된 건수보다 크게 줄었으면 교체하지 않는다.
+                // 상대 서버가 일부만 내려준 경우(장애·조회조건 오류)에 멀쩡한 데이터를 잃지 않기 위해서다.
+                var currentCount = await _context.If005.CountAsync(ct);
+                var ratio = _opt.If005MinRowRatio;
+                if (ratio > 0 && currentCount > 0 && rows.Count < currentCount * ratio)
+                {
+                    _logger.LogWarning("IF005 수집 중단 — 받은 {New}건이 기존 {Old}건의 {Ratio:P0} 미만", rows.Count, currentCount, ratio);
+                    result.ErrCntn = $"받은 데이터({rows.Count}건)가 기존({currentCount}건)보다 크게 줄어 기존 데이터를 유지했습니다.";
                     return result;
                 }
 
@@ -160,7 +194,11 @@ namespace ecopack.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "IF005 수집 중 오류");
-                result.ErrCntn = ex.Message;
+                result.ErrCntn = "IF005 수집 중 오류가 발생했습니다. 서버 로그를 확인해 주세요.";
+            }
+            finally
+            {
+                Gate.Release();
             }
 
             return result;
@@ -240,7 +278,7 @@ namespace ecopack.Api.Services
             return null;
         }
 
-        /// <summary>오류 메시지에 응답 본문을 실을 때 너무 길지 않게 자른다.</summary>
+        /// <summary>로그에 응답 본문을 남길 때 너무 길지 않게 자른다.</summary>
         private static string Cut(string s) => s.Length <= 300 ? s : s[..300] + "…";
     }
 }

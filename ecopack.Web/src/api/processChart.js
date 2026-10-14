@@ -17,7 +17,8 @@
  *    - 목록 조회에서 pageSize 를 0 으로 보내면 전체를 받아옵니다(엑셀 내려받기용).
  * ==============================================================================
  */
-import axios from 'axios';
+import http from './http';
+import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 라이브러리 > 공정도 API 클라이언트
@@ -26,7 +27,7 @@ import axios from 'axios';
 
 /** 1. 조회조건 셀렉트 목록 (적용소재) */
 export async function GetProcessChartFilters() {
-    const response = await axios.get('/api/ProcessChart/GetFilters');
+    const response = await http.get('/api/ProcessChart/GetFilters');
     return response.data;
 }
 
@@ -36,7 +37,10 @@ export async function GetProcessChartFilters() {
  *   pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용
  */
 export async function GetProcessChartList(params) {
-    const response = await axios.get('/api/ProcessChart/GetList', { params });
+    // 전체 조회(pageSize 0, 엑셀용)는 로그인한 회원만 쓸 수 있어 고객 ID 를 함께 보낸다
+    const response = await http.get('/api/ProcessChart/GetList', {
+        params: { ...params, repCustId: getCurrentCustomerId() },
+    });
     return response.data;
 }
 
@@ -45,6 +49,6 @@ export async function GetProcessChartList(params) {
  * - 응답에 이미지가 실리므로 행을 펼칠 때만 호출합니다.
  */
 export async function GetProcessChartDetail(packMmftProcId) {
-    const response = await axios.get('/api/ProcessChart/GetDetail', { params: { packMmftProcId } });
+    const response = await http.get('/api/ProcessChart/GetDetail', { params: { packMmftProcId } });
     return response.data;
 }

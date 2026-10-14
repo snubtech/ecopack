@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 /**
  * ==============================================================================
  * [프로그램 전체 흐름 및 구조 요약] - CustomerAccountDto (회원가입 / 회원정보 자료 묶음)
@@ -22,7 +23,9 @@ namespace ecopack.Api.Dtos
     /// </summary>
     public class CustomerJoinDto
     {
+        [StringLength(ecopack.Api.Support.InputRules.CustomerIdMax, ErrorMessage = "아이디는 50자를 넘을 수 없습니다.")]
         public string RepCustId { get; set; } = string.Empty;   // 아이디
+        [StringLength(ecopack.Api.Support.InputRules.PasswordInputMax, ErrorMessage = "비밀번호가 너무 깁니다.")]
         public string RepCustPwd { get; set; } = string.Empty;  // 비밀번호
 
         public string? BizNo { get; set; }        // 법인등록번호/개인사업자번호
@@ -35,8 +38,11 @@ namespace ecopack.Api.Dtos
         public string? AddrCd { get; set; }       // 우편번호
         public string? DtlAddr1 { get; set; }     // 상세주소(도로명)
         public string? DtlAddr2 { get; set; }     // 상세주소(동/호수)
+        [RegularExpression(ecopack.Api.Support.InputRules.Email, ErrorMessage = ecopack.Api.Support.InputRules.EmailMessage)]
         public string? EmlAddr { get; set; }      // 이메일
+        [RegularExpression(ecopack.Api.Support.InputRules.Phone, ErrorMessage = ecopack.Api.Support.InputRules.PhoneMessage)]
         public string? RepTelNo { get; set; }     // 대표번호
+        [RegularExpression(ecopack.Api.Support.InputRules.Phone, ErrorMessage = ecopack.Api.Support.InputRules.PhoneMessage)]
         public string? MblTelNo { get; set; }     // 휴대폰번호
     }
 
@@ -44,6 +50,7 @@ namespace ecopack.Api.Dtos
     public class CustomerProfileUpdateDto : CustomerJoinDto
     {
         /// <summary>비밀번호를 바꾸려면 현재 비밀번호를 함께 보낸다</summary>
+        [StringLength(ecopack.Api.Support.InputRules.PasswordInputMax, ErrorMessage = "비밀번호가 너무 깁니다.")]
         public string? CurrentPwd { get; set; }
     }
 
