@@ -15,15 +15,14 @@
  * 
  * 3. 소유자 확인
  *    - 문서는 그 프로젝트를 만든 회원만 열고 저장할 수 있습니다.
- *    - 그래서 모든 요청에 로그인한 고객 ID(repCustId)를 함께 보내고,
- *      서버가 본인 프로젝트가 맞는지 확인한 뒤 처리합니다. 남의 것이면 403 이 옵니다.
+ *    - 누구의 요청인지는 서버가 로그인 토큰에서 알아내고(공통 모듈 http.js 가 토큰을 자동으로 싣습니다),
+ *      본인 프로젝트가 맞는지 확인한 뒤 처리합니다. 남의 것이면 403 이 옵니다.
  * 
  * 4. 알아둘 점
  *    - 문서 ID 채번(TD-2-{타임스탬프})과 작성일시 갱신은 서버가 처리합니다.
  * ==============================================================================
  */
 import http, { downloadFile } from './http';
-import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 1차포장 2차 기술문서(secondary_td) API 클라이언트
@@ -40,7 +39,7 @@ import { getCurrentCustomerId } from '../utils/memberProfile';
  */
 export async function GetSecondaryTd(prjId) {
     // 로그인한 고객 ID를 함께 보내 본인 프로젝트의 문서인지 서버가 확인하게 한다
-    const response = await http.get('/api/SecondaryTd/Get', { params: { prjId, repCustId: getCurrentCustomerId() } });
+    const response = await http.get('/api/SecondaryTd/Get', { params: { prjId } });
     return response.data;
 }
 
@@ -52,7 +51,7 @@ export async function GetSecondaryTd(prjId) {
  */
 export async function SaveSecondaryTd(dto) {
     // 저장도 본인 프로젝트인지 확인받는다
-    const response = await http.post('/api/SecondaryTd/Save', dto, { params: { repCustId: getCurrentCustomerId() } });
+    const response = await http.post('/api/SecondaryTd/Save', dto);
     return response.data;
 }
 
@@ -72,8 +71,6 @@ export async function UploadAtchDoc(prjId, slot, file) {
 
     const response = await http.post('/api/SecondaryTd/UploadAtchDoc', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        // 파일 업로드도 본인 프로젝트인지 확인받는다
-        params: { repCustId: getCurrentCustomerId() },
     });
     return response.data;
 }
@@ -85,7 +82,7 @@ export async function UploadAtchDoc(prjId, slot, file) {
 export async function DeleteAtchDoc(prjId, slot) {
     const response = await http.delete('/api/SecondaryTd/DeleteAtchDoc', {
         // 파일 삭제도 본인 프로젝트인지 확인받는다
-        params: { prjId, slot, repCustId: getCurrentCustomerId() },
+        params: { prjId, slot },
     });
     return response.data;
 }
@@ -118,7 +115,6 @@ export async function UploadMfrDrw(prjId, file) {
 
     const response = await http.post('/api/SecondaryTd/UploadMfrDrw', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
-        params: { repCustId: getCurrentCustomerId() },
     });
     return response.data;
 }
@@ -128,7 +124,7 @@ export async function UploadMfrDrw(prjId, file) {
  */
 export async function DeleteMfrDrw(prjId) {
     const response = await http.delete('/api/SecondaryTd/DeleteMfrDrw', {
-        params: { prjId, repCustId: getCurrentCustomerId() },
+        params: { prjId },
     });
     return response.data;
 }

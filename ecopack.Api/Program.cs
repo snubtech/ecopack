@@ -217,6 +217,16 @@ builder.Services.AddHttpClient<ecopack.Api.Dtos.IExternalAiService, ecopack.Api.
     var baseUrl = builder.Configuration["ExternalAiSettings:BaseUrl"]
                   ?? throw new InvalidOperationException("ExternalAiSettings:BaseUrl is not configured in appsettings.json.");
     client.BaseAddress = new Uri(baseUrl);
+
+    // 지금 이미지 AI 서버는 인증을 요구하지 않는다. 나중에 서버가 API 키를 요구하면
+    // 환경변수 ECOPACK_IMAGE_AI_API_KEY 에 키를 넣기만 하면 모든 요청에 실어 보낸다(코드 수정 불필요).
+    // 헤더 이름은 ExternalAiSettings:ApiKeyHeader 로 바꿀 수 있다(기본 X-API-Key). 키는 설정 파일에 적지 않는다.
+    var imageAiKey = Environment.GetEnvironmentVariable("ECOPACK_IMAGE_AI_API_KEY");
+    if (!string.IsNullOrWhiteSpace(imageAiKey))
+    {
+        client.DefaultRequestHeaders.Add(
+            builder.Configuration["ExternalAiSettings:ApiKeyHeader"] ?? "X-API-Key", imageAiKey);
+    }
 });
 
 // (참고) IHttpContextAccessor는 다른 곳에서 필요할 수 있어 남겨두거나 필요 없으면 제거 가능합니다.

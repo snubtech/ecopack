@@ -18,7 +18,6 @@
  * ==============================================================================
  */
 import http from './http';
-import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 라이브러리 > 공정도 API 클라이언트
@@ -37,10 +36,7 @@ export async function GetProcessChartFilters() {
  *   pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용
  */
 export async function GetProcessChartList(params) {
-    // 전체 조회(pageSize 0, 엑셀용)는 로그인한 회원만 쓸 수 있어 고객 ID 를 함께 보낸다
-    const response = await http.get('/api/ProcessChart/GetList', {
-        params: { ...params, repCustId: getCurrentCustomerId() },
-    });
+    const response = await http.get('/api/ProcessChart/GetList', { params });
     return response.data;
 }
 

@@ -137,6 +137,11 @@ namespace ecopack.Api.Dtos
         public int ArchivedMessages { get; set; }
         /// <summary>백업 파일을 쓴 건수. 서버 경로가 드러나지 않게 파일 경로는 싣지 않는다.</summary>
         public int ArchivedFiles { get; set; }
+
+        /// <summary>보관 기간이 지나 지운 백업 세션 / 메시지 / 파일 건수</summary>
+        public int PurgedSessions { get; set; }
+        public int PurgedMessages { get; set; }
+        public int PurgedFiles { get; set; }
         public string? ErrCntn { get; set; }
     }
 }

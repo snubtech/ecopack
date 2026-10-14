@@ -1,5 +1,4 @@
 import http from './http';
-import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 1. 프로젝트 목록 조회 함수
@@ -7,9 +6,7 @@ import { getCurrentCustomerId } from '../utils/memberProfile';
  */
 export async function getProjects() {
     // 본인이 만든 프로젝트만 받아온다
-    const response = await http.get('/api/Projects/GetProjects', {
-        params: { repCustId: getCurrentCustomerId() },
-    });
+    const response = await http.get('/api/Projects/GetProjects');
     return response.data;
 }
 
@@ -29,7 +26,7 @@ export async function createProject(dto) {
  */
 export async function deleteProject(prjId, packLevel) {
     const response = await http.delete('/api/Projects/DeleteProject', {
-        params: { prjId, packLevel, repCustId: getCurrentCustomerId() },
+        params: { prjId, packLevel },
     });
     return response.data;
 }
@@ -46,10 +43,7 @@ export async function GetProjecttemplate(params) {
  * 4. 프로젝트 상세 정보 저장 함수
  */
 export async function SaveProjectDetail(dto) {
-    // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
-    const response = await http.post('/api/Projects/detail', dto, {
-        params: { repCustId: getCurrentCustomerId() },
-    });
+    const response = await http.post('/api/Projects/detail', dto);
     return response.data;
 }
 
@@ -58,8 +52,7 @@ export async function SaveProjectDetail(dto) {
  */
 export async function GetProjectDetail(prjId, packLevel) {
     const response = await http.get('/api/Projects/Getdetail', {
-        // 본인이 만든 프로젝트만 조회할 수 있으므로 로그인한 고객 ID를 함께 보낸다
-        params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
+        params: { prjId: prjId, packLevel: packLevel }
     });
     return response.data;
 }
@@ -99,7 +92,7 @@ export async function saveEvalResults(saveDtos) {
 export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
     try {
         const response = await http.get('/api/projecteval/GetSavedEvalResults', {
-            params: { prjId, prjUserId, packLevel }
+            params: { prjId, packLevel } // 누구의 평가인지는 서버가 로그인 토큰으로 판단한다
         });
         return response.data;
     } catch (error) {
@@ -115,7 +108,7 @@ export const getSavedEvalResults = async (prjId, prjUserId, packLevel) => {
 export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
     try {
         const { data } = await http.get('/api/projecteval/GetEvalSummary', {
-            params: { prjId, prjUserId, packLevel }
+            params: { prjId, packLevel } // 누구의 평가인지는 서버가 로그인 토큰으로 판단한다
         });
         return data;
     } catch (error) {
@@ -177,10 +170,7 @@ export async function getCarconInfo(packLevel, appliedMaterial, matform) {
  * - 백엔드의 [HttpPost("detailreport")]에 맞춰 호출합니다.
  */
 export async function SaveProjectDetailReport(dto) {
-    // 본인이 만든 프로젝트만 저장할 수 있으므로 로그인한 고객 ID를 함께 보낸다
-    const response = await http.post('/api/Projects/detailreport', dto, {
-        params: { repCustId: getCurrentCustomerId() },
-    });
+    const response = await http.post('/api/Projects/detailreport', dto);
     return response.data;
 }
 
@@ -189,7 +179,7 @@ export async function SaveProjectDetailReport(dto) {
  */
 export async function GetProjectDetailReport(prjId, packLevel) {
     const response = await http.get('/api/Projects/Getdetailreport', {
-        params: { prjId: prjId, packLevel: packLevel, repCustId: getCurrentCustomerId() }
+        params: { prjId: prjId, packLevel: packLevel }
     });
     return response.data;
 }

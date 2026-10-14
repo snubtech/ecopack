@@ -9,7 +9,6 @@ namespace ecopack.Api.Data
 
         // ★ Product 테이블 통로 추가
         public DbSet<Product> Products => Set<Product>();
-        public DbSet<Ecouser> Ecousers => Set<Ecouser>();
         public DbSet<Customer> Customers => Set<Customer>();
         public DbSet<If001> If001 => Set<If001>();
         public DbSet<If002> If002 => Set<If002>();

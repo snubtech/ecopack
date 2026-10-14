@@ -17,12 +17,10 @@
  *      그래서 fetch + ReadableStream 으로 직접 읽습니다. (공통 모듈의 authFetch 로 토큰을 싣습니다)
  *
  * 3. 로그인 정보
- *    - 누구의 대화인지는 서버가 로그인 토큰에서 알아냅니다.
- *      요청에 함께 싣는 repCustId 는 서버가 쓰지 않습니다(예전 방식의 흔적).
+ *    - 누구의 대화인지는 서버가 로그인 토큰에서 알아냅니다. 아이디를 따로 실어 보내지 않습니다.
  * ==============================================================================
  */
 import { createHttp, authFetch } from './http';
-import { getCurrentCustomerId } from '../utils/memberProfile';
 
 /**
  * 채팅 전용 요청 도구. AI 응답을 기다릴 수 있게 제한 시간을 길게 잡는다.
@@ -53,7 +51,6 @@ function toMessage(error, fallback) {
  */
 export async function openChatSession(info = {}) {
     const { data } = await chatAxios.post('/OpenSession', {
-        repCustId: getCurrentCustomerId(),
         prjId: info.prjId || null,
         packLevel: info.packLevel || null,
     });
@@ -69,7 +66,7 @@ export async function closeChatSession(chatSesId) {
     if (!chatSesId) return;
     try {
         await chatAxios.post('/CloseSession', null, {
-            params: { chatSesId, repCustId: getCurrentCustomerId() },
+            params: { chatSesId },
         });
     } catch (e) {
         console.warn('대화 세션을 닫지 못했습니다:', e?.message);
@@ -103,7 +100,6 @@ export async function sendChatMessageStream(payload) {
         },
         body: JSON.stringify({
             chatSesId: body.chatSesId || null,
-            repCustId: getCurrentCustomerId(),
             question: body.question,
             prjId: body.prjId || null,
             packLevel: body.packLevel || null,
@@ -208,7 +204,6 @@ export async function sendChatMessage(payload) {
     try {
         const { data } = await chatAxios.post('/Send', {
             chatSesId: payload.chatSesId || null,
-            repCustId: getCurrentCustomerId(),
             question: payload.question,
             prjId: payload.prjId || null,
             packLevel: payload.packLevel || null,
@@ -227,7 +222,7 @@ export async function sendChatMessage(payload) {
  */
 export async function getChatSessions(includeArchived = true) {
     const { data } = await chatAxios.get('/GetSessions', {
-        params: { repCustId: getCurrentCustomerId(), includeArchived },
+        params: { includeArchived },
     });
     return data?.data ?? [];
 }
@@ -238,7 +233,7 @@ export async function getChatSessions(includeArchived = true) {
  */
 export async function getChatHistory(chatSesId) {
     const { data } = await chatAxios.get('/GetHistory', {
-        params: { chatSesId, repCustId: getCurrentCustomerId() },
+        params: { chatSesId },
     });
     return data?.data ?? { session: null, messages: [] };
 }

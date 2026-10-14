@@ -67,6 +67,12 @@ namespace ecopack.Api.Services
                     var archiver = scope.ServiceProvider.GetRequiredService<ILlmChatArchiveService>();
 
                     var result = await archiver.RunAsync(stoppingToken);
+                    if (result.PurgedSessions > 0 || result.PurgedFiles > 0)
+                    {
+                        _logger.LogInformation(
+                            "LLM 대화 백업 정리 — 보관 기간이 지난 세션 {S}건 / 메시지 {M}건 / 파일 {F}개 삭제",
+                            result.PurgedSessions, result.PurgedMessages, result.PurgedFiles);
+                    }
                     if (result.ArchivedSessions > 0)
                     {
                         _logger.LogInformation(

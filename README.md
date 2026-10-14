@@ -92,6 +92,20 @@ $env:ECOPACK_JWT_KEY = '만든 값'
 
 `Admin:RepCustIds`에 적힌 아이디만 관리용 API(대화 수동 백업 `POST /api/LlmChat/Archive`, IF005 수동 수집 `POST /api/If005Sync/Run`)를 부를 수 있습니다. 목록을 바꾼 뒤에는 서버를 다시 켜야 반영됩니다. 자동 백업과 자동 수집은 이 설정과 무관하게 돕니다.
 
+### 대화 백업 보관 기간
+
+AI 채팅 대화는 2일이 지나면 백업 테이블과 JSON 파일(`App_Data/llmbackup`)로 옮겨집니다. 백업한 지 `LlmChat:ArchiveRetentionDays`(기본 30일)가 지난 것은 백업 테이블의 행과 파일을 함께 지웁니다. 지운 것은 되살릴 수 없습니다. `0`으로 두면 지우지 않습니다.
+
+### 외부 AI 서버
+
+- LLM 서버가 인증을 요구하게 되면 `LlmChat:AuthType`을 바꾸고 환경변수 `ECOPACK_LLM_API_KEY`에 키를 넣습니다.
+- 이미지 AI 서버가 API 키를 요구하게 되면 환경변수 `ECOPACK_IMAGE_AI_API_KEY`에 키를 넣습니다. 헤더 이름은 `ExternalAiSettings:ApiKeyHeader`(기본 `X-API-Key`)입니다.
+- 두 서버가 HTTPS를 지원하게 되면 각 `BaseUrl`을 `https://`로 바꿉니다. 코드 수정은 필요 없습니다.
+
+### 의존성 자동 점검
+
+`.github/dependabot.yml`이 매주 npm과 NuGet 패키지의 새 버전을 확인해 PR을 올립니다. 취약점 알림과 보안 수정 PR은 GitHub 저장소의 **Settings > Code security**에서 "Dependabot alerts"와 "Dependabot security updates"를 켜야 동작합니다.
+
 ### 배포할 때
 
 - **서버(`ecopack.Api`)와 화면(`ecopack.Web`)을 반드시 함께 배포합니다.** 서버만 올리면 화면의 모든 요청이 401로 막히고, 화면만 올리면 로그인이 되지 않습니다.
