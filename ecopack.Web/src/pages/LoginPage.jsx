@@ -46,7 +46,7 @@ export default function LoginPage({ onJoin, joinedId }) {
 
                         <form className="card-auth-form" onSubmit={handleSubmit}>
                             <div className="input-group">
-                                <label>아이디 (userno)</label>
+                                <label>아이디</label>
                                 <input
                                     type="text"
                                     value={userNo}
