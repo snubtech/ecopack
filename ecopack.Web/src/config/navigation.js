@@ -18,11 +18,11 @@ export const navigationGroups = [
     id: 'library',
     label: '라이브러리',
     items: [
-      { id: 'material', label: '소재물성', icon: 'beaker' },
-      { id: 'process-map', label: '공정도', icon: 'flow' },
-      { id: 'carbon', label: '탄소배출량', icon: 'cloud' },
-      { id: 'regulation', label: '환경규제', icon: 'regulation' },
-      { id: 'template', label: '디자인 템플릿', icon: 'template' },
+      { id: 'material9', label: '소재물성', icon: 'beaker' },
+      { id: 'process-map9', label: '공정도', icon: 'flow' },
+      { id: 'carbon9', label: '탄소배출량', icon: 'cloud' },
+      { id: 'regulation9', label: '환경규제', icon: 'regulation' },
+      { id: 'template9', label: '디자인 템플릿', icon: 'template' },
     ],
   },
 ]

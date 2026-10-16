@@ -42,7 +42,12 @@ import { getCurrentCustomerId, getMemberProfile } from '../utils/memberProfile';
 // sessionStorage.setItem('currentPrjId');
 // sessionStorage.setItem('currentPackLevel');  포장차수
 // sessionStorage.setItem('currentExportCountry'); 수출국가.
-
+// sessionStorage.setItem('currentMaterial', detailData.appliedMaterial || ''); 적용소재
+// sessionStorage.setItem('currentEnv', detailData.matUse || '');  환경구성
+// sessionStorage.setItem('currentMatType', detailData.matType || '');  포장재구성
+// sessionStorage.setItem('currentMatTypeNm', detailData.matTypeNm || ''); 포장재구성명
+// sessionStorage.setItem('currentMatForm', detailData.matForm || '');  소재구성
+// sessionStorage.setItem('currentExportCountry', expCntry);   
 
 // 1. 8개 전체 수출국 목록 및 DB 필드 매핑 정의
 const COUNTRIES = [
@@ -198,7 +203,6 @@ export default function Projects({ onSelectItem }) {
             }
             //  [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
             sessionStorage.setItem('currentExportCountry', formData.exportCountry);
-
             alert('선택한 포장 차수별로 신규 프로젝트가 성공적으로 생성되었습니다.');
             setIsModalOpen(false); // 모달 닫기
 
@@ -218,13 +222,14 @@ export default function Projects({ onSelectItem }) {
         const prjId = item.prjId || '';
         const prjNm = item.prjNm || '';
         const currentPackLevel = item.packLevel || item.PackLevel || '';
-        const exportCountry = getExportCountry(item);
+        // 행별 수출국가: 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y'), 없으면 제조국
+        const exportCountry = getExportCountry(item) || item.cntryNm || item.CntryNm || '';
 
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
         sessionStorage.setItem('currentPrjId', prjId);
         sessionStorage.setItem('currentPackLevel', currentPackLevel);
-        sessionStorage.setItem('currentExportCountry', exportCountry);
+        sessionStorage.setItem('currentExportCountry', exportCountry); // 행별 수출국가
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
@@ -331,8 +336,8 @@ export default function Projects({ onSelectItem }) {
                             </tr>
                         ) : (
                             projectList.map((item, index) => {
-                                // 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y')
-                                const displayCountry = getExportCountry(item) || '-';
+                                // 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y'), 없으면 제조국
+                                const displayCountry = getExportCountry(item) || item.cntryNm || item.CntryNm || '-';
 
                                 // packLevel 속성명 대소문자 호환 처리
                                 const packLevelVal = item.packLevel || item.PackLevel || '';

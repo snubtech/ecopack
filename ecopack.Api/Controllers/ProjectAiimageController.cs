@@ -132,7 +132,8 @@ namespace ecopack.Api.Controllers
                 return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
             }
 
-            //ecofix 데이타 생성 시작
+            //20260928 AppliedMaterial의 데이타는 mattypenm 정보를 가져온상태.
+            //ecofix 데이타 생성 시작  :ecofix는 어니컴으로 전송하기위해  모의평가결과 AiPkgEvalInfoBscs테이블에서  개선사항정보(ecoFix)를 가져온다.
             var evalList = await _dbContext.AiPkgEvalInfoBscs
                 .Where(x => x.Prjid == request.PrjId
                             && x.PackLevel == request.PackLevel
@@ -143,7 +144,7 @@ namespace ecopack.Api.Controllers
                 .OrderByDescending(x => x.EcoPackLarType)
                 .ToList();
 
-            // EcoPackLarType == DsgnRecmImp,DsgnRecmImp,DsgnRecmImp, 이런식으로 묶어서 ecoFix 문자열 생성
+            // EcoPackLarType == DsgnRecmImp,DsgnRecmImp,DsgnRecmImp, 이런식으로 묶어서 ecoFix 문자열 생성 .인터페이스항목이 1개이므로 1줄로 생성.
             string ecoFix = string.Join("; ", evalList
                 .GroupBy(x => x.EcoPackLarType)
                 .Select(g => $"{g.Key}=={string.Join(" / ", g.Select(x => x.DsgnRecmImp?.Replace("\r", "").Replace("\n", " ") ?? string.Empty))}"));
@@ -182,6 +183,11 @@ namespace ecopack.Api.Controllers
 
             //_logger.LogInformation("[AI 요청 데이터 전송] {Payload}", System.Text.Json.JsonSerializer.Serialize(requestDto, jsonOptions));
             // AI이미지 생성 요청
+           
+            // 요청 내용 전체(템플릿 이미지 포함)를 콘솔에 찍지 않고, 확인에 필요한 요약만 서버 로그에 남긴다
+            _logger.LogInformation("[AI 요청 데이터 전송] RequestId={RequestId}, Material={Material}, EcoFix {EcoFixLength}자, 템플릿 이미지 {HasImage}",
+                requestDto.RequestId, requestDto.Material, requestDto.EcoFix?.Length ?? 0, string.IsNullOrEmpty(requestDto.Image) ? "없음" : "있음");
+
             AiJobResponseWrapper apiResponse = await _aiExternalService.CreateAiJobAsync(requestDto);
 
             if (apiResponse == null || !apiResponse.Success)
