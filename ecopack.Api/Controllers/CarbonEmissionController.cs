@@ -145,7 +145,7 @@ namespace ecopack.Api.Controllers
                         UnitCo2Sum = x.UnitCo2Sum,
                         UnitCo2MgtVal = x.UnitCo2MgtVal,
                         AreaDensity = x.AreaDensity,
-                        Density = x.Density,
+                        //Density = x.Density,
                         MatCompCon = x.MatCompCon,
                         CreatedAt = x.CreatedAt
                     })

@@ -132,9 +132,9 @@ export const getEvalSummary = async (prjId, prjUserId, packLevel) => {
  * 11. 물성 정보 조회 함수
  * - 백엔드의 [HttpGet("Getmaterial")]에 맞춰 호출합니다.
  */
-export async function getMaterial(packLevel, appliedMaterial, matType) {
+export async function getMaterial(packLevel, appliedMaterial, matType, matform) {
     const response = await axios.get('/api/Projects/Getmaterial', {
-        params: { packLevel, appliedMaterial, matType }
+        params: { packLevel, appliedMaterial, matType, matform }
     });
     return response.data;
 }

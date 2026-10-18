@@ -580,7 +580,53 @@ namespace ecopack.Api.Controllers
                 projectDetail.Updatedate = DateTime.Now; // 필요시 수정일자 추가
                 projectDetail.Projstatus = "template"; // 필요시 상태 변경
 
-                // 3. 데이터베이스 저장
+                // 3. if002 테이블에서 선택된 템플릿(PackDsgnTplId) 정보 조회
+                var templateInfo = await _context.If002
+                    .FirstOrDefaultAsync(x => x.PackDsgnTplId == dto.PackDsgnTplId);
+
+                if (templateInfo != null)
+                {
+                    // 4. packLevel에 따라 대응하는 TD 테이블(primary_td, secondary_td, tertiary_td) 분기
+                    if (dto.PackLevel == "1") // 1차 패키지
+                    {
+                        var primaryTd = await _context.PrimaryTd
+                            .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId);
+
+                        // prjId가 존재하면 업데이트, 없으면 건너뜀
+                        if (primaryTd != null)
+                        {
+                            primaryTd.PrdIdfyCntn = templateInfo.DsgnExpCon;        // 제품설명
+                            primaryTd.MainMatVal = templateInfo.AppliedMaterialNm;  // 적용소재명 (주요재질)
+                            primaryTd.DsgnFeatCntn = templateInfo.DsgnFeatDscr;     // 디자인특징
+                        }
+                    }
+                    else if (dto.PackLevel == "2") // 2차 패키지
+                    {
+                        var secondaryTd = await _context.SecondaryTd
+                            .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId);
+
+                        if (secondaryTd != null)
+                        {
+                            secondaryTd.PrdIdfyCntn = templateInfo.DsgnExpCon;
+                            secondaryTd.MainMatVal = templateInfo.AppliedMaterialNm;
+                            secondaryTd.DsgnFeatCntn = templateInfo.DsgnFeatDscr;
+                        }
+                    }
+                    else if (dto.PackLevel == "3") // 3차 패키지
+                    {
+                        var tertiaryTd = await _context.TertiaryTd
+                            .FirstOrDefaultAsync(x => x.PrjId == dto.PrjId);
+
+                        if (tertiaryTd != null)
+                        {
+                            tertiaryTd.PrdIdfyCntn = templateInfo.DsgnExpCon;
+                            tertiaryTd.MainMatVal = templateInfo.AppliedMaterialNm;
+                            tertiaryTd.DsgnFeatCntn = templateInfo.DsgnFeatDscr;
+                        }
+                    }
+                }
+
+                // 5. 데이터베이스 저장
                 await _context.SaveChangesAsync();
                 return Ok(new { success = true, message = "성공적으로 저장되었습니다." });
             }
@@ -608,7 +654,8 @@ namespace ecopack.Api.Controllers
         public async Task<ActionResult<IEnumerable<GetMaterialListDto>>> GetMaterial(
          [FromQuery] string packLevel,
          [FromQuery] string appliedMaterial,
-         [FromQuery] string matType)
+         [FromQuery] string matType,
+         [FromQuery] string matform)
         {
             var query = _context.If001.AsQueryable();
 
@@ -618,62 +665,94 @@ namespace ecopack.Api.Controllers
                 query = query.Where(x => x.AppliedMaterial == appliedMaterial);
             if (!string.IsNullOrWhiteSpace(matType))
                 query = query.Where(x => x.MatType == matType);
+            if (!string.IsNullOrWhiteSpace(matform))
+                query = query.Where(x => x.MatForm == matform);
 
-            // 💡 DB 쿼리를 먼저 실행하여 메모리로 가져온 후 처리 (식 트리 out 제약 및 SQL 함수 번역 문제 해결)
-            var rawList = await query.ToListAsync();
-
-            var groupedList = rawList
-                .GroupBy(x => new {
-                    x.PackLevel,
-                    x.PackLevelNm,
-                    x.AppliedMaterial,
-                    x.AppliedMaterialNm,
-                    x.MatType,
-                    x.MatTypeNm,
-                    x.Item,
-                    x.ItemNm,
-                    x.UnitNm,
-                    x.Unit
-                })
-                .Select(g =>
-                {
-                    // 메모리 상에서 안전하게 숫자로 파싱 가능한 값들만 추출하여 Min 계산
-                    decimal? minRange = null;
-                    var validValues = g.Select(x =>
-                    {
-                        if (x.AcceptableRange != null && decimal.TryParse(x.AcceptableRange.ToString(), out var val))
-                        {
-                            return (decimal?)val;
-                        }
-                        return null;
-                    }).Where(v => v.HasValue).Select(v => v.Value).ToList();
-
-                    if (validValues.Any())
-                    {
-                        minRange = validValues.Min();
-                    }
-
-                    return new GetMaterialListDto
-                    {
-                        PackLevel = g.Key.PackLevel,
-                        PackLevelNm = g.Key.PackLevelNm,
-                        AppliedMaterial = g.Key.AppliedMaterial,
-                        AppliedMaterialNm = g.Key.AppliedMaterialNm,
-                        MatType = g.Key.MatType,
-                        MatTypeNm = g.Key.MatTypeNm,
-                        Item = g.Key.Item,
-                        ItemName = g.Key.ItemNm,
-                        UnitNm = g.Key.UnitNm,
-                        Unit = g.Key.Unit,
-                        AcceptableRange = minRange
-                    };
-                })
+            // 1. 조건에 맞는 데이터를 DB에서 먼저 조회 (정렬 및 목록화)
+            var rawList = await query
                 .OrderBy(x => x.AppliedMaterial)
                 .ThenBy(x => x.MatType)
+                .ThenBy(x => x.MatForm)
                 .ThenBy(x => x.Item)
-                .ToList();
+                .ToListAsync();
 
-            return Ok(groupedList);
+            // 2. 메모리(LINQ-to-Objects) 상에서 안전하게 decimal 파싱 및 DTO 매핑 수행
+            var list = rawList.Select(x => new GetMaterialListDto
+            {
+                PackLevel = x.PackLevel,
+                PackLevelNm = x.PackLevelNm,
+                AppliedMaterial = x.AppliedMaterial,
+                AppliedMaterialNm = x.AppliedMaterialNm,
+                MatType = x.MatType,
+                MatTypeNm = x.MatTypeNm,
+                MatForm = x.MatForm,
+                MatFormNm = x.MatFormNm,
+                Item = x.Item,
+                ItemName = x.ItemNm,
+                UnitNm = x.UnitNm,
+                Unit = x.Unit,
+                AcceptableRange = x.AcceptableRange // 파싱 없이 문자열 그대로 매핑
+                //AcceptableRange = !string.IsNullOrEmpty(x.AcceptableRange) && decimal.TryParse(x.AcceptableRange, out var val)
+                //                  ? val
+                //                  : (decimal?)null
+            }).ToList();
+
+            return Ok(list);
+            //// 💡 DB 쿼리를 먼저 실행하여 메모리로 가져온 후 처리 (식 트리 out 제약 및 SQL 함수 번역 문제 해결)
+            //var rawList = await query.ToListAsync();
+
+            //var groupedList = rawList
+            //    .GroupBy(x => new {
+            //        x.PackLevel,
+            //        x.PackLevelNm,
+            //        x.AppliedMaterial,
+            //        x.AppliedMaterialNm,
+            //        x.MatType,
+            //        x.MatTypeNm,
+            //        x.Item,
+            //        x.ItemNm,
+            //        x.UnitNm,
+            //        x.Unit
+            //    })
+            //    .Select(g =>
+            //    {
+            //        // 메모리 상에서 안전하게 숫자로 파싱 가능한 값들만 추출하여 Min 계산
+            //        decimal? minRange = null;
+            //        var validValues = g.Select(x =>
+            //        {
+            //            if (x.AcceptableRange != null && decimal.TryParse(x.AcceptableRange.ToString(), out var val))
+            //            {
+            //                return (decimal?)val;
+            //            }
+            //            return null;
+            //        }).Where(v => v.HasValue).Select(v => v.Value).ToList();
+
+            //        if (validValues.Any())
+            //        {
+            //            minRange = validValues.Min();
+            //        }
+
+            //        return new GetMaterialListDto
+            //        {
+            //            PackLevel = g.Key.PackLevel,
+            //            PackLevelNm = g.Key.PackLevelNm,
+            //            AppliedMaterial = g.Key.AppliedMaterial,
+            //            AppliedMaterialNm = g.Key.AppliedMaterialNm,
+            //            MatType = g.Key.MatType,
+            //            MatTypeNm = g.Key.MatTypeNm,
+            //            Item = g.Key.Item,
+            //            ItemName = g.Key.ItemNm,
+            //            UnitNm = g.Key.UnitNm,
+            //            Unit = g.Key.Unit,
+            //            AcceptableRange = minRange
+            //        };
+            //    })
+            //    .OrderBy(x => x.AppliedMaterial)
+            //    .ThenBy(x => x.MatType)
+            //    .ThenBy(x => x.Item)
+            //    .ToList();
+
+            //return Ok(groupedList);
         }
         /// <summary>
         /// 2. 환경규제 정보 조회

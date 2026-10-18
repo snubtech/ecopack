@@ -95,7 +95,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
 
                 console.log("📌 전송 파라미터 확인:", { prjId: currentPrjId, packLevel: currentPackLevel, appliedMaterial, matType, matTypenm, matform, currentExportCountry });
 
-                const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
+                const matData = await getMaterial(currentPackLevel, appliedMaterial, matType, matform);
                 if (!isMounted) return;
                 setMaterials(matData || []);
 

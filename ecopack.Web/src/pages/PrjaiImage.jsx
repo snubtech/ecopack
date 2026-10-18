@@ -146,11 +146,11 @@ export default function PrjaiImage() {
         const prjId = sessionStorage.getItem('currentPrjId') || '';
         const packLevel = sessionStorage.getItem('currentPackLevel') || '1';
         
-        //20260928 어니컴 협의사항:appliedMaterial 대신  포장재구분 mattype으로 데이타를 전달 요청함. start
-        //const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
-        const appliedMaterial = sessionStorage.getItem('currentMatTypeNm') || '';
+        
+        const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
+        //const appliedMaterial = sessionStorage.getItem('currentMatTypeNm') || '';
         console.log('getSessionData mattypenm:', appliedMaterial);          
-        //20260928 어니컴 협의 appliedMaterial 대신  포장재구분 mattype으로 데이타를 전달 요청 end
+        
         return { prjId, packLevel, appliedMaterial };
     };
 

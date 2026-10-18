@@ -26,7 +26,7 @@ namespace ecopack.Api.Data.Configurations
 			builder.Property(e => e.UnitCo2Sum).HasMaxLength(50).HasColumnName("unitco2sum");
 			builder.Property(e => e.UnitCo2MgtVal).HasMaxLength(50).HasColumnName("unitco2mgtval");
 			builder.Property(e => e.AreaDensity).HasMaxLength(50).HasColumnName("areadensity");
-			builder.Property(e => e.Density).HasMaxLength(50).HasColumnName("density");
+			//builder.Property(e => e.Density).HasMaxLength(50).HasColumnName("density");
 			builder.Property(e => e.MatCompCon).HasColumnType("text").HasColumnName("matcompcon");
 			builder.Property(e => e.PackLevel).HasMaxLength(50).HasColumnName("packlevel");
 			builder.Property(e => e.AppliedMaterial).HasMaxLength(50).HasColumnName("appliedmaterial");

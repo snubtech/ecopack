@@ -86,7 +86,7 @@ public partial class If005
     /// <summary>
     /// 물리적 인자-밀도
     /// </summary>
-    public string? Density { get; set; }
+    //public string? Density { get; set; }
 
     /// <summary>
     /// 원료물질 구성

@@ -128,11 +128,14 @@ namespace ecopack.Api.Dtos
         public string? AppliedMaterialNm { get; set; }   // 적용소재명
         public string? MatType { get; set; }
         public string? MatTypeNm { get; set; }           // 사용환경명
+        public string? MatForm { get; set; }
+        public string? MatFormNm { get; set; }           // 소재형상명
         public string? Item { get; set; }
         public string? ItemName { get; set; }            // 성능항목명 (itemNm)
         public string? UnitNm { get; set; }              // 단위명
         public string? Unit { get; set; }                // 단위
-        public decimal? AcceptableRange { get; set; }    // 기준값 범위 최솟값 (min(acceptableRange))
+        public string? AcceptableRange { get; set; }    // 기준값 범위 최솟값 (min(acceptableRange))
+        //public decimal? AcceptableRange { get; set; }    // 기준값 범위 최솟값 (min(acceptableRange))
     }
 
     /// <summary>
