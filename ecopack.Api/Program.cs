@@ -97,6 +97,41 @@ builder.Services
         };
         options.Events = new JwtBearerEvents
         {
+            // 서명·만료 확인을 통과한 토큰을 한 번 더 확인한다.
+            //  - 처음 로그인한 지 최대 로그인 유지 시간(Jwt:MaxSessionHours)이 지났으면 거절한다.
+            //  - 토큰의 버전이 회원의 현재 토큰 버전(customer.tknver)과 다르면 거절한다.
+            //    로그아웃·비밀번호 변경 때 버전을 올리므로, 그 전에 발급된 토큰은 만료 전이라도 여기서 막힌다.
+            //    탈퇴·삭제된 계정의 토큰도 여기서 막힌다.
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal!;
+                var custId = principal.CustId();
+                var authTime = principal.AuthTime();
+                var version = principal.TokenVersion();
+                if (custId == null || authTime == null || version == null)
+                {
+                    context.Fail("토큰에 필요한 항목이 없습니다.");
+                    return;
+                }
+
+                var tokens = context.HttpContext.RequestServices.GetRequiredService<TokenService>();
+                if (tokens.SessionExpired(authTime.Value))
+                {
+                    context.Fail("최대 로그인 유지 시간이 지났습니다.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                var current = await db.Customers
+                    .AsNoTracking()
+                    .Where(c => c.RepCustId == custId)
+                    .Select(c => (int?)c.TknVer)
+                    .FirstOrDefaultAsync(context.HttpContext.RequestAborted);
+                if (current != version)
+                {
+                    context.Fail("더 이상 쓸 수 없는 토큰입니다.");
+                }
+            },
             // 토큰이 없거나 만료된 경우. 화면은 401 을 받으면 로그인 화면으로 돌아간다.
             OnChallenge = async context =>
             {

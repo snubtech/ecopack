@@ -92,5 +92,10 @@ export const authApi = {
      * [회원정보 수정]
      * 비밀번호를 바꿀 때만 repCustPwd 와 currentPwd 를 함께 담아 보냅니다.
      */
-    updateProfile: (form) => call(http.post('/api/auth/profile', form)),
+    updateProfile: async (form) => {
+        const res = await call(http.post('/api/auth/profile', form))
+        // 비밀번호를 바꾸면 서버가 기존 토큰을 모두 끊고 새 토큰을 준다. 이 화면은 새 토큰으로 이어 쓴다.
+        if (res?.accessToken) setAccessToken(res.accessToken, res.expiresIn)
+        return res
+    },
 }

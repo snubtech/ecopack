@@ -27,6 +27,17 @@
  *    - 토큰은 발급 후 이 시간이 지나면 서버가 받지 않습니다.
  *    - 화면은 사용자가 쓰고 있는 동안 주기적으로 새 토큰을 받아(/api/auth/refresh) 이어 갑니다.
  *      아무것도 하지 않고 만료 시간이 지나면 다시 로그인해야 합니다.
+ *
+ * 4. 최대 로그인 유지 시간 (Jwt:MaxSessionHours, 기본 12시간)
+ *    - 토큰에는 처음 로그인한 시각(auth_time)이 들어 있고, 갱신해도 이 값은 바뀌지 않습니다.
+ *    - 로그인한 지 이 시간이 지나면 갱신을 거절하고, 새 토큰의 만료도 이 시각을 넘지 않게 자릅니다.
+ *      토큰을 도둑맞아도 갱신으로 끝없이 늘려 쓸 수 없게 하기 위해서입니다.
+ *
+ * 5. 토큰 버전 (ver, customer.tknver)
+ *    - 토큰에는 발급할 때의 회원 토큰 버전이 들어 있습니다.
+ *    - 로그아웃·비밀번호 변경 때 회원의 버전을 1 올리고, 서버는 요청마다 토큰의 버전과 DB 의 버전을 비교합니다(Program.cs).
+ *      그래서 그 전에 발급된 토큰은 만료 전이라도 즉시 못 쓰게 됩니다.
+ *    - 로그아웃은 그 회원의 모든 브라우저·PC 에서 함께 로그아웃됩니다(토큰 버전이 회원 단위라서).
  * ==============================================================================
  */
 using System.Security.Claims;
@@ -49,8 +60,17 @@ namespace ecopack.Api.Support
         /// <summary>고객 ID 를 담는 항목 이름</summary>
         public const string CustIdClaim = "sub";
 
+        /// <summary>처음 로그인한 시각(유닉스 초)을 담는 항목 이름. 갱신해도 바뀌지 않는다.</summary>
+        public const string AuthTimeClaim = "auth_time";
+
+        /// <summary>회원 토큰 버전(customer.tknver)을 담는 항목 이름</summary>
+        public const string VersionClaim = "ver";
+
         public required SymmetricSecurityKey Key { get; init; }
         public required TimeSpan Lifetime { get; init; }
+
+        /// <summary>처음 로그인한 뒤 갱신으로 이어 쓸 수 있는 최대 시간</summary>
+        public required TimeSpan MaxSession { get; init; }
 
         /// <summary>임시 키를 쓰고 있는지(키를 설정하지 않은 경우)</summary>
         public bool UsingTemporaryKey { get; init; }
@@ -78,10 +98,12 @@ namespace ecopack.Api.Support
             }
 
             var minutes = Math.Clamp(config.GetValue("Jwt:ExpireMinutes", 30), 5, 24 * 60);
+            var maxHours = Math.Clamp(config.GetValue("Jwt:MaxSessionHours", 12), 1, 72);
             return new JwtSettings
             {
                 Key = new SymmetricSecurityKey(keyBytes),
                 Lifetime = TimeSpan.FromMinutes(minutes),
+                MaxSession = TimeSpan.FromHours(maxHours),
                 UsingTemporaryKey = temporary
             };
         }
@@ -97,25 +119,48 @@ namespace ecopack.Api.Support
             _settings = settings;
         }
 
-        /// <summary>토큰이 유효한 시간(초). 화면이 갱신 시점을 정하는 데 쓴다.</summary>
-        public int ExpiresInSeconds => (int)_settings.Lifetime.TotalSeconds;
-
-        /// <summary>이 고객 ID 의 토큰을 발급한다.</summary>
-        public string Issue(string repCustId)
+        /// <summary>
+        /// 새 토큰을 발급한다.
+        /// </summary>
+        /// <param name="repCustId">고객 ID</param>
+        /// <param name="version">회원의 현재 토큰 버전(customer.tknver)</param>
+        /// <param name="authTime">처음 로그인한 시각. 로그인할 때는 null(지금), 갱신할 때는 기존 토큰의 값을 넘긴다.</param>
+        public IssuedToken Issue(string repCustId, int version, DateTimeOffset? authTime = null)
         {
-            var now = DateTime.UtcNow;
-            return _handler.CreateToken(new SecurityTokenDescriptor
+            var now = DateTimeOffset.UtcNow;
+            var loginAt = authTime ?? now;
+
+            // 최대 로그인 유지 시간을 넘지 않게 만료를 자른다
+            var expires = now + _settings.Lifetime;
+            var sessionEnd = loginAt + _settings.MaxSession;
+            if (expires > sessionEnd) expires = sessionEnd;
+
+            var token = _handler.CreateToken(new SecurityTokenDescriptor
             {
                 Issuer = JwtSettings.Issuer,
                 Audience = JwtSettings.Audience,
-                Subject = new ClaimsIdentity(new[] { new Claim(JwtSettings.CustIdClaim, repCustId) }),
-                IssuedAt = now,
-                NotBefore = now,
-                Expires = now + _settings.Lifetime,
+                Subject = new ClaimsIdentity(new[]
+                {
+                    new Claim(JwtSettings.CustIdClaim, repCustId),
+                    new Claim(JwtSettings.AuthTimeClaim, loginAt.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+                    new Claim(JwtSettings.VersionClaim, version.ToString(), ClaimValueTypes.Integer32)
+                }),
+                IssuedAt = now.UtcDateTime,
+                NotBefore = now.UtcDateTime,
+                Expires = expires.UtcDateTime,
                 SigningCredentials = new SigningCredentials(_settings.Key, SecurityAlgorithms.HmacSha256)
             });
+
+            return new IssuedToken(token, Math.Max(0, (int)(expires - now).TotalSeconds));
         }
+
+        /// <summary>처음 로그인한 뒤 최대 로그인 유지 시간이 지났는지</summary>
+        public bool SessionExpired(DateTimeOffset authTime)
+            => DateTimeOffset.UtcNow >= authTime + _settings.MaxSession;
     }
+
+    /// <summary>발급한 토큰과 유효 시간(초). 화면은 유효 시간으로 갱신 시점을 정한다.</summary>
+    public record IssuedToken(string AccessToken, int ExpiresIn);
 
     public static class CurrentUser
     {
@@ -128,6 +173,16 @@ namespace ecopack.Api.Support
             var id = user.FindFirst(JwtSettings.CustIdClaim)?.Value;
             return string.IsNullOrWhiteSpace(id) ? null : id;
         }
+
+        /// <summary>토큰에 담긴 처음 로그인 시각. 없거나 읽을 수 없으면 null.</summary>
+        public static DateTimeOffset? AuthTime(this ClaimsPrincipal user)
+            => long.TryParse(user.FindFirst(JwtSettings.AuthTimeClaim)?.Value, out var seconds)
+                ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+                : null;
+
+        /// <summary>토큰에 담긴 회원 토큰 버전. 없거나 읽을 수 없으면 null.</summary>
+        public static int? TokenVersion(this ClaimsPrincipal user)
+            => int.TryParse(user.FindFirst(JwtSettings.VersionClaim)?.Value, out var version) ? version : null;
     }
 
     /// <summary>권한 정책 이름</summary>

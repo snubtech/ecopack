@@ -34,6 +34,10 @@
  *    - 토큰은 정해진 시간(기본 30분)이 지나면 만료됩니다.
  *      화면은 사용 중에 Refresh 로 새 토큰을 받아 이어 가고, 쓰지 않고 두면 다시 로그인해야 합니다.
  *    - 로그인·회원가입·아이디 중복확인·로그아웃만 토큰 없이 부를 수 있습니다([AllowAnonymous]).
+ *    - 갱신으로 이어 쓰더라도 처음 로그인한 뒤 최대 로그인 유지 시간(기본 12시간)이 지나면 다시 로그인해야 합니다.
+ *    - 로그아웃과 비밀번호 변경은 회원의 토큰 버전(tknver)을 올려, 그 전에 발급된 토큰을 즉시 못 쓰게 합니다.
+ *      로그아웃하면 그 회원이 다른 브라우저·PC 에서 받은 토큰도 함께 끊깁니다.
+ *      비밀번호를 바꾼 화면은 응답으로 새 토큰을 받아 그대로 이어 씁니다.
  * ==============================================================================
  */
 using Microsoft.AspNetCore.Identity;
@@ -124,12 +128,13 @@ namespace ecopack.Api.Controllers
             await _context.SaveChangesAsync();
             _audit.Write(HttpContext, "LOGIN_OK", customer.RepCustId);
 
+            var issued = _tokens.Issue(customer.RepCustId, customer.TknVer);
             return Ok(new
             {
                 data = new
                 {
-                    accessToken = _tokens.Issue(customer.RepCustId),
-                    expiresIn = _tokens.ExpiresInSeconds, // 토큰이 유효한 시간(초)
+                    accessToken = issued.AccessToken,
+                    expiresIn = issued.ExpiresIn, // 토큰이 유효한 시간(초)
                     repCustId = customer.RepCustId,
                     profile = ToProfile(customer)
                 },
@@ -286,6 +291,8 @@ namespace ecopack.Api.Controllers
                         return BadRequest(new { success = false, message = pwdError });
                     }
                     customer.RepCustPwd = Hasher.HashPassword(customer, dto.RepCustPwd);
+                    // 비밀번호를 바꾸면 그 전에 발급된 토큰(다른 브라우저·PC 포함)을 모두 끊는다
+                    customer.TknVer++;
                     passwordChanged = true;
                 }
 
@@ -295,7 +302,16 @@ namespace ecopack.Api.Controllers
                 await _context.SaveChangesAsync();
                 _audit.Write(HttpContext, passwordChanged ? "PASSWORD_CHANGE" : "PROFILE_UPDATE", customer.RepCustId);
 
-                return Ok(new { success = true, message = "회원정보가 수정되었습니다.", data = ToProfile(customer) });
+                // 비밀번호를 바꿨으면 지금 화면은 새 토큰으로 이어 쓴다(기존 토큰은 위에서 끊겼다)
+                var issued = passwordChanged ? _tokens.Issue(customer.RepCustId, customer.TknVer) : null;
+                return Ok(new
+                {
+                    success = true,
+                    message = "회원정보가 수정되었습니다.",
+                    data = ToProfile(customer),
+                    accessToken = issued?.AccessToken,
+                    expiresIn = issued?.ExpiresIn
+                });
             }
             catch (Exception ex)
             {
@@ -328,35 +344,35 @@ namespace ecopack.Api.Controllers
         // ─────────────────────────────────────────────────────────────
         // POST: api/auth/refresh
         // 아직 유효한 토큰으로 새 토큰을 받는다. 화면이 사용 중에 주기적으로 부른다.
-        // 토큰이 이미 만료됐으면 401 이 나가고, 다시 로그인해야 한다.
+        // 토큰이 이미 만료됐거나 끊긴 토큰이면 401 이 나가고, 다시 로그인해야 한다.
+        // 처음 로그인한 시각은 그대로 이어받으므로, 최대 로그인 유지 시간이 지나면 더 갱신되지 않는다.
+        // (계정 존재·토큰 버전·최대 유지 시간은 토큰 검증 단계(Program.cs)에서 이미 확인했다)
         // ─────────────────────────────────────────────────────────────
         [HttpPost("refresh")]
-        public async Task<IActionResult> Refresh()
+        public IActionResult Refresh()
         {
-            var repCustId = User.CustId()!;
-
-            // 탈퇴·삭제된 계정이 예전 토큰으로 계속 갱신하지 못하게 계정이 있는지 확인한다
-            if (!await _context.Customers.AsNoTracking().AnyAsync(c => c.RepCustId == repCustId))
-            {
-                return Unauthorized(new { success = false, message = "로그인이 필요합니다. 다시 로그인해 주세요." });
-            }
-
+            var issued = _tokens.Issue(User.CustId()!, User.TokenVersion()!.Value, User.AuthTime());
             return Ok(new
             {
                 data = new
                 {
-                    accessToken = _tokens.Issue(repCustId),
-                    expiresIn = _tokens.ExpiresInSeconds
+                    accessToken = issued.AccessToken,
+                    expiresIn = issued.ExpiresIn
                 }
             });
         }
 
         [HttpPost("logout")]
         [AllowAnonymous] // 토큰이 이미 만료된 뒤에 눌러도 오류 없이 끝나야 한다
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout()
         {
             if (User.CustId() is { } who)
             {
+                // 토큰 버전을 올려, 지금까지 발급된 이 회원의 토큰을 모두 끊는다.
+                // 화면이 토큰을 지우는 것만으로는 복사해 둔 토큰이 만료 전까지 계속 쓰일 수 있기 때문이다.
+                await _context.Customers
+                    .Where(c => c.RepCustId == who)
+                    .ExecuteUpdateAsync(set => set.SetProperty(c => c.TknVer, c => c.TknVer + 1));
                 _audit.Write(HttpContext, "LOGOUT", who);
             }
             return Ok(new { message = "로그아웃 성공" });
