@@ -438,9 +438,9 @@ function PrjevalPage({ onSelectItem }) {
                     </p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', gap: '8px', flexShrink: 0 }}>
-                    <button
+                    {/* <button
                         onClick={handleCancel}
-                        style={{ padding: '8px 18px', border: '1px solid #d0d7de', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             취소         </button>
+                        style={{ padding: '8px 18px', border: '1px solid #d0d7de', borderRadius: '6px', background: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             취소         </button> */}
                     <button
                         onClick={handleSave}
                         style={{ padding: '8px 18px', border: 'none', borderRadius: '6px', background: '#0969da', color: '#fff', cursor: 'pointer', fontSize: '13px', fontWeight: '500', minWidth: '70px' }}         >             저장         </button>

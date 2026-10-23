@@ -93,7 +93,7 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
 
-                const matData = await getMaterial(currentPackLevel, appliedMaterial, matType);
+                const matData = await getMaterial(currentPackLevel, appliedMaterial, matType, matform);
                 if (!isMounted) return;
                 setMaterials(matData || []);
 

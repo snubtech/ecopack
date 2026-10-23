@@ -1,3 +1,4 @@
+//using Microsoft.AspNetCore.Authorization; // 이 네임스페이스를 꼭 추가해야 합니다!
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
@@ -7,6 +8,7 @@ namespace ecopack.Api.Controllers
 {
     [Route("api/[controller]")] // ➡️ /api/common
     [ApiController]
+    //[Authorize] // <--- 이 한 줄을 추가하면 이 컨트롤러의 모든 API는 로그인한 사용자만 호출할 수 있습니다!
     public class CommonController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -66,6 +68,17 @@ namespace ecopack.Api.Controllers
         [HttpGet("mattype")]
         public async Task<IActionResult> GetMattypeProperty([FromQuery] string? packLevel)
         {
+            // 💡 packLevel 값이 전달된 경우에만 검증
+            if (!string.IsNullOrEmpty(packLevel))
+            {
+                // 1. int.TryParse로 숫자로 변환 가능한지 체크 ('abc' 같은 문자 차단)
+                // 2. 변환된 숫자가 1 이상 3 이하인지 체크 (범위를 벗어난 숫자 차단)
+                if (!int.TryParse(packLevel, out int level) || level < 1 || level > 3)
+                {
+                    return BadRequest(new { success = false, message = "포장 차수는 1부터 3 사이의 숫자만 입력할 수 있습니다." });
+                }
+            }
+
             var query = _context.If001.AsQueryable();
 
             if (!string.IsNullOrEmpty(packLevel))

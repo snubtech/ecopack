@@ -134,6 +134,9 @@ namespace ecopack.Api.Controllers
 
             //20260928 AppliedMaterial의 데이타는 mattypenm 정보를 가져온상태.
             //ecofix 데이타 생성 시작  :ecofix는 어니컴으로 전송하기위해  모의평가결과 AiPkgEvalInfoBscs테이블에서  개선사항정보(ecoFix)를 가져온다.
+            _logger.LogInformation("[AI 요청 데이터 생성] PrjId={PrjId}, PackLevel={PackLevel}, AppliedMaterial={AppliedMaterial}",
+                request.PrjId, request.PackLevel, request.AppliedMaterial);
+
             var evalList = await _dbContext.AiPkgEvalInfoBscs
                 .Where(x => x.Prjid == request.PrjId
                             && x.PackLevel == request.PackLevel
@@ -149,7 +152,6 @@ namespace ecopack.Api.Controllers
                 .GroupBy(x => x.EcoPackLarType)
                 .Select(g => $"{g.Key}=={string.Join(" / ", g.Select(x => x.DsgnRecmImp?.Replace("\r", "").Replace("\n", " ") ?? string.Empty))}"));
             //ecofix 데이타 생성 끝
-
             //// CreateAiJobAsync 호출시 ProjectDetail에서 이미지이름과 If002a에서 디자인템플릿 정보 가져오기 
             var projectDetail = await _dbContext.ProjectDetail
                 .FirstOrDefaultAsync(pd => pd.PrjId == request.PrjId && pd.PackLevel == request.PackLevel);
@@ -169,8 +171,9 @@ namespace ecopack.Api.Controllers
             var requestDto = new ecopack.Api.Dtos.CreateAiJobRequestDto
             {
                 RequestId = $"{request.PrjId}_{request.PackLevel}",
-                Prompt = !string.IsNullOrEmpty(ecoFix) ? string.Empty : $"{request.AppliedMaterial} packaging design update",
-                Material = request.AppliedMaterial,
+                //Prompt = !string.IsNullOrEmpty(ecoFix) ? string.Empty : $"{request.AppliedMaterial} packaging design update",
+                Prompt = "",
+                Material = projectDetail?.MatTypeNm ?? string.Empty,
                 EcoFix = ecoFix,
                 Image = templateData
             };

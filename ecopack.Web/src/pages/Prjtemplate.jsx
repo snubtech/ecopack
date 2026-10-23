@@ -158,12 +158,12 @@ function PackTemplatePage({ onSelectItem }) {
 
                 {/* 우측 세로 방향 버튼 그룹 */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginLeft: '20px', flexShrink: 0 }}>
-                    <button
+                   {/*  <button
                         onClick={() => { alert('취소되었습니다.'); }}
                         style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '4px', background: '#fff', cursor: 'pointer', width: '80px' }}
                     >
                         취소
-                    </button>
+                    </button> */}
                     <button
                         onClick={handleSave}
                         style={{ padding: '8px 16px', border: 'none', borderRadius: '4px', background: '#1976d2', color: '#fff', cursor: 'pointer', width: '80px' }}
