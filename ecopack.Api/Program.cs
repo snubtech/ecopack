@@ -336,6 +336,12 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// ==========================================
+// 🛡️ [추가] 전역 SQL Injection 방어 및 보안 로깅 미들웨어 등록
+// ==========================================
+app.UseMiddleware<SqlInjectionCheckMiddleware>();
+
+
 // ⚠️ 첨부문서(TD/DOC 근거문서)는 이제 wwwroot 밖(App_Data/uploads)에 저장한다.
 // 예전엔 여기서 UseStaticFiles()로 wwwroot/uploads를 통째로 공개해서,
 // 로그인 없이 URL만 알면 누구나 남의 프로젝트 첨부파일을 내려받을 수 있었다.
