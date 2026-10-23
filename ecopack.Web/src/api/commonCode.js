@@ -1,4 +1,4 @@
-import axiosInstance from './axiosInstance';
+import http from './http';
 
 /**
  * 소재 속성 목록을 조회하는 공용 함수
@@ -6,7 +6,7 @@ import axiosInstance from './axiosInstance';
 export const getMaterialProperty = async (packLevel) => {
     try {
         // 백엔드의 [HttpGet("material")] 경로와 일치하며, packLevel을 쿼리 파라미터로 전달합니다.
-        const response = await axiosInstance.get('/common/material', {
+        const response = await http.get('/api/common/material', {
             params: { packLevel } // 👈 packLevel 인자 추가
         });
         return response.data;
@@ -16,14 +16,14 @@ export const getMaterialProperty = async (packLevel) => {
     }
 };
 export const getPackLevels = async () => {
-    const response = await axiosInstance.get('/common/packlevels');
+    const response = await http.get('/api/common/packlevels');
     return response.data;
 };
 // packLevel 인자 추가)
 export const getMattypes = async (packLevel) => {
     try {
-        const response = await axiosInstance.get('/common/mattype', {
-            params: { packLevel } // 이제 정의된 packLevel 변수를 정상적으로 참조합니다.
+        const response = await http.get('/api/common/mattype', {
+            params: { packLevel }
         });
         return response.data;
     } catch (error) {
@@ -34,7 +34,7 @@ export const getMattypes = async (packLevel) => {
 
 export const getMatForms = async (packLevel, appliedMaterial, matType) => {
     try {
-        const response = await axiosInstance.get('/common/matforms', {
+        const response = await http.get('/api/common/matforms', {
             params: { packLevel, appliedMaterial, matType }
         });
         return response.data;

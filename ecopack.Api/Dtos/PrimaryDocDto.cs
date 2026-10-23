@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 /**
  * ==============================================================================
  * [프로그램 전체 흐름 및 구조 요약] - PrimaryDocDto (적합성 선언서 주고받기용 자료 묶음)
@@ -43,6 +44,7 @@ namespace ecopack.Api.Dtos
         /// <summary>프로젝트명으로, 판매제품명을 의미함</summary>
         public string? PrjfNm { get; set; }
         /// <summary>프로젝트 고유 ID로 채번규칙을 갖는다.</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
         /// <summary>1차포장기술문서 고유 ID이다.</summary>
         public string? Pkg1TechDocId { get; set; }

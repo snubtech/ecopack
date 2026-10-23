@@ -19,6 +19,7 @@
  * ==============================================================================
  */
 import { useEffect, useState } from 'react';
+import { checkPassword, checkContact } from '../utils/passwordPolicy';
 import { authApi } from '../api/auth';
 
 /**
@@ -117,6 +118,18 @@ export default function ProfilePage({ repCustId, onClose, onSaved }) {
                 setError('새 비밀번호를 입력해 주세요.');
                 return;
             }
+            // 서버도 같은 규칙으로 다시 검사한다
+            const pwdError = checkPassword(pwd.repCustPwd, repCustId);
+            if (pwdError) {
+                setError(pwdError);
+                return;
+            }
+        }
+
+        const contactError = checkContact(form);
+        if (contactError) {
+            setError(contactError);
+            return;
         }
 
         setSaving(true);

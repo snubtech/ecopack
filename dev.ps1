@@ -2,8 +2,8 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-Write-Host 'Starting ecopack.Api on http://localhost:5260 ...' -ForegroundColor Green
-Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root\ecopack.Api'; dotnet run --launch-profile ecopack.Api"
+Write-Host 'Starting ecopack.Api on http://localhost:5258 ...' -ForegroundColor Green
+Start-Process powershell -ArgumentList '-NoExit', '-Command', "cd '$root\ecopack.Api'; dotnet run --launch-profile http"
 
 Start-Sleep -Seconds 2
 

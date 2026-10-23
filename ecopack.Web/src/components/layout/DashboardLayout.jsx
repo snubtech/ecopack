@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthProvider';
 import SidebarNav from './SidebarNav';
 import AssistantPanel from './AssistantPanel';
 import Prjdefault from '../../pages/Prjdefault';
-//import SamplePage from '../../pages/sampage';
 import Projects from '../../pages/Projects';
 import Prjtemplate from '../../pages/Prjtemplate';
 import Prjdefaultresult from '../../pages/Prjdefaultresult';

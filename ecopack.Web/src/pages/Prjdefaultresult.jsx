@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getMemoImageUris } from '../utils/memoImage';
 import { getCurrentCustomerId } from '../utils/memberProfile';
 import { getMaterial, getEnvironment, getProcessFlow, getCarconInfo, SaveProjectDetailReport, GetProjectDetailReport } from '../api/projects';
 
@@ -82,18 +83,15 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                         setLoading(false);
                         return; // 저장된 데이터가 있으면 기본 API 호출은 생략
                     }
-                } catch (err) {
-                    console.log("저장된 리포트 조회 실패 또는 데이터 없음, 신규 기본값으로 조회합니다.", err);
+                } catch {
+                    // 저장된 리포트가 없으면 신규 기본값으로 조회한다
                 }
 
                 // 2. 🔄 저장된 데이터가 없을 경우, 기존 방식대로 세션 정보와 API를 통해 기본 평가 데이터를 조회합니다.
                 const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
                 const matType = sessionStorage.getItem('currentMatType') || '';
-                const matTypenm = sessionStorage.getItem('currentMatTypeNm') || '';
                 const matform = sessionStorage.getItem('currentMatForm') || '';
                 const currentExportCountry = sessionStorage.getItem('currentExportCountry') || '';
-
-                console.log("📌 전송 파라미터 확인:", { prjId: currentPrjId, packLevel: currentPackLevel, appliedMaterial, matType, matTypenm, matform, currentExportCountry });
 
                 const matData = await getMaterial(currentPackLevel, appliedMaterial, matType, matform);
                 if (!isMounted) return;
@@ -389,11 +387,13 @@ const Prjdefaultresult = ({ prjId, packLevel, onSelectItem }) => {
                                 <div style={{ fontWeight: '600', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}>
                                     재질 구성: {proc.matCompNm || proc.matComp || '-'}
                                 </div>
-                                {proc.memoImg ? (
-                                    <div
-                                        style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}
-                                        dangerouslySetInnerHTML={{ __html: proc.memoImg }}
-                                    />
+                                {/* memoImg(HTML)는 그대로 넣지 않고 이미지 주소만 골라 <img> 로 그린다 */}
+                                {getMemoImageUris(proc).length > 0 ? (
+                                    <div style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}>
+                                        {getMemoImageUris(proc).map((src, i) => (
+                                            <img key={i} src={src} alt="공정도" style={{ maxWidth: '100%', height: 'auto' }} />
+                                        ))}
+                                    </div>
                                 ) : (
                                     <div style={{ color: '#9ca3af', fontSize: '0.75rem', textAlign: 'center' }}>등록된 공정도 이미지가 없습니다.</div>
                                 )}

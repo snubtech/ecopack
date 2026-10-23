@@ -3,7 +3,8 @@ import { useAuth } from "../context/AuthProvider"
 import loginHeroImg from '../assets/loginbg.png'
 
 export default function LoginPage({ onJoin, joinedId }) {
-    const { login } = useAuth()
+    // notice: 세션 만료처럼 로그인 화면에 함께 보여 줄 안내
+    const { login, notice } = useAuth()
     const [userNo, setUserNo] = useState(joinedId || '')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
@@ -45,7 +46,7 @@ export default function LoginPage({ onJoin, joinedId }) {
 
                         <form className="card-auth-form" onSubmit={handleSubmit}>
                             <div className="input-group">
-                                <label>아이디 (userno)</label>
+                                <label>아이디</label>
                                 <input
                                     type="text"
                                     value={userNo}
@@ -68,6 +69,7 @@ export default function LoginPage({ onJoin, joinedId }) {
                                 />
                             </div>
 
+                            {!error && notice && <p className="error-msg">{notice}</p>}
                             {error && <p className="error-msg">{error}</p>}
 
                             <button type="submit" className="btn-primary" disabled={submitting}>

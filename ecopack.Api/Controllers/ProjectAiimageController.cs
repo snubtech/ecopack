@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+using ecopack.Api.Support;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
@@ -34,6 +36,12 @@ namespace ecopack.Api.Controllers
                 return BadRequest(new { success = false, message = "프로젝트 ID 또는 패키지 레벨이 누락되었습니다." });
             }
 
+            // 본인이 만든 프로젝트만 다룰 수 있다
+            if (!await ecopack.Api.Support.ProjectAccess.IsOwnerAsync(_dbContext, prjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
+            }
+
             // 2. ProjectDetail 조회 및 템플릿 ID 확인 (먼저 시작되어야 하는 필수 로직)
             var projectDetail = await _dbContext.ProjectDetail
                 .FirstOrDefaultAsync(pd => pd.PrjId == prjId && pd.PackLevel == packLevel);
@@ -68,7 +76,8 @@ namespace ecopack.Api.Controllers
                 progress = aiImageEntity?.Progress ?? 0,
                 isSuccess = aiImageEntity?.Success ?? false,
                 statusMessage = aiImageEntity?.StatusMessage,
-                errorMessage = aiImageEntity?.ErrorMessage,
+                // 오류 상세(예외 문구)는 DB 에만 두고 화면에는 오류가 있었다는 안내만 내려준다
+                errorMessage = string.IsNullOrEmpty(aiImageEntity?.ErrorMessage) ? null : "AI 이미지 작업 중 오류가 발생했습니다.",
                 req2ddate = aiImageEntity?.req2ddate,
                 req3ddate = aiImageEntity?.req3ddate,
 
@@ -77,7 +86,7 @@ namespace ecopack.Api.Controllers
                 progress3d = aiImageEntity?.Progress3d ?? 0,
                 isSuccess3d = aiImageEntity?.Success3d ?? false,
                 statusMessage3d = aiImageEntity?.StatusMessage3d,
-                errorMessage3d = aiImageEntity?.ErrorMessage3d,
+                errorMessage3d = string.IsNullOrEmpty(aiImageEntity?.ErrorMessage3d) ? null : "3D 변환 작업 중 오류가 발생했습니다.",
 
                 // 2D 결과 이미지들
                 resultDataOriginal = aiImageEntity?.ResultDataOriginal,
@@ -109,16 +118,25 @@ namespace ecopack.Api.Controllers
         }
 
         [HttpPost("Generate2DImage")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(ecopack.Api.Support.RateLimitPolicies.AiImage)]
         public async Task<IActionResult> Generate2DImage([FromBody] Generate2DRequestDto request)
         {
             if (request == null || string.IsNullOrEmpty(request.PrjId) || string.IsNullOrEmpty(request.PackLevel) || string.IsNullOrEmpty(request.AppliedMaterial))
             {
                 return BadRequest(new { message = "요청 파라미터 정보가 누락되었습니다." });
             }
+
+            // 본인이 만든 프로젝트만 다룰 수 있다
+            if (!await ecopack.Api.Support.ProjectAccess.IsOwnerAsync(_dbContext, request.PrjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
+            }
+
             //20260928 AppliedMaterial의 데이타는 mattypenm 정보를 가져온상태.
             //ecofix 데이타 생성 시작  :ecofix는 어니컴으로 전송하기위해  모의평가결과 AiPkgEvalInfoBscs테이블에서  개선사항정보(ecoFix)를 가져온다.
-            Console.WriteLine($"[AI 요청 데이터 생성] PrjId: {request.PrjId}, PackLevel: {request.PackLevel}, AppliedMaterial: {request.AppliedMaterial}");
-           
+            _logger.LogInformation("[AI 요청 데이터 생성] PrjId={PrjId}, PackLevel={PackLevel}, AppliedMaterial={AppliedMaterial}",
+                request.PrjId, request.PackLevel, request.AppliedMaterial);
+
             var evalList = await _dbContext.AiPkgEvalInfoBscs
                 .Where(x => x.Prjid == request.PrjId
                             && x.PackLevel == request.PackLevel
@@ -134,7 +152,6 @@ namespace ecopack.Api.Controllers
                 .GroupBy(x => x.EcoPackLarType)
                 .Select(g => $"{g.Key}=={string.Join(" / ", g.Select(x => x.DsgnRecmImp?.Replace("\r", "").Replace("\n", " ") ?? string.Empty))}"));
             //ecofix 데이타 생성 끝
-            Console.WriteLine($"[AI 요청 데이터 생성] ecoFix: {ecoFix}");
             //// CreateAiJobAsync 호출시 ProjectDetail에서 이미지이름과 If002a에서 디자인템플릿 정보 가져오기 
             var projectDetail = await _dbContext.ProjectDetail
                 .FirstOrDefaultAsync(pd => pd.PrjId == request.PrjId && pd.PackLevel == request.PackLevel);
@@ -156,7 +173,7 @@ namespace ecopack.Api.Controllers
                 RequestId = $"{request.PrjId}_{request.PackLevel}",
                 //Prompt = !string.IsNullOrEmpty(ecoFix) ? string.Empty : $"{request.AppliedMaterial} packaging design update",
                 Prompt = "",
-                Material = projectDetail.MatTypeNm ?? string.Empty,
+                Material = projectDetail?.MatTypeNm ?? string.Empty,
                 EcoFix = ecoFix,
                 Image = templateData
             };
@@ -170,14 +187,17 @@ namespace ecopack.Api.Controllers
             //_logger.LogInformation("[AI 요청 데이터 전송] {Payload}", System.Text.Json.JsonSerializer.Serialize(requestDto, jsonOptions));
             // AI이미지 생성 요청
            
-            //Console.WriteLine($"[AI 요청 데이터 전송] {System.Text.Json.JsonSerializer.Serialize(requestDto, jsonOptions)}");
+            // 요청 내용 전체(템플릿 이미지 포함)를 콘솔에 찍지 않고, 확인에 필요한 요약만 서버 로그에 남긴다
+            _logger.LogInformation("[AI 요청 데이터 전송] RequestId={RequestId}, Material={Material}, EcoFix {EcoFixLength}자, 템플릿 이미지 {HasImage}",
+                requestDto.RequestId, requestDto.Material, requestDto.EcoFix?.Length ?? 0, string.IsNullOrEmpty(requestDto.Image) ? "없음" : "있음");
 
             AiJobResponseWrapper apiResponse = await _aiExternalService.CreateAiJobAsync(requestDto);
 
             if (apiResponse == null || !apiResponse.Success)
             {
                 _logger.LogWarning("[AI API 오류 발생] Response: {Response}", System.Text.Json.JsonSerializer.Serialize(apiResponse, jsonOptions));
-                return StatusCode(500, new { message = "외부 AI 이미지 생성 API 호출에 실패했습니다.", response = apiResponse });
+                // 외부 서버의 응답 원문은 로그에만 남기고 화면에는 일반 문구만 돌려준다
+                return StatusCode(500, new { message = "AI 이미지 생성 요청에 실패했습니다. 잠시 후 다시 시도해 주세요." });
             }
 
             // 1. 기존에 해당 프로젝트/포장차수 이력이 있는지 조회
@@ -261,6 +281,12 @@ namespace ecopack.Api.Controllers
                 return BadRequest(new { message = "프로젝트 번호 또는 패키지 레벨이 누락되었습니다." });
             }
 
+            // 본인이 만든 프로젝트만 다룰 수 있다
+            if (!await ecopack.Api.Support.ProjectAccess.IsOwnerAsync(_dbContext, prjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
+            }
+
             try
             {
                 // 1. DB에서 해당 프로젝트와 차수의 JobId 조회
@@ -319,7 +345,7 @@ namespace ecopack.Api.Controllers
                     status = statusResponse.Status,
                     progress = statusResponse.Progress,
                     req2ddate = aiImageEntity.req2ddate,
-                    message = statusResponse.Message,
+                    message = StatusText(statusResponse.Success, statusResponse.Progress),
 
 
                     // 100 완료 상태일 때 프론트에서 이미지 바로 렌더링용으로 쓸 수 있게 같이 반환
@@ -331,7 +357,7 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[AI 상태 조회 오류] {Message}", ex.Message);
-                return StatusCode(500, new { message = "AI 작업 상태 조회 중 오류가 발생했습니다.", error = ex.Message });
+                return StatusCode(500, new { message = "AI 작업 상태 조회 중 오류가 발생했습니다." });
             }
         }
 
@@ -340,20 +366,57 @@ namespace ecopack.Api.Controllers
         /// 3D 이미지(GLB) 변환 요청 API
         /// </summary>
         [HttpPost("CreateGlbJob")]
+        [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(ecopack.Api.Support.RateLimitPolicies.AiImage)]
         public async Task<IActionResult> CreateGlbJob([FromBody] frontGlbRequestDto request)
         {
-            if (request == null || string.IsNullOrEmpty(request.PrjId) || string.IsNullOrEmpty(request.PackLevel) || string.IsNullOrEmpty(request.imagelabal) || string.IsNullOrEmpty(request.Image))
+            if (request == null || string.IsNullOrEmpty(request.PrjId) || string.IsNullOrEmpty(request.PackLevel) || string.IsNullOrEmpty(request.imagelabal))
             {
-                return BadRequest(new { success = false, message = "요청 파라미터(PrjId, PackLevel, Image) 정보가 누락되었습니다." });
+                return BadRequest(new { success = false, message = "요청 파라미터(PrjId, PackLevel, imagelabal) 정보가 누락되었습니다." });
+            }
+            if (request.imagelabal != "H PRI" && request.imagelabal != "MONO" && request.imagelabal != "LIGHT")
+            {
+                return BadRequest(new { success = false, message = "이미지 구분(imagelabal)이 올바르지 않습니다." });
+            }
+
+            // 본인이 만든 프로젝트만 다룰 수 있다
+            if (!await ecopack.Api.Support.ProjectAccess.IsOwnerAsync(_dbContext, request.PrjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
             }
 
             try
             {
+                // 3D 로 바꿀 이미지는 화면이 보낸 것을 쓰지 않고, 서버에 저장해 둔 2D 결과 이미지를 쓴다.
+                // 화면이 보낸 데이터를 검증 없이 외부 서버로 넘기면 아무 내용이나 크기 제한 없이 보낼 수 있다.
+                var stored = await _dbContext.ProjectAiImages
+                    .AsNoTracking()
+                    .Where(x => x.PrjId == request.PrjId && x.PackLevel == request.PackLevel)
+                    .Select(x => new { x.ResultDataOriginal, x.ResultDataModerate, x.ResultDataRedesign })
+                    .FirstOrDefaultAsync();
+
+                if (stored == null)
+                {
+                    return NotFound(new { success = false, message = "해당 프로젝트의 2D AI 작업 이력을 찾을 수 없습니다. 먼저 2D 생성을 진행해주세요." });
+                }
+
+                var storedImage = request.imagelabal switch
+                {
+                    "H PRI" => stored.ResultDataOriginal,
+                    "MONO" => stored.ResultDataModerate,
+                    _ => stored.ResultDataRedesign
+                };
+
+                var imageBase64 = ToValidatedImageBase64(storedImage);
+                if (imageBase64 == null)
+                {
+                    return BadRequest(new { success = false, message = "3D 로 변환할 2D 이미지가 없거나 형식이 올바르지 않습니다. 2D 생성을 먼저 완료해 주세요." });
+                }
+
                 // 1. 외부 AI 서비스에 보낼 DTO 구성 (명세서 규격 맞춤)
                 var requestDto = new ecopack.Api.Dtos.CreateGlbJobRequestDto
                 {
                     RequestId = $"{request.PrjId}_{request.PackLevel}",
-                    Image = request.Image // Base64 문자열
+                    Image = imageBase64 // Base64 문자열
                 };
 
                 // JSON 직렬화 옵션 (한글 깨짐 방지 등)
@@ -368,7 +431,8 @@ namespace ecopack.Api.Controllers
                 if (apiResponse == null || !apiResponse.Success)
                 {
                     _logger.LogWarning("[3D AI API 오류 발생] Response: {Response}", System.Text.Json.JsonSerializer.Serialize(apiResponse, jsonOptions));
-                    return StatusCode(500, new { success = false, message = "외부 3D AI 변환 API 호출에 실패했습니다.", response = apiResponse });
+                    // 외부 서버의 응답 원문은 로그에만 남기고 화면에는 일반 문구만 돌려준다
+                    return StatusCode(500, new { success = false, message = "3D 변환 요청에 실패했습니다. 잠시 후 다시 시도해 주세요." });
                 }
 
                 // 3. DB 엔티티 조회 (ProjectAiImages)
@@ -423,7 +487,7 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[3D 변환 요청 오류] {Message}", ex.Message);
-                return StatusCode(500, new { success = false, message = "3D 변환 요청 중 오류가 발생했습니다.", error = ex.Message });
+                return StatusCode(500, new { success = false, message = "3D 변환 요청 중 오류가 발생했습니다." });
             }
         }
         /// <summary>
@@ -438,6 +502,12 @@ namespace ecopack.Api.Controllers
             if (string.IsNullOrEmpty(prjId) || string.IsNullOrEmpty(packLevel))
             {
                 return BadRequest(new { success = false, message = "프로젝트 번호 또는 패키지 레벨이 누락되었습니다." });
+            }
+
+            // 본인이 만든 프로젝트만 다룰 수 있다
+            if (!await ecopack.Api.Support.ProjectAccess.IsOwnerAsync(_dbContext, prjId, User.CustId()))
+            {
+                return StatusCode(403, new { success = false, message = ecopack.Api.Support.ProjectAccess.DeniedMessage });
             }
 
             try
@@ -541,7 +611,7 @@ namespace ecopack.Api.Controllers
                     jobId = statusResponse.JobId,
                     status = statusResponse.Status,
                     progress = statusResponse.Progress,
-                    message = statusResponse.Message,
+                    message = StatusText(statusResponse.Success, statusResponse.Progress),
 
                     // 3D GLB 변환요청 시간
                     req3ddateoriginal = aiImageEntity?.req3ddateoriginal,
@@ -568,9 +638,55 @@ namespace ecopack.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[3D 상태 조회 오류] {Message}", ex.Message);
-                return StatusCode(500, new { success = false, message = "3D 작업 상태 조회 중 오류가 발생했습니다.", error = ex.Message });
+                return StatusCode(500, new { success = false, message = "3D 작업 상태 조회 중 오류가 발생했습니다." });
             }
         }
+
+        // ═════════════════════════════════════════════════════════════
+        // 헬퍼
+        // ═════════════════════════════════════════════════════════════
+
+        /// <summary>3D 변환에 넘길 이미지의 최대 크기</summary>
+        private const int MaxGlbSourceImageBytes = 10 * 1024 * 1024; // 10MB
+
+        /// <summary>
+        /// 저장된 2D 결과(data URI 또는 base64)를 외부 서버에 넘길 base64 로 바꾼다.
+        /// PNG/JPEG 가 아니거나 너무 크면 null.
+        /// </summary>
+        private static string? ToValidatedImageBase64(string? stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored))
+            {
+                return null;
+            }
+
+            var comma = stored.IndexOf("base64,", StringComparison.Ordinal);
+            var base64 = comma >= 0 ? stored[(comma + "base64,".Length)..] : stored;
+
+            // base64 4글자가 3바이트이므로 글자 수로 먼저 크기를 가늠한다
+            if (base64.Length > MaxGlbSourceImageBytes / 3 * 4 + 4)
+            {
+                return null;
+            }
+
+            var bytes = new byte[base64.Length];
+            if (!Convert.TryFromBase64String(base64, bytes, out var length) || length < 8)
+            {
+                return null;
+            }
+
+            var isPng = bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47;
+            var isJpeg = bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+            return isPng || isJpeg ? base64 : null;
+        }
+
+        /// <summary>
+        /// 작업 상태 안내 문구. 외부 AI 서버가 보낸 문구를 그대로 내려주지 않고 진행 상태에 맞는 문구를 만든다.
+        /// </summary>
+        private static string StatusText(bool success, int progress) =>
+            progress >= 100 ? "작업이 완료되었습니다."
+            : success ? "작업이 진행 중입니다."
+            : "작업 상태를 확인하지 못했습니다. 잠시 후 다시 조회해 주세요.";
 
     }
 
@@ -583,7 +699,9 @@ namespace ecopack.Api.Controllers
 
     public class Generate2DRequestDto
     {
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string? PackLevel { get; set; }
         public string? AppliedMaterial { get; set; }
     }

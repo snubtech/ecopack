@@ -17,7 +17,7 @@
  *    - 목록 조회에서 pageSize 를 0 으로 보내면 전체를 받아옵니다(엑셀 내려받기용).
  * ==============================================================================
  */
-import axios from 'axios';
+import http from './http';
 
 /**
  * 라이브러리 > 디자인 템플릿 API 클라이언트
@@ -26,7 +26,7 @@ import axios from 'axios';
 
 /** 1. 조회조건 셀렉트 목록 (포장차수 / 적용소재 / 포장재 구분) */
 export async function GetDesignTemplateFilters() {
-    const response = await axios.get('/api/DesignTemplate/GetFilters');
+    const response = await http.get('/api/DesignTemplate/GetFilters');
     return response.data;
 }
 
@@ -38,7 +38,7 @@ export async function GetDesignTemplateFilters() {
  *   page, pageSize : 페이징 (pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용)
  */
 export async function GetDesignTemplateList(params) {
-    const response = await axios.get('/api/DesignTemplate/GetList', { params });
+    const response = await http.get('/api/DesignTemplate/GetList', { params });
     return response.data;
 }
 
@@ -47,6 +47,6 @@ export async function GetDesignTemplateList(params) {
  * - 응답에 이미지가 실리므로 행을 펼칠 때만 호출합니다.
  */
 export async function GetDesignTemplateDetail(packDsgnTplId) {
-    const response = await axios.get('/api/DesignTemplate/GetDetail', { params: { packDsgnTplId } });
+    const response = await http.get('/api/DesignTemplate/GetDetail', { params: { packDsgnTplId } });
     return response.data;
 }

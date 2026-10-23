@@ -15,10 +15,8 @@
  *      두 컬럼을 모두 확인합니다.
  * 
  * 3. 알아둘 점
- *    - 지금은 인증이 임시(목) 토큰이라 서버가 로그인한 사람을 스스로 알 수 없습니다.
- *      그래서 화면이 보내 준 고객 ID를 기준으로 확인합니다.
- *    - 나중에 실제 인증(JWT 등)으로 바꾸면, 화면이 보낸 값 대신
- *      토큰에서 꺼낸 사용자 정보를 넘기도록 이 함수 호출부만 바꾸면 됩니다.
+ *    - 확인에 쓰는 고객 ID 는 로그인 토큰에서 꺼낸 값입니다(User.CustId()).
+ *      화면이 보낸 값은 쓰지 않습니다. 호출부에서 반드시 토큰의 값을 넘겨야 합니다.
  * ==============================================================================
  */
 using Microsoft.EntityFrameworkCore;
@@ -48,6 +46,31 @@ namespace ecopack.Api.Support
                 .AnyAsync(p => p.PrjId == prjId
                                && (p.RepCustId == repCustId || p.Prjuserid == repCustId));
         }
+
+        /// <summary>
+        /// 기존 프로젝트 번호에 새 포장차수를 붙일 수 있는지 확인한다.
+        /// 그 번호의 모든 차수가 요청한 회원의 것이어야 한다.
+        /// 한 행이라도 남의 것이면 막는다(남의 번호에 차수를 끼워 넣어 소유자로 인정받는 것을 막기 위해).
+        /// </summary>
+        public static async Task<bool> OwnsEveryLevelAsync(AppDbContext context, string? prjId, string? repCustId)
+        {
+            if (string.IsNullOrWhiteSpace(prjId) || string.IsNullOrWhiteSpace(repCustId))
+            {
+                return false;
+            }
+
+            var owners = await context.Project
+                .AsNoTracking()
+                .Where(p => p.PrjId == prjId)
+                .Select(p => new { p.RepCustId, p.Prjuserid })
+                .ToListAsync();
+
+            return owners.Count > 0
+                && owners.All(o => o.RepCustId == repCustId || o.Prjuserid == repCustId);
+        }
+
+        /// <summary>엑셀용 전체 조회로 한 번에 내려줄 수 있는 최대 건수</summary>
+        public const int MaxExportRows = 20000;
 
         /// <summary>다른 회원의 자료에 접근할 때 돌려줄 안내 문구</summary>
         public const string DeniedMessage = "본인이 만든 프로젝트만 조회·수정할 수 있습니다.";

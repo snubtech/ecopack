@@ -1,0 +1,39 @@
+# 의존성 자동 점검 (Dependabot)
+# 취약점이 알려진 패키지나 새 버전이 나오면 GitHub 가 자동으로 수정 PR 을 올린다.
+#
+# 이 파일만으로는 버전 갱신 PR 만 만들어진다. 취약점 알림과 보안 수정 PR 은
+# GitHub 저장소의 Settings > Code security 에서 아래 두 가지를 켜야 동작한다.
+#   - Dependabot alerts
+#   - Dependabot security updates
+version: 2
+updates:
+  # 화면 (React + Vite)
+  - package-ecosystem: npm
+    directory: /ecopack.Web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # 자잘한 갱신은 한 PR 로 묶는다
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # 서버 폴더에 있는 npm 패키지
+  - package-ecosystem: npm
+    directory: /ecopack.Api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 2
+
+  # 서버 (.NET / NuGet)
+  - package-ecosystem: nuget
+    directory: /ecopack.Api
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    ignore:
+      # EF Core 와 Pomelo(MySQL)는 주 버전을 함께 올려야 해서 자동으로 올리지 않는다
+      - dependency-name: Microsoft.EntityFrameworkCore*
+        update-types: [version-update:semver-major]
+      - dependency-name: Pomelo.EntityFrameworkCore.MySql
+        update-types: [version-update:semver-major]

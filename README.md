@@ -30,7 +30,7 @@ ecopack/
 | `src/pages/` | 페이지 단위 화면 |
 | `src/styles/` | 전역 스타일 |
 
-개발 시 Vite가 `/api` 요청을 `http://localhost:5260`으로 프록시합니다.
+개발 시 Vite가 `/api` 요청을 `http://localhost:5258`로 프록시합니다.
 
 ## 실행 방법
 
@@ -41,7 +41,7 @@ cd ecopack.Api
 dotnet run
 ```
 
-기본 주소: `http://localhost:5260`
+기본 주소: `http://localhost:5258`
 
 ### 2. Web
 
@@ -52,6 +52,77 @@ npm run dev
 ```
 
 기본 주소: `http://localhost:5173`
+
+## 로그인·보안 설정
+
+모든 API는 로그인 토큰이 있어야 부를 수 있습니다. 로그인하면 서버가 토큰을 발급하고, 화면이 이후 요청마다 자동으로 실어 보냅니다. 설정은 `ecopack.Api/appsettings.json`의 `Jwt`, `Admin`, `LoginGuard`, `RateLimit` 구역에 있습니다.
+
+### 서명 키 (`ECOPACK_JWT_KEY`)
+
+토큰에 서명하는 키입니다. **설정하지 않아도 서버는 켜집니다.** 그때는 서버가 켜질 때마다 임시 키를 새로 만들어 메모리에만 두고 씁니다.
+
+임시 키로 운영하면 키를 관리할 필요가 없는 대신 다음을 감수해야 합니다.
+
+- 서버를 다시 켜면(배포, 재부팅 포함) 모든 사용자가 다시 로그인해야 합니다.
+- 서버를 여러 대로 늘리면 서버마다 키가 달라 로그인이 유지되지 않습니다.
+
+위 두 가지를 피하려면 환경변수 `ECOPACK_JWT_KEY`에 고정 키를 넣습니다. 이 키를 아는 사람은 누구의 토큰이든 만들 수 있으므로 **저장소에 올리지 않습니다.** `appsettings.json`에 적어도 읽지 않습니다.
+
+키는 32자 이상의 임의 문자열입니다. 아래 명령으로 만들 수 있습니다.
+
+```bash
+openssl rand -base64 48
+```
+
+만든 값을 서버를 실행하는 계정의 환경변수로 넣습니다.
+
+```bash
+# macOS / Linux
+export ECOPACK_JWT_KEY='만든 값'
+```
+
+```powershell
+# Windows PowerShell
+$env:ECOPACK_JWT_KEY = '만든 값'
+```
+
+키를 바꾸면 그 전에 발급된 토큰은 모두 못 쓰게 됩니다(전원 다시 로그인).
+
+### 관리자
+
+`Admin:RepCustIds`에 적힌 아이디만 관리용 API(대화 수동 백업 `POST /api/LlmChat/Archive`, IF005 수동 수집 `POST /api/If005Sync/Run`)를 부를 수 있습니다. 목록을 바꾼 뒤에는 서버를 다시 켜야 반영됩니다. 자동 백업과 자동 수집은 이 설정과 무관하게 돕니다.
+
+### DB 접속 정보 (`ECOPACK_DB_CONNECTION`)
+
+서버는 환경변수 `ECOPACK_DB_CONNECTION`의 접속 문자열을 먼저 쓰고, 없으면 `appsettings.json`의 `ConnectionStrings:DefaultConnection`을 씁니다. 지금은 설정 파일 값을 쓰고 있으며, 서버가 켜질 때 이를 알리는 경고가 로그에 한 줄 남습니다.
+
+접속 정보를 설정 파일에서 빼는 순서는 다음과 같습니다.
+
+1. 모든 개발 PC와 서버에 `ECOPACK_DB_CONNECTION`을 설정합니다. 형식은 `Server=...;Port=3306;Database=ecopackdb;Uid=...;Pwd=...;`입니다.
+2. 각자 서버를 켜서 경고가 사라졌는지 확인합니다.
+3. `appsettings.json`에서 `DefaultConnection` 값을 지웁니다.
+4. 저장소 이력에 남은 비밀번호는 DB 비밀번호를 바꿔 무효로 만듭니다.
+
+### 대화 백업 보관 기간
+
+AI 채팅 대화는 2일이 지나면 백업 테이블과 JSON 파일(`App_Data/llmbackup`)로 옮겨집니다. 백업한 지 `LlmChat:ArchiveRetentionDays`(기본 30일)가 지난 것은 백업 테이블의 행과 파일을 함께 지웁니다. 지운 것은 되살릴 수 없습니다. `0`으로 두면 지우지 않습니다.
+
+### 외부 AI 서버
+
+- LLM 서버가 인증을 요구하게 되면 `LlmChat:AuthType`을 바꾸고 환경변수 `ECOPACK_LLM_API_KEY`에 키를 넣습니다.
+- 이미지 AI 서버가 API 키를 요구하게 되면 환경변수 `ECOPACK_IMAGE_AI_API_KEY`에 키를 넣습니다. 헤더 이름은 `ExternalAiSettings:ApiKeyHeader`(기본 `X-API-Key`)입니다.
+- 두 서버가 HTTPS를 지원하게 되면 각 `BaseUrl`을 `https://`로 바꿉니다. 코드 수정은 필요 없습니다.
+
+### 의존성 자동 점검
+
+`.github/dependabot.yml`이 매주 npm과 NuGet 패키지의 새 버전을 확인해 PR을 올립니다. 취약점 알림과 보안 수정 PR은 GitHub 저장소의 **Settings > Code security**에서 "Dependabot alerts"와 "Dependabot security updates"를 켜야 동작합니다.
+
+### 배포할 때
+
+- **서버(`ecopack.Api`)와 화면(`ecopack.Web`)을 반드시 함께 배포합니다.** 서버만 올리면 화면의 모든 요청이 401로 막히고, 화면만 올리면 로그인이 되지 않습니다.
+- 배포 후에는 모든 사용자가 다시 로그인해야 합니다.
+- `ECOPACK_JWT_KEY`를 설정하지 않았다면 서버를 다시 켤 때마다 모든 사용자가 다시 로그인해야 합니다.
+- 서버를 프록시(nginx 등) 뒤에 두면 접속 IP가 모두 프록시 주소로 보입니다. 로그인 요청 제한이 IP별로 동작하게 하려면 전달 헤더(ForwardedHeaders) 설정이 필요합니다.
 
 ## 다음 단계
 

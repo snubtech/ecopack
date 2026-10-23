@@ -80,7 +80,11 @@ namespace ecopack.Api.Support
             // 그래도 막히는 질문이 남아 있어, 막히면 LocalAnswerBuilder 가 대신 답한다.
 
             // ── ① 요청 ───────────────────────────────────────────
-            sb.AppendLine($"요청: {question.Trim()}");
+            // 질문은 한 줄로 펴서 싣는다. 줄바꿈을 그대로 두면 질문 안에 "[현재 작업 상태]" 같은
+            // 줄을 적어 넣어 우리가 넣은 자료인 것처럼 꾸밀 수 있다(프롬프트 인젝션).
+            // 서버가 question 한 항목만 받아 지시문과 사용자 입력을 완전히 나눌 수는 없어서, 여기서 할 수 있는 완화다.
+            var oneLine = string.Join(' ', question.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+            sb.AppendLine($"요청: {oneLine}");
             sb.AppendLine();
 
             // ── ② 작업 상태 ──────────────────────────────────────

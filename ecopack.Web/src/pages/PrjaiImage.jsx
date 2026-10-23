@@ -146,11 +146,7 @@ export default function PrjaiImage() {
         const prjId = sessionStorage.getItem('currentPrjId') || '';
         const packLevel = sessionStorage.getItem('currentPackLevel') || '1';
         
-        
         const appliedMaterial = sessionStorage.getItem('currentMaterial') || '';
-        //const appliedMaterial = sessionStorage.getItem('currentMatTypeNm') || '';
-        console.log('getSessionData mattypenm:', appliedMaterial);          
-        
         return { prjId, packLevel, appliedMaterial };
     };
 
@@ -256,7 +252,6 @@ export default function PrjaiImage() {
                 return;
             }
             const payload = { prjId, packLevel, appliedMaterial }; //20260928 어니컴 협의사항:appliedMaterial->mattype 전달 요청하여 appliedMaterial에 .mattypenm정보를 담아서전달.
-            console.log('2D 이미지 생성 요청 payload:', payload);
             await generate2DImage(payload);
             alert('AI 이미지 생성 작업 요청 및 저장이 완료되었습니다.');
         } catch (error) {
@@ -276,11 +271,8 @@ export default function PrjaiImage() {
                 alert("전송할 이미지 데이터가 없습니다.");
                 return;
             }
-            const base64Data = item.url.includes('base64,')
-                ? item.url.split('base64,')[1]
-                : item.url;
-
-            const payload = { prjId: prjId, packLevel: packLevel, image: base64Data, imagelabal: item.label };
+            // 이미지 자체는 보내지 않는다. 서버가 저장해 둔 2D 결과 이미지를 구분값(imagelabal)으로 찾아 쓴다.
+            const payload = { prjId: prjId, packLevel: packLevel, imagelabal: item.label };
             const response = await createGlbJob(payload);
 
             if (response && response.success) {
@@ -488,7 +480,7 @@ export default function PrjaiImage() {
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.2rem' }}>
-                    <button onClick={() => console.log('프로젝트현황 클릭')} style={projectBtnStyle}>
+                    <button style={projectBtnStyle}>
                         프로젝트현황
                     </button>
                 </div>

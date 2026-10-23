@@ -1,91 +1,101 @@
-import { clearAccessToken, request, setAccessToken } from './client'
+import http, { clearAccessToken, errorMessage, setAccessToken } from './http'
+
+/**
+ * 서버 호출을 실행하고 응답 본문을 돌려준다.
+ * 실패하면 서버가 준 안내 문구(message)를 담은 Error 를 던진다. 화면은 err.message 를 그대로 보여 준다.
+ */
+async function call(promise, fallback = '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.') {
+    try {
+        const response = await promise
+        return response.data
+    } catch (error) {
+        throw new Error(errorMessage(error, fallback), { cause: error })
+    }
+}
 
 /**
  * [인증 관련 API 통신 모음 객체]
  * 로그인, 로그아웃, 내 정보 확인 등 회원 인증과 관련된 서버 요청들을 모아둔 곳입니다.
+ * 누구의 요청인지는 서버가 로그인 토큰에서 알아내므로, 아이디를 따로 실어 보내지 않습니다.
  */
 export const authApi = {
     /**
      * [로그인 요청 함수]
-     * 사용자가 입력한 아이디와 비밀번호를 받아 백엔드 서버로 로그인 요청을 보냅니다.
-     * 
+     * 아이디와 비밀번호를 보내고, 성공하면 서버가 준 토큰을 보관합니다.
+     *
      * @param {string} repCustId - 사용자 아이디
      * @param {string} repCustPwd - 사용자 비밀번호
      */
     login: async (repCustId, repCustPwd) => {
-        // 매개변수나 보낼 데이터 키를 백엔드 DTO(C# 등 서버 규격)와 정확히 일치시킵니다.
-        const response = await request('/auth/login', {
-            method: 'POST', // 데이터를 서버로 보내서 확인받는 POST 방식
-            body: JSON.stringify({
-                RepCustId: repCustId,  //좌측이 dto의 변수명,우측이 프론트에서 입력받은 변수명 
-                RepCustPwd: repCustPwd //좌측이 dto의 변수명,우측이 프론트에서 입력받은 변수명
-            }),
-        })
-     
-        // 서버가 응답해 준 결과물 안에서 데이터 꾸러미(payload)를 꺼냅니다.
+        const response = await call(
+            // 아이디·비밀번호가 틀렸을 때의 401 은 "세션 만료"가 아니므로 공통 401 처리를 타지 않게 한다
+            http.post('/api/auth/login', { RepCustId: repCustId, RepCustPwd: repCustPwd }, { skipAuthRedirect: true }),
+            '로그인하지 못했습니다. 잠시 후 다시 시도해 주세요.',
+        )
         const payload = response.data
 
-        // 로그인 성공 시 서버가 보내준 진짜 토큰(열쇠)을 세션 스토리지에 쏙 저장합니다.
-        setAccessToken(payload.accessToken)
+        setAccessToken(payload.accessToken, payload.expiresIn)
 
-        // 💡 세션 스토리지 키를 'prjuserid'로 지정하여 저장합니다.
-        //    회원가입 때 입력한 회사·담당자 정보(profile)도 함께 담아
-        //    기술문서·적합성선언서 화면이 자동으로 채워 쓸 수 있게 합니다.
+        // 회원가입 때 입력한 회사·담당자 정보(profile)도 함께 담아
+        // 기술문서·적합성선언서 화면이 자동으로 채워 쓸 수 있게 합니다.
         sessionStorage.setItem('prjuserid', JSON.stringify({
             repCustId: payload.repCustId,
             profile: payload.profile ?? null
         }));
 
-        // 화면이나 컨트롤 타워(AuthProvider)에서 쓸 수 있도록 유저/토큰 정보가 담긴 payload를 돌려줍니다.
         return payload
     },
 
     /**
      * [로그아웃 요청 함수]
-     * 서버에 로그아웃 요청을 알리고, 브라우저에 저장되어 있던 토큰을 깔끔하게 폐기합니다.
+     * 서버에 로그아웃을 알리고(감사 기록용), 브라우저에 보관한 토큰을 지웁니다.
      */
     logout: async () => {
         try {
-            // 서버에 "저 로그아웃합니다!" 하고 POST 요청을 보냅니다.
-            await request('/auth/logout', { method: 'POST' })
+            await http.post('/api/auth/logout', null, { skipAuthRedirect: true })
+        } catch {
+            // 서버에 알리지 못해도 로그아웃은 진행한다
         } finally {
-            // 서버 통신이 성공하든 실패하든 상관없이, 브라우저 창고에 있던 토큰(별명: ecopack.accessToken)은 무조건 지워버립니다.
             clearAccessToken()
         }
     },
 
     /**
-     * [내 정보 조회 함수]
-     * "지금 이 토큰을 가진 사람이 누구지?" 하고 서버에 물어봐서 현재 로그인한 유저의 프로필 정보를 가져옵니다.
+     * [토큰 갱신]
+     * 아직 유효한 토큰으로 새 토큰을 받습니다. 사용 중에 AuthProvider 가 주기적으로 부릅니다.
      */
-    getMe: (repCustId) =>
-        request(`/auth/me${repCustId ? `?repCustId=${encodeURIComponent(repCustId)}` : ''}`),
+    refresh: async () => {
+        const response = await call(http.post('/api/auth/refresh'))
+        setAccessToken(response.data.accessToken, response.data.expiresIn)
+    },
 
     /**
-     * [아이디 중복확인]
-     * 회원가입 화면에서 아이디를 쓸 수 있는지 서버에 물어봅니다.
+     * [내 정보 조회 함수]
+     * 지금 가진 토큰이 아직 유효한지, 누구인지 서버에 확인합니다. 화면이 시작할 때 부릅니다.
      */
-    checkId: (repCustId) =>
-        request(`/auth/checkId?repCustId=${encodeURIComponent(repCustId)}`),
+    getMe: () => call(http.get('/api/auth/me')),
+
+    /** [아이디 중복확인] 회원가입 화면에서 아이디를 쓸 수 있는지 서버에 물어봅니다. */
+    checkId: (repCustId) => call(http.get('/api/auth/checkId', { params: { repCustId } })),
 
     /**
      * [회원가입]
      * customer 테이블에 새 계정을 만듭니다. 성공하면 로그인 화면으로 돌아가 로그인할 수 있습니다.
      * @param {object} form 아이디·비밀번호와 회사/담당자 정보
      */
-    join: (form) =>
-        request('/auth/join', { method: 'POST', body: JSON.stringify(form) }),
+    join: (form) => call(http.post('/api/auth/join', form)),
 
-    /**
-     * [회원정보 조회]
-     */
-    getProfile: (repCustId) =>
-        request(`/auth/profile?repCustId=${encodeURIComponent(repCustId)}`),
+    /** [회원정보 조회] 로그인한 본인의 정보를 가져옵니다. */
+    getProfile: () => call(http.get('/api/auth/profile')),
 
     /**
      * [회원정보 수정]
      * 비밀번호를 바꿀 때만 repCustPwd 와 currentPwd 를 함께 담아 보냅니다.
      */
-    updateProfile: (form) =>
-        request('/auth/profile', { method: 'POST', body: JSON.stringify(form) }),
+    updateProfile: async (form) => {
+        const res = await call(http.post('/api/auth/profile', form))
+        // 비밀번호를 바꾸면 서버가 기존 토큰을 모두 끊고 새 토큰을 준다. 이 화면은 새 토큰으로 이어 쓴다.
+        if (res?.accessToken) setAccessToken(res.accessToken, res.expiresIn)
+        return res
+    },
 }

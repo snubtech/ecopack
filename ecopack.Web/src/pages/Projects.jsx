@@ -30,7 +30,7 @@
  * 5. 화면 렌더링 (JSX)
  *    - 이력 표는 날짜·프로젝트명·프로젝트 번호·수출국가·포장 차수·담당자·진행상태와
  *      프로젝트 관리/TD/DOC 세 개의 이동 버튼으로 이루어집니다.
- *    - 수출국가는 백엔드에서 제공하는 CntryNm 값을 바로 출력합니다.
+ *    - 수출국가는 prdExpCntryNm1~8 중 'Y' 인 항목의 이름을 출력합니다(CntryNm 은 회원 국가라 쓰지 않습니다).
  * ==============================================================================
  */
 import { useEffect, useState } from 'react';
@@ -60,6 +60,11 @@ const COUNTRIES = [
     { key: 'australia', label: '호주', field: 'prdExpCntryNm7' },
     { key: 'korea', label: '대한민국', field: 'prdExpCntryNm8' }
 ];
+
+// 프로젝트 행에서 신규 작성 때 고른 수출국 이름을 꺼낸다.
+// cntryNm 은 로그인한 회원의 국가라 수출국으로 쓰면 안 된다.
+const getExportCountry = (item) =>
+    COUNTRIES.find((country) => item[country.field] === 'Y')?.label || '';
 
 const PACKAGING_LEVELS = [
     { key: 'sales', label: '판매(1차)' },
@@ -198,7 +203,6 @@ export default function Projects({ onSelectItem }) {
             }
             //  [추가] 모달에서 선택한 수출 국가를 세션 스토리지에 저장
             sessionStorage.setItem('currentExportCountry', formData.exportCountry);
-            console.log('1.세션에 저장된 currentExportCountry:', sessionStorage.getItem('currentExportCountry'));
             alert('선택한 포장 차수별로 신규 프로젝트가 성공적으로 생성되었습니다.');
             setIsModalOpen(false); // 모달 닫기
 
@@ -207,7 +211,7 @@ export default function Projects({ onSelectItem }) {
             setProjectList(data);
 
         } catch (err) {
-            alert('프로젝트 등록 중 오류가 발생했습니다.');
+            alert(err?.response?.data?.message || '프로젝트 등록 중 오류가 발생했습니다.');
             console.error(err);
         }
     };
@@ -218,23 +222,14 @@ export default function Projects({ onSelectItem }) {
         const prjId = item.prjId || '';
         const prjNm = item.prjNm || '';
         const currentPackLevel = item.packLevel || item.PackLevel || '';
-        //20260918 start
-        // 세션정보에  수출국가(currentExportCountry)를  제조국가로 저장하던 부분 수정
-        //const exportCountry = item.cntryNm || item.CntryNm || ''; // 서버에서 제공하는 CntryNm 활용
-        //console.log('2.세션에 저장될 exportCountry:', exportCountry);
-        //sessionStorage.setItem('currentExportCountry', exportCountry);
-        //20260918 end
-        // 💡 해당 행에 매칭되는 정확한 수출국가 추출
-        const matchedCountry = COUNTRIES.find(country => item[country.field] === 'Y');
-        const displayCountry = matchedCountry ? matchedCountry.label : (item.cntryNm || item.CntryNm || '');
-        sessionStorage.setItem('currentExportCountry', displayCountry); // 👈 행별 수출국가 저장
-        console.log('세션에 저장된 currentExportCountry:', displayCountry);
+        // 행별 수출국가: 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y'), 없으면 제조국
+        const exportCountry = getExportCountry(item) || item.cntryNm || item.CntryNm || '';
+
         // 1. 세션 스토리지에 데이터 저장
         sessionStorage.setItem('currentPrjNm', prjNm);
         sessionStorage.setItem('currentPrjId', prjId);
         sessionStorage.setItem('currentPackLevel', currentPackLevel);
-       
-        
+        sessionStorage.setItem('currentExportCountry', exportCountry); // 행별 수출국가
 
         // 2. 부모 컴포넌트의 탭 전환 함수 호출
         if (typeof onSelectItem === 'function') {
@@ -341,11 +336,8 @@ export default function Projects({ onSelectItem }) {
                             </tr>
                         ) : (
                             projectList.map((item, index) => {
-                                // 백엔드에서 제공하는 CntryNm 값을 바로 사용
-                                //const displayCountry = item.cntryNm || item.CntryNm || '-';
-                                // 💡 수정된 부분: prdExpCntryNm1 ~ 8 중 'Y'인 항목의 label을 매칭합니다.
-                                const matchedCountry = COUNTRIES.find(country => item[country.field] === 'Y');
-                                const displayCountry = matchedCountry ? matchedCountry.label : (item.cntryNm || item.CntryNm || '-');
+                                // 신규 작성 때 고른 수출국(prdExpCntryNm1~8 중 'Y'), 없으면 제조국
+                                const displayCountry = getExportCountry(item) || item.cntryNm || item.CntryNm || '-';
 
                                 // packLevel 속성명 대소문자 호환 처리
                                 const packLevelVal = item.packLevel || item.PackLevel || '';

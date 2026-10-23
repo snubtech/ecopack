@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 namespace ecopack.Api.Dtos
 {
     // ═══════════════════════════════════════════════════════════════
@@ -8,12 +9,15 @@ namespace ecopack.Api.Dtos
     public class LlmChatOpenSessionDto
     {
         /// <summary>로그인한 고객 ID</summary>
+        [StringLength(ecopack.Api.Support.InputRules.CustomerIdMax, ErrorMessage = "아이디는 50자를 넘을 수 없습니다.")]
         public string? RepCustId { get; set; }
 
         /// <summary>세션을 여는 시점의 프로젝트 ID(없으면 비워 둔다)</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
 
         /// <summary>세션을 여는 시점의 포장차수</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string? PackLevel { get; set; }
     }
 
@@ -21,18 +25,22 @@ namespace ecopack.Api.Dtos
     public class LlmChatSendDto
     {
         /// <summary>대화 세션 ID. 비어 있으면 서버가 새 세션을 열어 준다.</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? ChatSesId { get; set; }
 
         /// <summary>로그인한 고객 ID</summary>
+        [StringLength(ecopack.Api.Support.InputRules.CustomerIdMax, ErrorMessage = "아이디는 50자를 넘을 수 없습니다.")]
         public string? RepCustId { get; set; }
 
         /// <summary>사용자가 입력한 질문</summary>
         public string? Question { get; set; }
 
         /// <summary>지금 중앙 화면이 보고 있는 프로젝트 ID</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
 
         /// <summary>지금 중앙 화면이 보고 있는 포장차수(1/2/3)</summary>
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string? PackLevel { get; set; }
 
         /// <summary>지금 중앙 화면의 메뉴 ID. 예: project-history, start-project, prjeval, td, doc</summary>
@@ -55,7 +63,12 @@ namespace ecopack.Api.Dtos
         public string? PrjId { get; set; }
         public string? PackLevel { get; set; }
         public string? CurMenuId { get; set; }
-        public string? ErrCntn { get; set; }
+
+        /// <summary>
+        /// 이 답변을 만드는 중에 오류가 있었는지 여부.
+        /// 오류 내용 자체(예외 문구, AI 서버 응답)는 화면으로 내려주지 않고 DB 와 서버 로그에만 남긴다.
+        /// </summary>
+        public bool HasError { get; set; }
         public DateTime FrstCrtDtm { get; set; }
     }
 
@@ -122,7 +135,13 @@ namespace ecopack.Api.Dtos
         public DateTime CutoffDtm { get; set; }
         public int ArchivedSessions { get; set; }
         public int ArchivedMessages { get; set; }
-        public List<string> Files { get; set; } = new();
+        /// <summary>백업 파일을 쓴 건수. 서버 경로가 드러나지 않게 파일 경로는 싣지 않는다.</summary>
+        public int ArchivedFiles { get; set; }
+
+        /// <summary>보관 기간이 지나 지운 백업 세션 / 메시지 / 파일 건수</summary>
+        public int PurgedSessions { get; set; }
+        public int PurgedMessages { get; set; }
+        public int PurgedFiles { get; set; }
         public string? ErrCntn { get; set; }
     }
 }

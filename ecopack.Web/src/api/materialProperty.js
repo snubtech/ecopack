@@ -16,7 +16,7 @@
  *    - 목록 조회에서 pageSize 를 0 으로 보내면 전체를 받아옵니다(엑셀 내려받기용).
  * ==============================================================================
  */
-import axios from 'axios';
+import http from './http';
 
 /**
  * 라이브러리 > 소재물성 API 클라이언트
@@ -29,7 +29,7 @@ import axios from 'axios';
  * - 포장차수/적용소재/사용환경/포장재구분/소재의구성/성능항목/단위 7종을 한 번에 받아옵니다.
  */
 export async function GetMaterialPropertyFilters() {
-    const response = await axios.get('/api/MaterialProperty/GetFilters');
+    const response = await http.get('/api/MaterialProperty/GetFilters');
     return response.data;
 }
 
@@ -41,6 +41,6 @@ export async function GetMaterialPropertyFilters() {
  *   page, pageSize : 페이징 (pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용)
  */
 export async function GetMaterialPropertyList(params) {
-    const response = await axios.get('/api/MaterialProperty/GetList', { params });
+    const response = await http.get('/api/MaterialProperty/GetList', { params });
     return response.data;
 }

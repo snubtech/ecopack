@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 namespace ecopack.Api.Dtos
 {
     public class ProjecttemplateListDto
@@ -28,7 +29,9 @@ namespace ecopack.Api.Dtos
     // 💡 요청을 받을 DTO 클래스
     public class ProjecttemplateUpdateDto
     {
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string PrjId { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string PackLevel { get; set; }
         public string PackDsgnTplId { get; set; }
         public string Prjuserid { get; set; }

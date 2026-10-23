@@ -334,8 +334,8 @@ function PrjevalPage({ onSelectItem }) {
                 prtAsmtQstItemId: null,              // 부모 보기 ID
                 asmtQstNm: qstTitle,                   // 질문 제목
                 asmtQstItemNm: option.optionText,    // 보기 이름
-                scoringCriteria: String(option.score || 0), // 점수 기준
-                asmtpoint: String(option.score || '0'),     // 획득 점수
+                // 점수(scoringCriteria / asmtpoint)는 보내지 않는다.
+                // 서버가 고른 보기의 배점을 기준표(if200)에서 직접 찾아 저장한다.
                 natRglAls: option.natRglAls || '',      // 규제 분석 내용
                 dsgn_recm_imp: option.dsgnRecmImp || ''  // 디자인 개선 내용
             });

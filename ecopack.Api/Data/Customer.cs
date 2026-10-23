@@ -97,4 +97,9 @@ public partial class Customer
     /// 사용자최종로그인일시
     /// </summary>
     public DateTime? LastLgnDtm { get; set; }
+
+    /// <summary>
+    /// 로그인토큰버전. 로그아웃·비밀번호 변경 때 1 씩 올려, 그 전에 발급된 토큰을 못 쓰게 한다.
+    /// </summary>
+    public int TknVer { get; set; }
 }

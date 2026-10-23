@@ -77,7 +77,7 @@ namespace ecopack.Api.Controllers
         // 해당 프로젝트의 적합성선언서를 조회한다. 없으면 빈 DTO(신규 작성용)를 돌려준다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("Get")]
-        public async Task<IActionResult> Get([FromQuery] string prjId, [FromQuery] string? repCustId)
+        public async Task<IActionResult> Get([FromQuery] string prjId)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
@@ -85,7 +85,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서만 열 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -118,7 +118,7 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "조회 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "조회 중 오류가 발생했습니다.");
             }
         }
 
@@ -127,7 +127,7 @@ namespace ecopack.Api.Controllers
         // 신규/수정 통합 저장(Upsert). 저장 시 lastWrtDt(발행일)를 현재 날짜로 갱신한다.
         // ─────────────────────────────────────────────────────────────
         [HttpPost("Save")]
-        public async Task<IActionResult> Save([FromBody] PrimaryDocDto dto, [FromQuery] string? repCustId)
+        public async Task<IActionResult> Save([FromBody] PrimaryDocDto dto)
         {
             if (dto == null || string.IsNullOrWhiteSpace(dto.PrjId))
             {
@@ -135,7 +135,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서만 저장할 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, dto.PrjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -151,9 +151,8 @@ namespace ecopack.Api.Controllers
                 {
                     entity = new PrimaryDoc
                     {
-                        Pkg1DocId = string.IsNullOrWhiteSpace(dto.Pkg1DocId)
-                            ? NewDocId(dto.PrjId)
-                            : dto.Pkg1DocId
+                        // 문서 번호는 서버가 채번한 값만 쓴다. 화면이 보낸 번호는 받지 않는다.
+                        Pkg1DocId = NewDocId(dto.PrjId)
                     };
                     _context.PrimaryDoc.Add(entity);
                 }
@@ -199,7 +198,7 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "저장 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "저장 중 오류가 발생했습니다.");
             }
         }
 
@@ -208,7 +207,7 @@ namespace ecopack.Api.Controllers
         // 근거문서 원본 파일을 내려준다. 소유자 확인을 통과해야만 내려받을 수 있다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("DownloadEvdDoc")]
-        public async Task<IActionResult> DownloadEvdDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
+        public async Task<IActionResult> DownloadEvdDoc([FromQuery] string prjId, [FromQuery] int slot)
         {
             if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > EvdDocSlotCount)
             {
@@ -216,7 +215,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서만 내려받을 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -254,8 +253,7 @@ namespace ecopack.Api.Controllers
         public async Task<IActionResult> UploadEvdDoc(
             [FromForm] string prjId,
             [FromForm] int slot,
-            IFormFile file,
-            [FromQuery] string? repCustId)
+            IFormFile file)
         {
             if (string.IsNullOrWhiteSpace(prjId))
             {
@@ -281,9 +279,14 @@ namespace ecopack.Api.Controllers
                     Message = $"허용되지 않는 파일 형식입니다. ({UploadPolicy.AllowedExtensionsDisplay} 파일만 업로드할 수 있습니다.)"
                 });
             }
+            // 확장자만 바꾼 파일을 걸러내기 위해 파일 내용(시그니처)도 확인한다
+            if (!await UploadPolicy.HasValidSignatureAsync(file))
+            {
+                return BadRequest(new EvdDocUploadResultDto { Success = false, Message = UploadPolicy.SignatureMismatchMessage });
+            }
 
             // 본인이 만든 프로젝트의 문서에만 파일을 올릴 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -305,7 +308,7 @@ namespace ecopack.Api.Controllers
 
                 // 실제 저장 파일명은 충돌 방지를 위해 슬롯 + 타임스탬프 기반으로 별도 생성
                 var ext = Path.GetExtension(originalNm);
-                var storedNm = $"{slot}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
+                var storedNm = $"{slot}_{IdGenerator.NewRandomId()}{ext}";
 
                 var saveDir = UploadPolicy.GetProjectDocDirectory(_env, "doc", PackLevel, prjId);
                 Directory.CreateDirectory(saveDir);
@@ -337,10 +340,11 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
+                this.LogFailure(ex, "업로드 중 오류가 발생했습니다.");
                 return StatusCode(500, new EvdDocUploadResultDto
                 {
                     Success = false,
-                    Message = "업로드 중 오류가 발생했습니다: " + ex.Message
+                    Message = "업로드 중 오류가 발생했습니다."
                 });
             }
         }
@@ -350,7 +354,7 @@ namespace ecopack.Api.Controllers
         // 근거문서 슬롯을 비운다. (물리 파일도 함께 삭제)
         // ─────────────────────────────────────────────────────────────
         [HttpDelete("DeleteEvdDoc")]
-        public async Task<IActionResult> DeleteEvdDoc([FromQuery] string prjId, [FromQuery] int slot, [FromQuery] string? repCustId)
+        public async Task<IActionResult> DeleteEvdDoc([FromQuery] string prjId, [FromQuery] int slot)
         {
             if (string.IsNullOrWhiteSpace(prjId) || slot < 1 || slot > EvdDocSlotCount)
             {
@@ -358,7 +362,7 @@ namespace ecopack.Api.Controllers
             }
 
             // 본인이 만든 프로젝트의 문서에서만 파일을 지울 수 있다
-            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, repCustId))
+            if (!await ProjectAccess.IsOwnerAsync(_context, prjId, User.CustId()))
             {
                 return StatusCode(403, new { success = false, message = ProjectAccess.DeniedMessage });
             }
@@ -391,7 +395,7 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "삭제 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "삭제 중 오류가 발생했습니다.");
             }
         }
 
@@ -411,10 +415,12 @@ namespace ecopack.Api.Controllers
                 .ToDictionary(p => p.Name, StringComparer.Ordinal);
 
         /// <summary>저장 시 별도 처리하므로 일괄 매핑에서 제외하는 항목.
-        /// 근거문서명(EvdDocNm)은 업로드/삭제 액션에서만 바뀌어야 하므로 Save로는 못 바꾸게 막는다.</summary>
+        /// 근거문서명(EvdDocNm)은 업로드/삭제 액션에서만 바뀌어야 하므로 Save로는 못 바꾸게 막는다.
+        /// 근거문서 경로(EvdDocUrl)도 마찬가지다. Save로 바꿀 수 있으면 다운로드·삭제 액션이 그 경로의 파일을 읽고 지우게 된다.</summary>
         private static readonly HashSet<string> SkipOnWrite =
             new(StringComparer.Ordinal) { nameof(PrimaryDocDto.Pkg1DocId), nameof(PrimaryDocDto.LastWrtDt) ,
-            nameof(PrimaryDocDto.EvdDocNm1), nameof(PrimaryDocDto.EvdDocNm2), nameof(PrimaryDocDto.EvdDocNm3), nameof(PrimaryDocDto.EvdDocNm4), nameof(PrimaryDocDto.EvdDocNm5), nameof(PrimaryDocDto.EvdDocNm6), nameof(PrimaryDocDto.EvdDocNm7), nameof(PrimaryDocDto.EvdDocNm8) };
+            nameof(PrimaryDocDto.EvdDocNm1), nameof(PrimaryDocDto.EvdDocNm2), nameof(PrimaryDocDto.EvdDocNm3), nameof(PrimaryDocDto.EvdDocNm4), nameof(PrimaryDocDto.EvdDocNm5), nameof(PrimaryDocDto.EvdDocNm6), nameof(PrimaryDocDto.EvdDocNm7), nameof(PrimaryDocDto.EvdDocNm8),
+            nameof(PrimaryDocDto.EvdDocUrl1), nameof(PrimaryDocDto.EvdDocUrl2), nameof(PrimaryDocDto.EvdDocUrl3), nameof(PrimaryDocDto.EvdDocUrl4), nameof(PrimaryDocDto.EvdDocUrl5), nameof(PrimaryDocDto.EvdDocUrl6), nameof(PrimaryDocDto.EvdDocUrl7), nameof(PrimaryDocDto.EvdDocUrl8) };
 
         private static PrimaryDocDto ToDto(PrimaryDoc entity)
         {

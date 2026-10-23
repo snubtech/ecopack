@@ -16,7 +16,7 @@
  *    - 목록 조회에서 pageSize 를 0 으로 보내면 전체를 받아옵니다(엑셀 내려받기용).
  * ==============================================================================
  */
-import axios from 'axios';
+import http from './http';
 
 /**
  * 라이브러리 > 탄소배출량 API 클라이언트
@@ -25,7 +25,7 @@ import axios from 'axios';
 
 /** 1. 조회조건 셀렉트 목록 (포장차수 / 적용소재 / 소재의 구성) */
 export async function GetCarbonEmissionFilters() {
-    const response = await axios.get('/api/CarbonEmission/GetFilters');
+    const response = await http.get('/api/CarbonEmission/GetFilters');
     return response.data;
 }
 
@@ -35,6 +35,6 @@ export async function GetCarbonEmissionFilters() {
  *   pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용
  */
 export async function GetCarbonEmissionList(params) {
-    const response = await axios.get('/api/CarbonEmission/GetList', { params });
+    const response = await http.get('/api/CarbonEmission/GetList', { params });
     return response.data;
 }

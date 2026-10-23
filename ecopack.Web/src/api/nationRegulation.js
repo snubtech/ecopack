@@ -16,7 +16,7 @@
  *    - 목록 조회에서 pageSize 를 0 으로 보내면 전체를 받아옵니다(엑셀 내려받기용).
  * ==============================================================================
  */
-import axios from 'axios';
+import http from './http';
 
 /**
  * 라이브러리 > 환경규제 API 클라이언트
@@ -25,7 +25,7 @@ import axios from 'axios';
 
 /** 1. 조회조건 셀렉트 목록 (포장차수 / 적용소재 / 국가) */
 export async function GetNationRegulationFilters() {
-    const response = await axios.get('/api/NationRegulation/GetFilters');
+    const response = await http.get('/api/NationRegulation/GetFilters');
     return response.data;
 }
 
@@ -37,6 +37,6 @@ export async function GetNationRegulationFilters() {
  *   page, pageSize : 페이징 (pageSize 를 0 으로 보내면 전체 — 엑셀 내려받기용)
  */
 export async function GetNationRegulationList(params) {
-    const response = await axios.get('/api/NationRegulation/GetList', { params });
+    const response = await http.get('/api/NationRegulation/GetList', { params });
     return response.data;
 }

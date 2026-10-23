@@ -37,12 +37,13 @@
  * ==============================================================================
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getMemoImageUris } from '../utils/memoImage';
 import {
     GetSecondaryTd,
     SaveSecondaryTd,
     UploadAtchDoc,
     DeleteAtchDoc,
-    getAtchDocDownloadUrl,
+    downloadAtchDoc,
     UploadMfrDrw,
     DeleteMfrDrw,
 } from '../api/secondaryTd';
@@ -573,8 +574,9 @@ export default function SecondaryTd() {
     };
 
     // ── 제조 도면 (슬롯 없이 한 장만 관리) ───────────────────
-    const MFR_DRW_ALLOWED_EXT = /\.(png|jpe?g|svg)$/i;
-    const MFR_DRW_ALLOWED_EXT_DISPLAY = 'jpeg, jpg, png, svg';
+    // 서버(UploadPolicy.AllowedImageExtensions)와 같은 목록이어야 한다. svg 는 스크립트를 담을 수 있어 받지 않는다.
+    const MFR_DRW_ALLOWED_EXT = /\.(png|jpe?g)$/i;
+    const MFR_DRW_ALLOWED_EXT_DISPLAY = 'jpeg, jpg, png';
 
     const handlePickMfrDrw = () => {
         if (isNew) {
@@ -807,7 +809,7 @@ export default function SecondaryTd() {
                 <h3 className="td-h3">2) 제조 도면</h3>
                 <input
                     type="file"
-                    accept=".png,.jpg,.jpeg,.svg,image/*"
+                    accept=".png,.jpg,.jpeg"
                     style={{ display: 'none' }}
                     ref={mfrDrwInputRef}
                     onChange={(e) => handleUploadMfrDrw(e.target.files?.[0])}
@@ -829,7 +831,7 @@ export default function SecondaryTd() {
                     </div>
                 )}
                 <p className="td-noprint" style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0' }}>
-                    * 이미지 파일(jpeg, jpg, png, svg)만 업로드할 수 있습니다.
+                    * 이미지 파일(jpeg, jpg, png)만 업로드할 수 있습니다.
                 </p>
 
                 {/* 4. 재질구성 */}
@@ -1004,11 +1006,13 @@ export default function SecondaryTd() {
                                 <div style={{ fontWeight: '600', marginBottom: '0.5rem', fontSize: '0.85rem', color: '#374151' }}>
                                     재질 구성: {proc.matCompNm || proc.matComp || '-'}
                                 </div>
-                                {proc.memoImg ? (
-                                    <div
-                                        style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}
-                                        dangerouslySetInnerHTML={{ __html: proc.memoImg }}
-                                    />
+                                {/* memoImg(HTML)는 그대로 넣지 않고 이미지 주소만 골라 <img> 로 그린다 */}
+                                {getMemoImageUris(proc).length > 0 ? (
+                                    <div style={{ fontSize: '0.8rem', overflowX: 'auto', textAlign: 'center' }}>
+                                        {getMemoImageUris(proc).map((src, i) => (
+                                            <img key={i} src={src} alt="공정도" style={{ maxWidth: '100%', height: 'auto' }} />
+                                        ))}
+                                    </div>
                                 ) : (
                                     <div style={{ color: '#9ca3af', fontSize: '0.75rem', textAlign: 'center' }}>
                                         등록된 공정도 이미지가 없습니다.
@@ -1075,6 +1079,7 @@ export default function SecondaryTd() {
                                     <td className="td-noprint">
                                         <input
                                             type="file"
+                                            accept=".doc,.docx,.ppt,.pptx,.xls,.xlsx,.hwp,.hwpx,.pdf"
                                             style={{ display: 'none' }}
                                             ref={(el) => { fileInputRefs.current[slot] = el; }}
                                             onChange={(e) => handleUpload(slot, e.target.files?.[0])}
@@ -1085,9 +1090,10 @@ export default function SecondaryTd() {
                                             </button>
                                             {url && (
                                                 <>
-                                                    <a className="td-link" href={getAtchDocDownloadUrl(prjId, slot)} target="_blank" rel="noreferrer" title={nm || undefined}>
+                                                    <button type="button" className="td-link" title={nm || undefined}
+                                                        onClick={() => downloadAtchDoc(prjId, slot, nm).catch((e) => alert(e.message))}>
                                                         다운로드
-                                                    </a>
+                                                    </button>
                                                     <button type="button" className="td-btn td-btn-sm" onClick={() => handleDeleteAtchFile(slot)}>
                                                         파일 삭제
                                                     </button>
@@ -1233,7 +1239,7 @@ const TD_STYLES = `
 .td-textarea { resize: none; overflow: hidden; line-height: 1.7; display: block; margin: 6px 0; }
 
 .td-atch-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.td-link { font-size: 12px; color: #2563eb; text-decoration: underline; }
+.td-link { font-size: 12px; color: #2563eb; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
 .td-closing { margin-top: 28px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
 
 /* 화면 전용 / 추출(PDF·DOCX) 전용 요소 전환 */

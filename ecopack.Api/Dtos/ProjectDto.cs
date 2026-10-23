@@ -52,6 +52,7 @@ namespace ecopack.Api.Dtos
     /// </summary>
     public class ProjectCreateDto
     {
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string? PrjId { get; set; }
         public string? PrjNm { get; set; }
         public string? RepCustId { get; set; }
@@ -64,28 +65,41 @@ namespace ecopack.Api.Dtos
         public string? AddrCd { get; set; }
         public string? DtlAddr1 { get; set; }
         public string? DtlAddr2 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.Email, ErrorMessage = ecopack.Api.Support.InputRules.EmailMessage)]
         public string? EmlAddr { get; set; }
         public string? RepTelNo { get; set; }
         public string? MblTelNo { get; set; }
 
         // 수출 국가 여부 플래그 (1~8)
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm1 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm2 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm3 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm4 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm5 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm6 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm7 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdExpCntryNm8 { get; set; }
 
         // 포장 차수 여부 플래그 (1~3)
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdPkgSeq1 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdPkgSeq2 { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.YesNo, ErrorMessage = ecopack.Api.Support.InputRules.YesNoMessage)]
         public string? PrdPkgSeq3 { get; set; }
 
         public string? PrjRevNo { get; set; }
         public string? Prjuserid { get; set; }
         public string? Prjmemo { get; set; }
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string? PackLevel { get; set; }
     }
 
@@ -95,9 +109,11 @@ namespace ecopack.Api.Dtos
     public class ProjectDetailSaveDto
     {
         [Required(ErrorMessage = "프로젝트 ID는 필수입니다.")]
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string PrjId { get; set; } = null!;
 
         [Required(ErrorMessage = "포장차수는 필수입니다.")]
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string PackLevel { get; set; } = null!;
 
         public string? PrjRevNo { get; set; }
@@ -156,6 +172,8 @@ namespace ecopack.Api.Dtos
         public string? MatComp { get; set; }     // 구성요소 코드
         public string? MatCompNm { get; set; }   // 구성요소명
         public string? MemoImg { get; set; }     // 메모 이미지
+        /// <summary>memoImg 에서 골라낸 이미지 주소(data URI) 목록. 화면은 이 값으로 &lt;img&gt; 를 그린다.</summary>
+        public List<string> MemoImageUris { get; set; } = new();
         public string? FileData { get; set; }    // 파일 데이터
     }
 
@@ -184,9 +202,11 @@ namespace ecopack.Api.Dtos
     public class ProjectDetailReportSaveDto
     {
         [Required(ErrorMessage = "프로젝트 ID는 필수입니다.")]
+        [RegularExpression(ecopack.Api.Support.InputRules.Id, ErrorMessage = ecopack.Api.Support.InputRules.IdMessage)]
         public string PrjId { get; set; } = null!;
 
         [Required(ErrorMessage = "포장차수는 필수입니다.")]
+        [RegularExpression(ecopack.Api.Support.InputRules.PackLevel, ErrorMessage = ecopack.Api.Support.InputRules.PackLevelMessage)]
         public string PackLevel { get; set; } = null!;
 
         public string? Prjuserid { get; set; }
@@ -256,6 +276,51 @@ namespace ecopack.Api.Dtos
         public string? RelatedReg { get; set; }
         public string? RegItem { get; set; }
         public string? DtlCont { get; set; }
+    }
+
+    /// <summary>
+    /// 프로젝트 상세(기본사항) 응답용 DTO.
+    /// DB 엔티티를 그대로 내려주지 않고 화면에 필요한 항목만 담는다.
+    /// (작성자 아이디·수정일시 같은 내부 관리 항목은 싣지 않는다)
+    /// </summary>
+    public class ProjectDetailDto
+    {
+        public string PrjId { get; set; } = null!;
+        public string PackLevel { get; set; } = null!;
+        public string? PrjRevNo { get; set; }
+        public string? PackLevelNm { get; set; }
+        public string? AppliedMaterial { get; set; }
+        public string? AppliedMaterialNm { get; set; }
+        public string? MatUse { get; set; }
+        public string? MatUseNm { get; set; }
+        public string? MatType { get; set; }
+        public string? MatTypeNm { get; set; }
+        public string? MatForm { get; set; }
+        public string? MatFormNm { get; set; }
+        public string? PackDsgnTplId { get; set; }
+        public string? Projstatus { get; set; }
+        public string? PrdExpCntry { get; set; }
+        public string? PrdExpCntryNm { get; set; }
+
+        public static ProjectDetailDto From(ecopack.Api.Data.ProjectDetail d) => new()
+        {
+            PrjId = d.PrjId,
+            PackLevel = d.PackLevel,
+            PrjRevNo = d.PrjRevNo,
+            PackLevelNm = d.PackLevelNm,
+            AppliedMaterial = d.AppliedMaterial,
+            AppliedMaterialNm = d.AppliedMaterialNm,
+            MatUse = d.MatUse,
+            MatUseNm = d.MatUseNm,
+            MatType = d.MatType,
+            MatTypeNm = d.MatTypeNm,
+            MatForm = d.MatForm,
+            MatFormNm = d.MatFormNm,
+            PackDsgnTplId = d.PackDsgnTplId,
+            Projstatus = d.Projstatus,
+            PrdExpCntry = d.PrdExpCntry,
+            PrdExpCntryNm = d.PrdExpCntryNm
+        };
     }
 
 }

@@ -21,6 +21,7 @@ namespace ecopack.Api.Data.Configurations
             builder.Property(e => e.RepNm).HasMaxLength(50).HasColumnName("repnm");
             builder.Property(e => e.EmlAddr).HasMaxLength(100).HasColumnName("emladdr");
             builder.Property(e => e.MblTelNo).HasMaxLength(20).HasColumnName("mbltelno");
+            builder.Property(e => e.TknVer).HasColumnName("tknver"); // _docs/customer_add_tknver.sql 로 추가한 컬럼
             // 필요한 컬럼들만 추가로 매핑하거나, 기본 규칙을 따르게 둘 수 있습니다.
         }
     }

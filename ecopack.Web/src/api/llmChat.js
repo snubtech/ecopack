@@ -6,30 +6,26 @@
  * 1. 하는 일
  *    - 우측 AI 채팅창이 서버(LlmChatController)와 주고받는 통신을 모아 둔 곳입니다.
  *
- * 2. 왜 별도 axios 인스턴스를 쓰나
- *    - 공용 axiosInstance 는 제한 시간이 10초입니다. 일반 조회에는 넉넉하지만
- *      AI 답변은 10초를 넘기는 일이 흔해 그대로 쓰면 멀쩡한 답이 끊깁니다.
- *      그래서 채팅 전용으로 제한 시간을 넉넉히(180초) 잡은 인스턴스를 따로 만듭니다.
+ * 2. 왜 별도 요청 도구를 쓰나
+ *    - AI 답변은 오래 걸릴 수 있어, 채팅 전용으로 제한 시간(180초)을 정한 요청 도구를 따로 만듭니다.
+ *      공통 모듈(http.js)의 createHttp 로 만들므로 로그인 토큰 첨부와 401 처리는 다른 요청과 같습니다.
  *
  * 2-1. 질문 보내기는 왜 axios 가 아닌가
  *    - 답변을 SSE(text/event-stream)로 조각조각 받기 때문입니다.
  *      axios 는 응답을 다 받은 뒤에야 넘겨주므로 스트리밍에 맞지 않습니다.
  *    - 서버가 POST 를 받으므로 브라우저 EventSource 도 쓸 수 없습니다(EventSource 는 GET 전용).
- *      그래서 fetch + ReadableStream 으로 직접 읽습니다.
+ *      그래서 fetch + ReadableStream 으로 직접 읽습니다. (공통 모듈의 authFetch 로 토큰을 싣습니다)
  *
  * 3. 로그인 정보
- *    - 다른 화면과 같은 방식으로 세션에 저장된 고객 ID(repCustId)를 함께 보냅니다.
- *      서버는 이 값으로 "본인 대화만" 다루도록 걸러 냅니다.
+ *    - 누구의 대화인지는 서버가 로그인 토큰에서 알아냅니다. 아이디를 따로 실어 보내지 않습니다.
  * ==============================================================================
  */
-import axios from 'axios';
-import { getCurrentCustomerId } from '../utils/memberProfile';
+import { createHttp, authFetch } from './http';
 
 /**
- * 채팅 전용 axios 인스턴스.
- * 공용 인스턴스(10초)와 달리 AI 응답을 기다릴 수 있게 제한 시간을 길게 잡는다.
+ * 채팅 전용 요청 도구. AI 응답을 기다릴 수 있게 제한 시간을 길게 잡는다.
  */
-const chatAxios = axios.create({
+const chatAxios = createHttp({
     baseURL: '/api/LlmChat',
     timeout: 180000, // 180초. 서버 쪽 TimeoutSeconds(기본 180)와 맞춰 둔다.
     headers: { 'Content-Type': 'application/json' },
@@ -55,7 +51,6 @@ function toMessage(error, fallback) {
  */
 export async function openChatSession(info = {}) {
     const { data } = await chatAxios.post('/OpenSession', {
-        repCustId: getCurrentCustomerId(),
         prjId: info.prjId || null,
         packLevel: info.packLevel || null,
     });
@@ -71,7 +66,7 @@ export async function closeChatSession(chatSesId) {
     if (!chatSesId) return;
     try {
         await chatAxios.post('/CloseSession', null, {
-            params: { chatSesId, repCustId: getCurrentCustomerId() },
+            params: { chatSesId },
         });
     } catch (e) {
         console.warn('대화 세션을 닫지 못했습니다:', e?.message);
@@ -97,7 +92,7 @@ export async function closeChatSession(chatSesId) {
 export async function sendChatMessageStream(payload) {
     const { onDelta, signal, ...body } = payload;
 
-    const res = await fetch('/api/LlmChat/SendStream', {
+    const res = await authFetch('/api/LlmChat/SendStream', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -105,7 +100,6 @@ export async function sendChatMessageStream(payload) {
         },
         body: JSON.stringify({
             chatSesId: body.chatSesId || null,
-            repCustId: getCurrentCustomerId(),
             question: body.question,
             prjId: body.prjId || null,
             packLevel: body.packLevel || null,
@@ -210,7 +204,6 @@ export async function sendChatMessage(payload) {
     try {
         const { data } = await chatAxios.post('/Send', {
             chatSesId: payload.chatSesId || null,
-            repCustId: getCurrentCustomerId(),
             question: payload.question,
             prjId: payload.prjId || null,
             packLevel: payload.packLevel || null,
@@ -229,7 +222,7 @@ export async function sendChatMessage(payload) {
  */
 export async function getChatSessions(includeArchived = true) {
     const { data } = await chatAxios.get('/GetSessions', {
-        params: { repCustId: getCurrentCustomerId(), includeArchived },
+        params: { includeArchived },
     });
     return data?.data ?? [];
 }
@@ -240,7 +233,7 @@ export async function getChatSessions(includeArchived = true) {
  */
 export async function getChatHistory(chatSesId) {
     const { data } = await chatAxios.get('/GetHistory', {
-        params: { chatSesId, repCustId: getCurrentCustomerId() },
+        params: { chatSesId },
     });
     return data?.data ?? { session: null, messages: [] };
 }

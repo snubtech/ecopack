@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import http from '../api/http';
 import { templateUpdate } from '../api/projects'; // api/projects.js에서 templateUpdate 함수를 가져옵니다.
 
 // 1. 세션 스토리지에 데이터 저장
@@ -35,7 +35,7 @@ function PackTemplatePage({ onSelectItem }) {
                     pageSize: pageSize
                 };
 
-                const response = await axios.get('/api/Projects/template', { params });
+                const response = await http.get('/api/Projects/template', { params });
                 const resData = response.data;
 
                 const items = resData.items || [];

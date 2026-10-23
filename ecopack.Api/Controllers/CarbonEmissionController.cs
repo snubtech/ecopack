@@ -16,12 +16,14 @@
  * 4. 공통 규칙
  *    - 조회조건 중 비어 있는 값은 '전체' 로 보고 그 조건을 건너뜁니다.
  *    - GetList 는 pageSize 를 0 이하로 보내면 전체를 돌려줍니다(화면의 엑셀 내려받기용).
+ *      전체 조회는 한 번에 최대 20,000건까지입니다. (이 API 는 다른 API 와 마찬가지로 로그인해야 부를 수 있습니다)
  *    - 조회 전용 화면이므로 등록·수정·삭제 기능은 두지 않았습니다.
  * ==============================================================================
  */
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
+using ecopack.Api.Support;
 using ecopack.Api.Dtos;
 
 namespace ecopack.Api.Controllers
@@ -87,13 +89,14 @@ namespace ecopack.Api.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "조회조건을 불러오는 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "조회조건을 불러오는 중 오류가 발생했습니다.");
             }
         }
 
         // ─────────────────────────────────────────────────────────────
         // GET: api/CarbonEmission/GetList
         // pageSize 를 0 이하로 보내면 전체를 반환한다(엑셀 내려받기용).
+        // 전체 조회는 ProjectAccess.MaxExportRows 건까지만 내려준다.
         // ─────────────────────────────────────────────────────────────
         [HttpGet("GetList")]
         public async Task<IActionResult> GetList(
@@ -105,6 +108,7 @@ namespace ecopack.Api.Controllers
         {
             try
             {
+
                 var query = _context.If005.AsNoTracking().AsQueryable();
 
                 if (!string.IsNullOrWhiteSpace(packLevel))       query = query.Where(x => x.PackLevel == packLevel);
@@ -126,6 +130,11 @@ namespace ecopack.Api.Controllers
                     if (pageSize > MaxPageSize) pageSize = MaxPageSize;
                     query = query.Skip((page - 1) * pageSize).Take(pageSize);
                 }
+                else
+                {
+                    // 전체 조회에도 상한을 둔다. 넘는 분량은 totalCount 로 알 수 있다.
+                    query = query.Take(ProjectAccess.MaxExportRows);
+                }
 
                 var items = await query
                     .Select(x => new CarbonEmissionRowDto
@@ -134,18 +143,21 @@ namespace ecopack.Api.Controllers
                         EnvImpAssId = x.EnvImpAssId,
                         PackLevelNm = x.PackLevelNm,
                         AppliedMaterialNm = x.AppliedMaterialNm,
+                        MatTypeNm = x.MatTypeNm,
                         MatFormNm = x.MatFormNm,
                         MassCo2Mat = x.MassCo2Mat,
                         MassCo2Proc = x.MassCo2Proc,
                         MassCo2Scrap = x.MassCo2Scrap,
                         MassCo2Sum = x.MassCo2Sum,
+                        MassCo2MgtVal = x.MassCo2MgtVal,
                         UnitCo2Mat = x.UnitCo2Mat,
                         UnitCo2Proc = x.UnitCo2Proc,
                         UnitCo2Scrap = x.UnitCo2Scrap,
                         UnitCo2Sum = x.UnitCo2Sum,
                         UnitCo2MgtVal = x.UnitCo2MgtVal,
+                        UnitCo2Desc = x.UnitCo2Desc,
                         AreaDensity = x.AreaDensity,
-                        //Density = x.Density,
+                        PhyQntyUnit = x.PhyQntyUnit,
                         MatCompCon = x.MatCompCon,
                         CreatedAt = x.CreatedAt
                     })
@@ -159,13 +171,13 @@ namespace ecopack.Api.Controllers
                         Items = items,
                         TotalCount = totalCount,
                         Page = all ? 1 : page,
-                        PageSize = all ? totalCount : pageSize
+                        PageSize = all ? items.Count : pageSize
                     }
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { success = false, message = "목록 조회 중 오류가 발생했습니다.", error = ex.Message });
+                return this.Failure(ex, "목록 조회 중 오류가 발생했습니다.");
             }
         }
     }

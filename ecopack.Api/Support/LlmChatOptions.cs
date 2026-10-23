@@ -77,6 +77,13 @@ namespace ecopack.Api.Support
         /// <summary>백업 JSON 파일을 떨어뜨릴 폴더(콘텐츠 루트 기준 상대경로)</summary>
         public string ArchiveDirectory { get; set; } = "App_Data/llmbackup";
 
+        /// <summary>
+        /// 백업을 며칠 동안 보관할지. 백업한 지 이 기간이 지난 행(백업 테이블)과 JSON 파일은 지운다.
+        /// 대화에는 회사·제품 정보가 평문으로 들어 있어 무기한 쌓아 두지 않는다.
+        /// 0 이하면 지우지 않는다(무기한 보관).
+        /// </summary>
+        public int ArchiveRetentionDays { get; set; } = 30;
+
         /// <summary>백업 자동 실행 주기(시간). 0 이하면 자동 실행하지 않는다.</summary>
         public int ArchiveIntervalHours { get; set; } = 6;
     }

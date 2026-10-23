@@ -51,6 +51,13 @@ namespace ecopack.Api.Support
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
+        /// 골라낸 이미지 주소들만 담은 &lt;img&gt; 태그 묶음을 만든다. 이미지가 없으면 null.
+        /// 주소는 ExtractAll 이 형식(data:image/...;base64,영문·숫자)을 확인한 값이라 태그를 깨뜨릴 글자가 없다.
+        /// </summary>
+        public static string? ToImgHtml(IReadOnlyCollection<string> uris) =>
+            uris.Count == 0 ? null : string.Concat(uris.Select(u => $"<img src=\"{u}\" />"));
+
+        /// <summary>
         /// memoImg 는 &lt;img src="data:image/...;base64,..."&gt; 가 들어간 HTML 이다.
         /// HTML 을 화면에 그대로 주입하지 않도록 이미지 data URI 만 뽑아낸다.
         /// </summary>

@@ -22,6 +22,12 @@
  *
  * 4. 중복 실행 방지
  *    - 백그라운드 작업과 관리자의 수동 실행이 겹칠 수 있어 세마포어로 한 번에 하나만 돕니다.
+ *
+ * 5. 보관 기간 (LlmChat:ArchiveRetentionDays, 기본 30일)
+ *    - 백업한 지 보관 기간이 지난 것은 백업 테이블의 행과 JSON 파일을 함께 지웁니다.
+ *      대화에는 회사·제품 정보가 평문으로 들어 있어 무기한 쌓아 두지 않기 위해서입니다.
+ *    - 백업이 돌 때마다 먼저 정리합니다. 지운 것은 되살릴 수 없습니다.
+ *    - 0 이하로 두면 지우지 않습니다.
  * ==============================================================================
  */
 using System.Text.Json;
@@ -85,6 +91,9 @@ namespace ecopack.Api.Services
 
             try
             {
+                // 먼저 보관 기간이 지난 백업을 정리한다(새로 백업할 것이 없어도 정리는 한다)
+                await PurgeExpiredAsync(result, ct);
+
                 // 대상: 마지막 대화가 cutoff 이전인 세션.
                 // 대화가 한 줄도 없는 세션은 만들어진 시각으로 판단한다.
                 var targets = await _db.LlmChatSession
@@ -115,13 +124,14 @@ namespace ecopack.Api.Services
                     try
                     {
                         filePath = await WriteJsonAsync(baseDir, session, messages, ct);
-                        result.Files.Add(filePath);
+                        result.ArchivedFiles++;
                     }
                     catch (Exception ex)
                     {
                         // 파일을 못 써도 DB 백업은 계속한다. 대신 어디서 막혔는지 남긴다.
+                        // 파일 쓰기 예외 문구에는 서버의 절대 경로가 들어 있으므로 응답에는 싣지 않고 로그에만 남긴다.
                         _logger.LogError(ex, "대화 백업 파일 쓰기 실패. 세션 {ChatSesId}", session.ChatSesId);
-                        result.ErrCntn = $"일부 세션의 백업 파일을 쓰지 못했다: {ex.Message}";
+                        result.ErrCntn = "일부 세션의 백업 파일을 쓰지 못했다. 서버 로그를 확인할 것.";
                     }
 
                     // ② 백업 테이블 이관 + 원본 삭제 (한 묶음)
@@ -186,7 +196,7 @@ namespace ecopack.Api.Services
                         _db.ChangeTracker.Clear();
 
                         _logger.LogError(ex, "대화 백업 DB 이관 실패. 세션 {ChatSesId}", session.ChatSesId);
-                        result.ErrCntn = $"일부 세션을 백업 테이블로 옮기지 못했다: {ex.Message}";
+                        result.ErrCntn = "일부 세션을 백업 테이블로 옮기지 못했다. 서버 로그를 확인할 것.";
                     }
                 }
 
@@ -202,7 +212,91 @@ namespace ecopack.Api.Services
             }
         }
 
-        /// <summary>세션 하나를 JSON 파일로 떨어뜨리고 그 경로를 돌려준다.</summary>
+        /// <summary>
+        /// 백업한 지 보관 기간이 지난 행(백업 테이블)과 JSON 파일을 지운다.
+        /// 실패해도 백업 자체는 계속 진행한다.
+        /// </summary>
+        private async Task PurgeExpiredAsync(LlmChatArchiveResultDto result, CancellationToken ct)
+        {
+            var days = _opt.ArchiveRetentionDays;
+            if (days <= 0)
+            {
+                return; // 무기한 보관
+            }
+
+            var cutoff = DateTime.Now.AddDays(-days);
+
+            try
+            {
+                // 메시지를 먼저 지운다. 중간에 실패해도 "세션은 없는데 메시지만 남는" 상태가 되지 않게.
+                result.PurgedMessages = await _db.LlmChatMsgArch.Where(m => m.ArchDtm < cutoff).ExecuteDeleteAsync(ct);
+                result.PurgedSessions = await _db.LlmChatSessionArch.Where(s => s.ArchDtm < cutoff).ExecuteDeleteAsync(ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "보관 기간이 지난 대화 백업(DB) 삭제 실패");
+                result.ErrCntn = "보관 기간이 지난 백업을 지우지 못했다. 서버 로그를 확인할 것.";
+            }
+
+            result.PurgedFiles = PurgeExpiredFiles(Path.Combine(_env.ContentRootPath, _opt.ArchiveDirectory), cutoff);
+
+            if (result.PurgedSessions > 0 || result.PurgedMessages > 0 || result.PurgedFiles > 0)
+            {
+                _logger.LogInformation(
+                    "보관 기간({Days}일)이 지난 대화 백업 삭제 — 세션 {S}건, 메시지 {M}건, 파일 {F}개",
+                    days, result.PurgedSessions, result.PurgedMessages, result.PurgedFiles);
+            }
+        }
+
+        /// <summary>
+        /// 백업 폴더에서 쓴 지 보관 기간이 지난 JSON 파일을 지우고, 비게 된 날짜 폴더도 지운다.
+        /// 이 서비스가 만든 것만 건드리도록 "날짜 폴더(yyyyMMdd) 안의 .json 파일"로 한정한다.
+        /// </summary>
+        private int PurgeExpiredFiles(string baseDir, DateTime cutoff)
+        {
+            var deleted = 0;
+            if (!Directory.Exists(baseDir))
+            {
+                return deleted;
+            }
+
+            foreach (var dayDir in Directory.EnumerateDirectories(baseDir))
+            {
+                var name = Path.GetFileName(dayDir);
+                if (name.Length != 8 || !name.All(char.IsAsciiDigit))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    foreach (var file in Directory.EnumerateFiles(dayDir, "*.json"))
+                    {
+                        if (File.GetLastWriteTime(file) < cutoff)
+                        {
+                            File.Delete(file);
+                            deleted++;
+                        }
+                    }
+
+                    if (!Directory.EnumerateFileSystemEntries(dayDir).Any())
+                    {
+                        Directory.Delete(dayDir);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // 한 폴더에서 막혀도 나머지는 계속 정리한다
+                    _logger.LogError(ex, "보관 기간이 지난 대화 백업 파일 삭제 실패. 폴더 {Dir}", name);
+                }
+            }
+
+            return deleted;
+        }
+
+        /// <summary>세션 하나를 JSON 파일로 떨어뜨리고 그 경로를 돌려준다.
+        /// 돌려주는 값은 백업 폴더(LlmChat:ArchiveDirectory) 기준 상대 경로다(예: 20261001/세션ID.json).
+        /// 서버의 절대 경로가 DB 나 응답으로 새어 나가지 않게 하기 위해서다.</summary>
         private static async Task<string> WriteJsonAsync(
             string baseDir, LlmChatSession session, List<LlmChatMsg> messages, CancellationToken ct)
         {
@@ -252,7 +346,7 @@ namespace ecopack.Api.Services
             };
 
             await File.WriteAllTextAsync(path, JsonSerializer.Serialize(payload, JsonOpt), ct);
-            return path;
+            return $"{dayFolder}/{safeName}.json";
         }
     }
 }
