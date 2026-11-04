@@ -1,4 +1,4 @@
-//using Microsoft.AspNetCore.Authorization; // 이 네임스페이스를 꼭 추가해야 합니다!
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ecopack.Api.Data;
@@ -8,7 +8,7 @@ namespace ecopack.Api.Controllers
 {
     [Route("api/[controller]")] // ➡️ /api/common
     [ApiController]
-    //[Authorize] // <--- 이 한 줄을 추가하면 이 컨트롤러의 모든 API는 로그인한 사용자만 호출할 수 있습니다!
+   
     public class CommonController : ControllerBase
     {
         private readonly AppDbContext _context;

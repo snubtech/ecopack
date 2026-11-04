@@ -135,6 +135,13 @@ builder.Services
             // 토큰이 없거나 만료된 경우. 화면은 401 을 받으면 로그인 화면으로 돌아간다.
             OnChallenge = async context =>
             {
+                // ⭐ [핵심 추가] 백엔드 콘솔에 비정상 접근 경고 로그를 명시적으로 남깁니다! (A09 로깅 증빙)
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("[SECURITY_ALERT] 미인증 비정상 접근 차단 (A01) - IP: {Ip}, 요청경로: {Path}",
+                    context.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    context.HttpContext.Request.Path);
+
+                //
                 context.HandleResponse();
                 if (context.Response.HasStarted) return;
                 context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -144,6 +151,13 @@ builder.Services
             // 로그인은 했지만 권한이 없는 경우(관리용 API)
             OnForbidden = async context =>
             {
+                // ⭐ 권한 부족(403) 상황에도 콘솔에 로그를 남겨두면 완벽합니다!
+                var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                logger.LogWarning("[SECURITY_ALERT] 권한 부족 접근 차단 (A01/403) - IP: {Ip}, 요청경로: {Path}",
+                    context.HttpContext.Connection.RemoteIpAddress?.ToString(),
+                    context.HttpContext.Request.Path);
+
+                //
                 if (context.Response.HasStarted) return;
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsJsonAsync(
@@ -187,15 +201,15 @@ builder.Services.AddRateLimiter(options =>
             }));
     }
 
-    AddPolicy(RateLimitPolicies.Auth, "AuthPerMinute", 20);
-    AddPolicy(RateLimitPolicies.AiChat, "AiChatPerMinute", 20);
-    AddPolicy(RateLimitPolicies.AiImage, "AiImagePerMinute", 6);
+    AddPolicy(RateLimitPolicies.Auth, "AuthPerMinute", 55);   // 1분에 로그인·회원가입·아이디 중복확인 50회
+    AddPolicy(RateLimitPolicies.AiChat, "AiChatPerMinute", 20); // 1분에 AI 채팅 질문 20회
+    AddPolicy(RateLimitPolicies.AiImage, "AiImagePerMinute", 6); // 1분에 AI 이미지 생성·3D 변환 6회
 
     options.OnRejected = async (context, ct) =>
     {
         var http = context.HttpContext;
         http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        http.Response.Headers.RetryAfter = "60";
+        http.Response.Headers.RetryAfter = "60";  // 1분 후 다시 시도하라는 의미
         http.RequestServices.GetRequiredService<IAuditLog>()
             .Write(http, "RATE_LIMITED", http.User.CustId(), null);
         await http.Response.WriteAsJsonAsync(

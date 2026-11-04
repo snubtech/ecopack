@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Net; // 1. URL 디코딩을 위해 반드시 추가해야 합니다.
 using System.Threading.Tasks;
 
 public class SqlInjectionCheckMiddleware
@@ -16,10 +17,13 @@ public class SqlInjectionCheckMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        // 1. 요청 정보 수집 (URL, 쿼리스트링)
-        var path = context.Request.Path;
-        var queryString = context.Request.QueryString.Value;
-        var fullInput = path + queryString;
+        // 1. 요청 정보 수집 (URL 경로 및 쿼리스트링)
+        var path = context.Request.Path.Value ?? string.Empty;
+        var rawQueryString = context.Request.QueryString.Value ?? string.Empty;
+
+        // ★ 핵심 수정: ZAP 등에서 넘어오는 인코딩된 문자열(%27, %20 등)을 원래 문자로 디코딩
+        var decodedQueryString = WebUtility.UrlDecode(rawQueryString);
+        var fullInput = path + decodedQueryString;
 
         // 2. SQL Injection 위험 패턴 검사
         if (IsSqlInjectionDetected(fullInput))
